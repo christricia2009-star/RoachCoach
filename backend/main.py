@@ -10,7 +10,7 @@ This is code-complete but NOT deployed anywhere. To actually run it:
 
 Then update Backend URL in the iOS app's LiveAPIService.swift once deployed.
 """
-
+print("=== ROACH COACH BACKEND VERSION 2026-08-22 ===")
 import os
 import uuid
 from datetime import datetime, timedelta
