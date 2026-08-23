@@ -69,7 +69,7 @@ DISTRICT_LABELS = {
 # Operations, this is raised above the default 9-concurrent-stream
 # threshold that applies without one. If that agreement ever lapses or
 # doesn't cover a specific district/scale, drop this back down.
-HAS_BULK_STREAMING_AGREEMENT = False
+HAS_BULK_STREAMING_AGREEMENT = True
 MAX_CONCURRENT_CHECKS = 50 if HAS_BULK_STREAMING_AGREEMENT else 9
 
 
