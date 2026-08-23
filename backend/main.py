@@ -189,7 +189,13 @@ def create_sighting(sighting: SightingIn):
 
 
 @app.get("/health")
+@app.get("/api/health")
 def health_check():
+    return {
+        "status": "ok",
+        "service": "RoachCoachRadar",
+        "backend": "FastAPI"
+    }
     return {"status": "ok"}
 
 
