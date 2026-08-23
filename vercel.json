@@ -8,6 +8,22 @@
     {
       "source": "/api/:path*",
       "destination": "/api/index.py"
+    },
+    {
+      "source": "/health",
+      "destination": "/api/index.py"
+    },
+    {
+      "source": "/trucks",
+      "destination": "/api/index.py"
+    },
+    {
+      "source": "/sightings",
+      "destination": "/api/index.py"
+    },
+    {
+      "source": "/radar/observations",
+      "destination": "/api/index.py"
     }
   ]
 }
