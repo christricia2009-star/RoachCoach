@@ -100,6 +100,13 @@ class FusionResult:
     final_confidence: float
     reason: str
     corroborating_sources: list[str] = field(default_factory=list)
+    # Populated with the exact dict handed to cloudkit_bridge.save_sighting()
+    # when this detection was confidently auto-attached and actually
+    # written. None when it went to the review queue (or failed to write) —
+    # callers (e.g. main.py's /api/radar/scan) use this to report back to
+    # the app exactly what landed in CloudKit, using the SAME id/timestamp,
+    # rather than re-deriving a second, disconnected copy.
+    sighting: Optional[dict] = None
 
 
 def _rough_miles(lat1, lon1, lat2, lon2) -> float:
@@ -183,16 +190,31 @@ def fuse_detection(detection: RawDetection, recent_detections: list[RawDetection
     )
 
 
-def process_detection(detection: RawDetection, recent_detections: list[RawDetection]) -> None:
+def process_detection(detection: RawDetection, recent_detections: list[RawDetection]) -> FusionResult:
     """
     Runs fusion on a detection and writes the appropriate CloudKit record:
     a real Sighting if confidently matched, or an UnmatchedDetection for a
-    human to resolve otherwise.
+    human to resolve otherwise. Returns the FusionResult either way — with
+    `.sighting` populated iff a real Sighting record was written — so
+    callers (e.g. main.py's /api/radar/scan) can report back what actually
+    landed instead of re-deriving it.
     """
     result = fuse_detection(detection, recent_detections)
 
     if result.matched_truck_id and result.final_confidence >= AUTO_ATTACH_THRESHOLD:
-        confidence_level = "confirmed" if result.final_confidence >= 0.9 else "likely"
+        # NOTE: confidenceLevel MUST match the Swift ConfidenceLevel enum's
+        # raw values exactly — "Confirmed" / "Likely" / "Scheduled"
+        # (capitalized), same as CloudKitService.swift's own
+        # submitSighting() writes. This previously wrote lowercase
+        # "confirmed"/"likely" (matching schema.sql's Postgres CHECK
+        # constraint instead), which is a DIFFERENT convention: CloudKit
+        # has no schema enum enforcement, so the record saved fine, but
+        # CloudKitService.swift's `ConfidenceLevel(rawValue: confidenceRaw)`
+        # returned nil for the lowercase value and `sighting(from:)`
+        # silently dropped the whole record (guard-let → nil, swallowed by
+        # compactMap) — the truck simply never appeared on the map, with
+        # no error anywhere to point at.
+        confidence_level = "Confirmed" if result.final_confidence >= 0.9 else "Likely"
         sighting = {
             "id": str(uuid.uuid4()),
             "truckId": result.matched_truck_id,
@@ -205,6 +227,7 @@ def process_detection(detection: RawDetection, recent_detections: list[RawDetect
             "expiresAt": (detection.timestamp + datetime.timedelta(hours=3)).isoformat(),
         }
         cloudkit_bridge.save_sighting(sighting)
+        result.sighting = sighting
         print(f"[fusion] auto-attached {detection.source} detection to truck {result.matched_truck_id} ({result.reason})")
     else:
         cloudkit_bridge.save_unmatched_detection({
@@ -220,3 +243,5 @@ def process_detection(detection: RawDetection, recent_detections: list[RawDetect
             "status": "pending",
         })
         print(f"[fusion] queued for human review: {detection.source} detection ({result.reason})")
+
+    return result
