@@ -20,13 +20,16 @@ import os
 import sys
 import uuid
 import traceback
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from typing import Optional
 
 from fastapi import FastAPI, HTTPException, Request
 from pydantic import BaseModel
 from sqlalchemy import create_engine, text
 from dotenv import load_dotenv
+
+import signal_fusion
+from signal_fusion import RawDetection
 
 load_dotenv()
 
@@ -133,19 +136,108 @@ class RadarObservationOut(BaseModel):
     metadata: dict[str, str] = {}
 
 
+class RadarSightingOut(BaseModel):
+    # Field names match Models/Sighting.swift's Codable properties
+    # EXACTLY (no CodingKeys there => no snake_case conversion), same
+    # rule as RadarObservationOut above. confidenceLevel must be one of
+    # the Swift ConfidenceLevel enum's raw values: "Confirmed" | "Likely"
+    # | "Scheduled" — see signal_fusion.process_detection for why that
+    # casing matters.
+    id: str
+    truckId: str
+    latitude: float
+    longitude: float
+    reportedByUserId: Optional[str] = None
+    photoURL: Optional[str] = None
+    note: Optional[str] = None
+    timestamp: str
+    confidenceLevel: str
+    expiresAt: str
+
+
 class RadarScanResultOut(BaseModel):
     id: str
     scanned_at: str
     sources: list[RadarSourceOut]
     cameras: list[RadarCameraOut]
-    sightings: list = []  # populated once this route writes real matched
-                           # Sighting records; camera/municipal hits below
-                           # are raw signal, not confirmed truck matches
+    sightings: list[RadarSightingOut] = []  # real Sighting records this scan
+                                             # wrote to CloudKit via
+                                             # signal_fusion — these are
+                                             # confirmed truck matches, as
+                                             # opposed to the raw signal in
+                                             # `observations` below
     observations: list[RadarObservationOut]
     summary: str
     confidence: float
     engine_version: Optional[str] = "0.1.0-scan-route"
     evidence_count: Optional[int] = None
+
+
+# ---------- Radar Scan: multi-provider vision wiring ----------
+# Wires Grok/xAI and OpenRouter into the camera-vision source, in addition
+# to Anthropic, honoring the app's Settings > AI Providers > Strategy
+# picker (APIKeyStore.llmStrategy, sent as the X-RCR-LLM-Strategy header —
+# same "single" | "round_robin" | "fallback" modes as
+# scraping/llm_providers.py, reimplemented here per-scan-request instead
+# of as a long-lived process global, since round_robin's rotation and
+# fallback's try-next-provider only need to make sense across the handful
+# of camera calls within a SINGLE scan, not across the server's lifetime.
+
+def _resolve_vision_keys(h) -> dict[str, str]:
+    """Provider -> API key, for whichever providers have a key available —
+    per-request header first (matches the app's "the configured backend
+    receives only the credentials needed for that scan" design), server
+    env var as a fallback for local/CLI testing. Dict order also doubles
+    as priority order for "fallback" and "single" strategies below."""
+    keys = {}
+    for provider, header_name, env_name in [
+        ("anthropic", "x-rcr-anthropic-key", "ANTHROPIC_API_KEY"),
+        ("grok", "x-rcr-xai-key", "XAI_API_KEY"),
+        ("openrouter", "x-rcr-openrouter-key", "OPENROUTER_API_KEY"),
+    ]:
+        key = h.get(header_name) or os.getenv(env_name)
+        if key:
+            keys[provider] = key
+    return keys
+
+
+def _vision_check_with_strategy(cam, vision_keys: dict[str, str], strategy: str,
+                                 preferred_provider: str, model_override: Optional[str],
+                                 rr_state: dict, check_frame_for_truck) -> tuple[dict, str]:
+    """Runs check_frame_for_truck for one camera per the configured
+    strategy. Returns (result_dict, provider_actually_used); raises if no
+    provider could produce a result, so the caller's per-camera try/except
+    can log-and-skip that camera without killing the whole scan."""
+    if strategy == "round_robin":
+        providers = list(vision_keys.keys())
+        provider = providers[rr_state["i"] % len(providers)]
+        rr_state["i"] += 1
+        result = check_frame_for_truck(cam.current_image_url, provider=provider,
+                                        api_key=vision_keys[provider], model=model_override)
+        return result, provider
+
+    if strategy == "fallback":
+        ordered = [preferred_provider] + [p for p in vision_keys if p != preferred_provider]
+        ordered = [p for p in ordered if p in vision_keys]
+        last_error = None
+        for provider in ordered:
+            try:
+                result = check_frame_for_truck(cam.current_image_url, provider=provider,
+                                                api_key=vision_keys[provider], model=model_override)
+                return result, provider
+            except Exception as e:
+                print(f"[vision fallback] {provider} failed for {cam.location_name} ({e}), trying next provider…")
+                last_error = e
+                continue
+        raise last_error or RuntimeError("No vision provider available")
+
+    # "single" — always the configured provider; if the app picked a
+    # provider it didn't actually give us a key for, fall back to
+    # whichever key IS available rather than skipping the camera entirely.
+    provider = preferred_provider if preferred_provider in vision_keys else next(iter(vision_keys))
+    result = check_frame_for_truck(cam.current_image_url, provider=provider,
+                                    api_key=vision_keys[provider], model=model_override)
+    return result, provider
 
 
 # ---------- Routes ----------
@@ -237,7 +329,12 @@ def california_cameras_near(latitude: float, longitude: float, radius_miles: flo
     the camera list.
     """
     import sys
-    sys.path.append("phase3")
+    # NOTE: the actual module lives in collectors/, not a "phase3/" dir —
+    # this append previously pointed at a directory that doesn't exist in
+    # this repo, so the import below always raised ModuleNotFoundError.
+    collectors_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), "collectors")
+    if collectors_dir not in sys.path:
+        sys.path.append(collectors_dir)
     from california_camera_directory import fetch_all_california_cameras, cameras_near
 
     all_cameras = fetch_all_california_cameras()
@@ -293,29 +390,39 @@ def radar_scan(payload: RadarScanRequestIn, request: Request):
     of crashing the endpoint outright.
     """
     h = request.headers
-    anthropic_key = h.get("x-rcr-anthropic-key") or os.getenv("ANTHROPIC_API_KEY")
+    vision_keys = _resolve_vision_keys(h)           # provider -> key, for anthropic/grok/openrouter
+    llm_strategy = (h.get("x-rcr-llm-strategy") or os.getenv("LLM_STRATEGY", "fallback")).lower()
+    llm_provider_pref = (h.get("x-rcr-llm-provider") or os.getenv("LLM_PROVIDER", "anthropic")).lower()
+    llm_model_override = h.get("x-rcr-llm-model") or os.getenv("LLM_MODEL") or None
     municipal_url = h.get("x-rcr-municipal-url") or None
     municipal_token = h.get("x-rcr-municipal-token") or None
 
     sources: list[RadarSourceOut] = []
     cameras_out: list[RadarCameraOut] = []
     observations: list[RadarObservationOut] = []
-    now_iso = datetime.utcnow().strftime("%Y-%m-%dT%H:%M:%SZ")
+    detections: list[RawDetection] = []  # signal_fusion input — one per
+                                          # observation below, written to
+                                          # CloudKit near the end of this
+                                          # function
+    sightings_out: list[RadarSightingOut] = []
+    now = datetime.now(timezone.utc)
+    now_iso = now.strftime("%Y-%m-%dT%H:%M:%SZ")
 
     try:
-        # Anchor the phase3 path to this file's own directory instead of
-        # the process's current working directory — cwd isn't guaranteed
-        # to be the repo root in every deployment target (Vercel included),
-        # which is the most likely reason the imports below were failing.
-        phase3_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), "phase3")
-        if phase3_dir not in sys.path:
-            sys.path.append(phase3_dir)
+        # Anchor the collectors/ path to this file's own directory instead
+        # of the process's current working directory — cwd isn't
+        # guaranteed to be the repo root in every deployment target
+        # (Vercel included), which is the most likely reason the imports
+        # below were failing.
+        collectors_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), "collectors")
+        if collectors_dir not in sys.path:
+            sys.path.append(collectors_dir)
 
-        # ---- Camera vision (Caltrans) ----
-        if not anthropic_key:
+        # ---- Camera vision (Caltrans) — now multi-provider ----
+        if not vision_keys:
             sources.append(RadarSourceOut(
                 id="camera_vision", name="Traffic Camera Vision", status="skipped",
-                detail="No Anthropic API key — add one in Settings > AI Providers."
+                detail="No AI provider key — add Anthropic, xAI (Grok), and/or OpenRouter in Settings > AI Providers."
             ))
         else:
             try:
@@ -341,26 +448,51 @@ def radar_scan(payload: RadarScanRequestIn, request: Request):
                 ]
 
                 hits = 0
+                rr_state = {"i": 0}
+                providers_used: set[str] = set()
                 for cam in nearby:
                     try:
-                        result = check_frame_for_truck(cam.current_image_url, anthropic_api_key=anthropic_key)
+                        result, provider_used = _vision_check_with_strategy(
+                            cam, vision_keys, llm_strategy, llm_provider_pref,
+                            llm_model_override, rr_state, check_frame_for_truck,
+                        )
+                        providers_used.add(provider_used)
                     except Exception as e:
                         print(f"camera check failed for {cam.location_name}: {e}")
                         continue
                     if result.get("likely_food_truck_present"):
                         hits += 1
                         conf_map = {"high": 0.85, "medium": 0.6, "low": 0.35}
+                        raw_confidence = conf_map.get(result.get("confidence"), 0.5)
                         observations.append(RadarObservationOut(
                             id=str(uuid.uuid4()), source="camera",
                             sourceID=cam.location_name, observedAt=now_iso,
                             latitude=cam.latitude, longitude=cam.longitude,
                             text=result.get("reasoning"), sourceURL=cam.current_image_url,
-                            rawConfidence=conf_map.get(result.get("confidence"), 0.5),
-                            metadata={"estimated_crowd_size": str(result.get("estimated_crowd_size", ""))},
+                            rawConfidence=raw_confidence,
+                            metadata={
+                                "estimated_crowd_size": str(result.get("estimated_crowd_size", "")),
+                                "vision_provider": provider_used,
+                            },
                         ))
+                        # Feed the same hit into signal fusion so a
+                        # confident match becomes a real Sighting record —
+                        # see the write-through block below. Vision alone
+                        # rarely carries a truck NAME, so this mostly
+                        # relies on corroboration with municipal permits
+                        # (which do) unless you add OCR/logo recognition.
+                        detections.append(RawDetection(
+                            source="traffic_cam",
+                            latitude=cam.latitude, longitude=cam.longitude,
+                            timestamp=now,
+                            raw_confidence=raw_confidence,
+                            source_id=cam.location_name,
+                            note=f"Camera at {cam.location_name}: {result.get('reasoning', '')}",
+                        ))
+                strategy_note = f"strategy={llm_strategy}, provider(s) used: {', '.join(sorted(providers_used)) or 'none'}"
                 sources.append(RadarSourceOut(
                     id="camera_vision", name="Traffic Camera Vision", status="ok",
-                    detail=f"Checked {len(nearby)} camera(s), {hits} likely detection(s)."
+                    detail=f"Checked {len(nearby)} camera(s), {hits} likely detection(s) ({strategy_note})."
                 ))
             except Exception as e:
                 print(f"camera_vision source failed: {traceback.format_exc()}")
@@ -381,12 +513,26 @@ def radar_scan(payload: RadarScanRequestIn, request: Request):
 
                 permits = fetch_food_truck_permits(dataset_url=municipal_url, app_token=municipal_token)
                 for p in permits:
+                    truck_name = p.get("truck_name")
                     observations.append(RadarObservationOut(
                         id=str(uuid.uuid4()), source="municipal",
-                        sourceID=str(p.get("truck_name") or "unknown"), observedAt=now_iso,
+                        sourceID=str(truck_name or "unknown"), observedAt=now_iso,
                         latitude=payload.latitude, longitude=payload.longitude,  # permit data is rarely geocoded per-row; see note below
                         text=p.get("permitted_location"), rawConfidence=0.4,
                         metadata={"permit_valid_until": str(p.get("permit_valid_until") or "")},
+                    ))
+                    # Unlike camera hits, permit rows usually DO carry the
+                    # truck's actual name — pass it as text_hint so
+                    # signal_fusion can name-match it against
+                    # KNOWN_TRUCK_NAMES and auto-attach a real Sighting
+                    # instead of always landing in the review queue.
+                    detections.append(RawDetection(
+                        source="municipal_permit",
+                        latitude=payload.latitude, longitude=payload.longitude,
+                        timestamp=now,
+                        raw_confidence=0.4,
+                        text_hint=truck_name,
+                        note=p.get("permitted_location"),
                     ))
                 sources.append(RadarSourceOut(
                     id="municipal", name="Municipal Permits", status="ok",
@@ -407,22 +553,54 @@ def radar_scan(payload: RadarScanRequestIn, request: Request):
         ]:
             sources.append(RadarSourceOut(
                 id=source_id, name=name, status="skipped",
-                detail="Not wired into /api/radar/scan yet — see phase3/ module of the same purpose."
+                detail="Not wired into /api/radar/scan yet — see collectors/ module of the same purpose."
             ))
 
-        confidence = min(1.0, 0.2 + 0.15 * len(observations)) if observations else 0.0
-        summary = (
-            f"{len(observations)} signal(s) found across {sum(1 for s in sources if s.status == 'ok')} active source(s)."
-            if observations else
-            "No signals found in this scan."
-        )
+        # ---- Signal fusion write-through: turn confident hits into real
+        # Sighting records (map pins), everything else into an
+        # UnmatchedDetection for the Owner Dashboard's review queue. This
+        # is what previously left `sightings` hardcoded to []: raw
+        # observations were returned to the app, but nothing ever wrote a
+        # Sighting anywhere the map reads from. ----
+        if not detections:
+            sources.append(RadarSourceOut(
+                id="sighting_write", name="Sighting Write-Through", status="skipped",
+                detail="No detections this scan to fuse."
+            ))
+        else:
+            written = 0
+            queued = 0
+            errored = 0
+            for detection in detections:
+                try:
+                    result = signal_fusion.process_detection(detection, detections)
+                except Exception as e:
+                    print(f"signal_fusion failed for a detection: {traceback.format_exc()}")
+                    errored += 1
+                    continue
+                if result.sighting:
+                    written += 1
+                    sightings_out.append(RadarSightingOut(**result.sighting))
+                else:
+                    queued += 1
+            status = "ok" if errored == 0 else ("error" if written == 0 and queued == 0 else "ok")
+            detail = f"{written} sighting(s) written to CloudKit, {queued} queued for review"
+            if errored:
+                detail += f", {errored} failed (likely CLOUDKIT_CONTAINER_ID/KEY_ID not configured server-side — see cloudkit_bridge.py)"
+            sources.append(RadarSourceOut(id="sighting_write", name="Sighting Write-Through", status=status, detail=detail + "."))
+
+        confidence = min(1.0, 0.2 + 0.15 * len(observations) + 0.1 * len(sightings_out)) if observations else 0.0
+        summary_bits = [f"{len(observations)} signal(s) found across {sum(1 for s in sources if s.status == 'ok')} active source(s)."]
+        if sightings_out:
+            summary_bits.append(f"{len(sightings_out)} confirmed sighting(s) added to the map.")
+        summary = " ".join(summary_bits) if observations else "No signals found in this scan."
 
         return RadarScanResultOut(
             id=str(uuid.uuid4()),
             scanned_at=now_iso,
             sources=sources,
             cameras=cameras_out,
-            sightings=[],
+            sightings=sightings_out,
             observations=observations,
             summary=summary,
             confidence=confidence,
