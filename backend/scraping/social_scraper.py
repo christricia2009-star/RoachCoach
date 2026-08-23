@@ -77,6 +77,61 @@ def fetch_recent_instagram_posts(ig_user_id: str) -> list[RawSocialPost]:
     ]
 
 
+def fetch_recent_instagram_posts_business_discovery(target_username: str) -> list[RawSocialPost]:
+    """
+    Business Discovery — reads another PUBLIC Business/Creator account's
+    recent posts by USERNAME, without that account needing any role on
+    your app at all. This is the right function for trucks that haven't
+    connected to you — use fetch_recent_instagram_posts() above only for
+    accounts YOU personally manage as a Tester.
+
+    Requires:
+      - INSTAGRAM_BUSINESS_ACCOUNT_ID: the numeric ID of YOUR OWN
+        Instagram Business/Creator account (the one making the query, not
+        the target truck). Get this once via Graph API Explorer after
+        converting your account to Business/Creator and connecting it to
+        your Meta app.
+      - INSTAGRAM_ACCESS_TOKEN: a valid token for that same account.
+
+    Caveat worth knowing: Business Discovery is real and doesn't require
+    the target's cooperation, but multiple sources describe it as
+    "severely capped" per account per week — exact numbers vary across
+    (non-official) sources I found, so watch for 429/throttling responses
+    in practice rather than assuming a specific number holds.
+    """
+    business_account_id = os.getenv("INSTAGRAM_BUSINESS_ACCOUNT_ID")
+    token = os.getenv("INSTAGRAM_ACCESS_TOKEN")
+    if not business_account_id or not token:
+        raise RuntimeError(
+            "INSTAGRAM_BUSINESS_ACCOUNT_ID / INSTAGRAM_ACCESS_TOKEN not set. "
+            "These are YOUR OWN account's ID + token, used to query other "
+            "public accounts via Business Discovery — see function docstring."
+        )
+
+    url = f"https://graph.facebook.com/v22.0/{business_account_id}"
+    params = {
+        "fields": f"business_discovery.username({target_username}){{username,media{{caption,timestamp,permalink}}}}",
+        "access_token": token,
+    }
+    response = requests.get(url, params=params, timeout=10)
+    response.raise_for_status()
+    payload = response.json()
+
+    discovery = payload.get("business_discovery", {})
+    media_items = discovery.get("media", {}).get("data", [])
+
+    return [
+        RawSocialPost(
+            truck_handle=target_username,
+            caption=item.get("caption", ""),
+            posted_at=datetime.datetime.fromisoformat(item["timestamp"]),
+            post_url=item.get("permalink", ""),
+            source="instagram",
+        )
+        for item in media_items
+    ]
+
+
 # ---------- X (Twitter) API ----------
 
 def fetch_recent_x_posts(username: str) -> list[RawSocialPost]:
@@ -119,6 +174,55 @@ def fetch_recent_x_posts(username: str) -> list[RawSocialPost]:
     ]
 
 
+# ---------- Facebook Pages API ----------
+
+def fetch_recent_facebook_page_posts(page_id_or_username: str) -> list[RawSocialPost]:
+    """
+    Reads a Facebook Page's public posts.
+
+    IMPORTANT — read before using: this requires ONE of two things, and
+    "my personal account follows this page" is NOT one of them (that
+    capability doesn't exist in the API at all — Meta removed all
+    personal-feed/following-list access in 2018 and never brought it back,
+    for any app tier):
+
+      1. FACEBOOK_PAGE_ACCESS_TOKEN is a token for a Page YOU (or someone
+         who added you as admin/editor) actually manage — free, instant,
+         no review. Only works for that specific page.
+      2. Your app has "Page Public Content Access" — reading OTHER
+         pages you don't manage requires this permission, which requires
+         Meta App Review + Business Verification (weeks, not instant).
+
+    There's no per-post distinction in the API between these — the same
+    call either works or returns a permissions error depending on which
+    of the above is true for the token you're using.
+    """
+    token = os.getenv("FACEBOOK_PAGE_ACCESS_TOKEN")
+    if not token:
+        raise RuntimeError("FACEBOOK_PAGE_ACCESS_TOKEN not set in environment.")
+
+    url = f"https://graph.facebook.com/v25.0/{page_id_or_username}/feed"
+    params = {
+        "fields": "message,created_time,permalink_url",
+        "access_token": token,
+    }
+    response = requests.get(url, params=params, timeout=10)
+    response.raise_for_status()
+    data = response.json().get("data", [])
+
+    return [
+        RawSocialPost(
+            truck_handle=page_id_or_username,
+            caption=item.get("message", ""),
+            posted_at=datetime.datetime.fromisoformat(item["created_time"]),
+            post_url=item.get("permalink_url", ""),
+            source="facebook",
+        )
+        for item in data
+        if item.get("message")  # skip posts with no text (photo-only, etc.)
+    ]
+
+
 # ---------- Generic partnership feed ----------
 
 def fetch_partnership_feed() -> list[RawSocialPost]:
@@ -147,7 +251,7 @@ def fetch_partnership_feed() -> list[RawSocialPost]:
     return []
 
 
-def fetch_all_known_trucks(instagram_ids: list[str] = None, x_usernames: list[str] = None) -> list[RawSocialPost]:
+def fetch_all_known_trucks(instagram_ids: list[str] = None, x_usernames: list[str] = None, instagram_business_discovery_usernames: list[str] = None, facebook_page_ids: list[str] = None) -> list[RawSocialPost]:
     """Iterates over curated lists of truck handles across sources."""
     all_posts: list[RawSocialPost] = []
 
@@ -156,6 +260,18 @@ def fetch_all_known_trucks(instagram_ids: list[str] = None, x_usernames: list[st
             all_posts.extend(fetch_recent_instagram_posts(ig_id))
         except Exception as e:
             print(f"Instagram fetch failed for {ig_id}: {e}")
+
+    for username in (instagram_business_discovery_usernames or []):
+        try:
+            all_posts.extend(fetch_recent_instagram_posts_business_discovery(username))
+        except Exception as e:
+            print(f"Instagram Business Discovery fetch failed for @{username}: {e}")
+
+    for page_id in (facebook_page_ids or []):
+        try:
+            all_posts.extend(fetch_recent_facebook_page_posts(page_id))
+        except Exception as e:
+            print(f"Facebook Page fetch failed for {page_id}: {e}")
 
     for handle in (x_usernames or []):
         try:
