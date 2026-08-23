@@ -68,22 +68,29 @@ def fetch_parking_occupancy() -> list[dict]:
     ]
 
 
-def fetch_food_truck_permits() -> list[dict]:
+def fetch_food_truck_permits(dataset_url: str = None, app_token: str = None) -> list[dict]:
     """
     Some cities publish an actual food truck / mobile vendor permit dataset
     directly — if yours does, this is the highest-signal free source
     available (it's literally which trucks are permitted where, though not
     necessarily live location). Same caveat: adjust field names to match
     your city's real schema.
+
+    dataset_url / app_token let a caller (e.g. the /api/radar/scan route,
+    which receives these per-request from the app's Keychain-stored
+    settings rather than server env vars) override the module defaults.
     """
-    if not MUNICIPAL_DATASET_URL:
+    dataset_url = dataset_url or MUNICIPAL_DATASET_URL
+    app_token = app_token or MUNICIPAL_APP_TOKEN
+
+    if not dataset_url:
         raise RuntimeError("MUNICIPAL_DATASET_URL not set — see module docstring.")
 
     headers = {}
-    if MUNICIPAL_APP_TOKEN:
-        headers["X-App-Token"] = MUNICIPAL_APP_TOKEN
+    if app_token:
+        headers["X-App-Token"] = app_token
 
-    response = requests.get(MUNICIPAL_DATASET_URL, headers=headers, timeout=10)
+    response = requests.get(dataset_url, headers=headers, timeout=10)
     response.raise_for_status()
     raw_rows = response.json()
 
