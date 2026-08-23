@@ -8,7 +8,6 @@ BACKEND = Path(__file__).resolve().parents[1] / "backend"
 if str(BACKEND) not in sys.path:
     sys.path.insert(0, str(BACKEND))
 
-
 # Import the existing radar application without changing it.
 from main import (  # noqa: E402
     RadarObservationOut,
@@ -85,13 +84,12 @@ def truck_sightings_compat(truck_id: str):
 # ---------------------------------------------------------
 # Radar compatibility endpoint
 # ---------------------------------------------------------
-#
+
 # Existing iOS app calls:
 #
 # POST /radar/observations
 #
 # The existing radar engine is retained.
-# ---------------------------------------------------------
 
 @app.post(
     "/radar/observations",
