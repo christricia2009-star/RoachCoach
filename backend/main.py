@@ -60,6 +60,10 @@ class SightingOut(BaseModel):
     timestamp: datetime
     expires_at: datetime
 
+class RadarScanIn(BaseModel):
+    latitude: float
+    longitude: float
+    radiusMiles: float = 10.0
 
 # ---------- Confidence Scoring ----------
 
@@ -228,12 +232,6 @@ def california_cameras_near(latitude: float, longitude: float, radius_miles: flo
     ]
 
 # ---------- Live Radar Scan ----------
-
-class RadarScanIn(BaseModel):
-    latitude: float
-    longitude: float
-    radiusMiles: float = 10.0
-
 
 def _apply_runtime_credentials(headers):
     """Apply credentials supplied by the iOS Settings screen for this scan.
