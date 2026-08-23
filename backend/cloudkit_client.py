@@ -34,10 +34,14 @@ class CloudKitError(RuntimeError):
 
 def _get_private_key():
     if not KEY_ID:
-        raise CloudKitError("CLOUDKIT_SERVER_KEY_ID is not configured")
+        raise CloudKitError(
+            "CLOUDKIT_SERVER_KEY_ID is not configured"
+        )
 
     if not PRIVATE_KEY:
-        raise CloudKitError("CLOUDKIT_SERVER_PRIVATE_KEY is not configured")
+        raise CloudKitError(
+            "CLOUDKIT_SERVER_PRIVATE_KEY is not configured"
+        )
 
     pem = PRIVATE_KEY.replace("\\n", "\n").strip()
 
@@ -74,11 +78,13 @@ def _sign_request(path: str, body: bytes) -> dict[str, str]:
     r, s = decode_dss_signature(signature_der)
 
     raw_signature = (
-        r.to_bytes(32, "big") +
-        s.to_bytes(32, "big")
+        r.to_bytes(32, "big")
+        + s.to_bytes(32, "big")
     )
 
-    signature = base64.b64encode(raw_signature).decode("ascii")
+    signature = base64.b64encode(
+        raw_signature
+    ).decode("ascii")
 
     return {
         "Content-Type": "application/json",
@@ -148,7 +154,11 @@ def _request(
     return data
 
 
-def _field(record: dict[str, Any], name: str, default=None):
+def _field(
+    record: dict[str, Any],
+    name: str,
+    default=None,
+):
     fields = record.get("fields", {})
     value = fields.get(name)
 
@@ -307,10 +317,18 @@ def fetch_sightings() -> list[dict[str, Any]]:
                 "id": record_id,
                 "truck_id": truck_id,
                 "latitude": float(
-                    _field(record, "latitude", 0.0) or 0.0
+                    _field(
+                        record,
+                        "latitude",
+                        0.0,
+                    ) or 0.0
                 ),
                 "longitude": float(
-                    _field(record, "longitude", 0.0) or 0.0
+                    _field(
+                        record,
+                        "longitude",
+                        0.0,
+                    ) or 0.0
                 ),
                 "note": _field(record, "note"),
                 "photo_url": _field(
