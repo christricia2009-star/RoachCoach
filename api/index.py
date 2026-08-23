@@ -4,45 +4,106 @@ from pathlib import Path
 from fastapi import Request
 
 BACKEND = Path(__file__).resolve().parents[1] / "backend"
+
 if str(BACKEND) not in sys.path:
     sys.path.insert(0, str(BACKEND))
 
+
+# Import the existing radar application without changing it.
 from main import (  # noqa: E402
     RadarObservationOut,
     RadarScanRequestIn,
-    SightingOut,
-    TruckOut,
     app,
-    get_active_sightings,
-    get_trucks,
     radar_scan,
 )
 
+from cloudkit_client import (  # noqa: E402
+    CloudKitError,
+    fetch_sightings,
+    fetch_sightings_for_truck,
+    fetch_trucks,
+)
 
-# Compatibility routes for the already-shipped iOS app.
-# Keep these server-side so the existing iOS binary does not need to change.
+
+# ---------------------------------------------------------
+# Health
+# ---------------------------------------------------------
 
 @app.get("/health")
 def health_compat():
-    return {"status": "ok"}
+    return {
+        "status": "ok",
+        "cloudkit": True,
+    }
 
 
-@app.get("/trucks", response_model=list[TruckOut])
+# ---------------------------------------------------------
+# Trucks
+# ---------------------------------------------------------
+
+@app.get("/trucks")
 def trucks_compat():
-    return get_trucks()
+    try:
+        return fetch_trucks()
+    except CloudKitError as exc:
+        return {
+            "error": "CloudKit unavailable",
+            "detail": str(exc),
+        }
 
 
-@app.get("/sightings", response_model=list[SightingOut])
+# ---------------------------------------------------------
+# Sightings
+# ---------------------------------------------------------
+
+@app.get("/sightings")
 def sightings_compat():
-    return get_active_sightings()
+    try:
+        return fetch_sightings()
+    except CloudKitError as exc:
+        return {
+            "error": "CloudKit unavailable",
+            "detail": str(exc),
+        }
 
 
-@app.post("/radar/observations", response_model=list[RadarObservationOut])
+# ---------------------------------------------------------
+# Truck-specific sightings
+# ---------------------------------------------------------
+
+@app.get("/trucks/{truck_id}/sightings")
+def truck_sightings_compat(truck_id: str):
+    try:
+        return fetch_sightings_for_truck(truck_id)
+    except CloudKitError as exc:
+        return {
+            "error": "CloudKit unavailable",
+            "detail": str(exc),
+        }
+
+
+# ---------------------------------------------------------
+# Radar compatibility endpoint
+# ---------------------------------------------------------
+#
+# Existing iOS app calls:
+#
+# POST /radar/observations
+#
+# The existing radar engine is retained.
+# ---------------------------------------------------------
+
+@app.post(
+    "/radar/observations",
+    response_model=list[RadarObservationOut],
+)
 def radar_observations_compat(
     payload: RadarScanRequestIn,
-    request: Request
+    request: Request,
 ):
-    # The current radar engine returns a full RadarScanResultOut.
-    # The existing iOS BackendRadarSource expects only [RadarObservation].
-    result = radar_scan(payload, request)
+    result = radar_scan(
+        payload,
+        request,
+    )
+
     return result.observations
