@@ -80,14 +80,14 @@ def compute_confidence(recent_report_count: int, source: str, reporter_reputatio
 
 # ---------- Routes ----------
 
-@app.get("/trucks", response_model=list[TruckOut])
+@app.get("/api/trucks", response_model=list[TruckOut])
 def get_trucks():
     with engine.connect() as conn:
         rows = conn.execute(text("SELECT * FROM trucks ORDER BY name")).mappings().all()
         return [dict(row) for row in rows]
 
 
-@app.get("/trucks/{truck_id}/sightings", response_model=list[SightingOut])
+@app.get("/api/trucks/{truck_id}/sightings", response_model=list[SightingOut])
 def get_truck_sightings(truck_id: uuid.UUID):
     with engine.connect() as conn:
         rows = conn.execute(
@@ -101,7 +101,7 @@ def get_truck_sightings(truck_id: uuid.UUID):
         return [dict(row) for row in rows]
 
 
-@app.get("/sightings", response_model=list[SightingOut])
+@app.get("/api/sightings", response_model=list[SightingOut])
 def get_active_sightings():
     with engine.connect() as conn:
         rows = conn.execute(
@@ -110,7 +110,7 @@ def get_active_sightings():
         return [dict(row) for row in rows]
 
 
-@app.post("/sightings", response_model=SightingOut)
+@app.post("/api/sightings", response_model=SightingOut)
 def create_sighting(sighting: SightingIn):
     with engine.connect() as conn:
         # Count other recent reports for the same truck to compute confidence
@@ -151,12 +151,12 @@ def create_sighting(sighting: SightingIn):
         return dict(result)
 
 
-@app.get("/health")
+@app.get("/api/health")
 def health_check():
     return {"status": "ok"}
 
 
-@app.get("/phase3/california-cameras/near")
+@app.get("/api/phase3/california-cameras/near")
 def california_cameras_near(latitude: float, longitude: float, radius_miles: float = 5.0):
     """
     Real endpoint backed by the live statewide Caltrans CCTV directory
