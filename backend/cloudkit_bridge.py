@@ -36,6 +36,7 @@ import json
 import base64
 import hashlib
 import datetime
+from typing import Optional
 import requests
 from cryptography.hazmat.primitives import hashes, serialization
 from cryptography.hazmat.primitives.asymmetric import ec
