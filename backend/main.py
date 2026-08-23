@@ -196,7 +196,6 @@ def health_check():
         "service": "RoachCoachRadar",
         "backend": "FastAPI"
     }
-    return {"status": "ok"}
 
 
 @app.get("/cameras/near")
