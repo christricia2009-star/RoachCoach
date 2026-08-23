@@ -164,6 +164,65 @@ def save_truck(truck: dict) -> dict:
     return _post(_records_modify_subpath(), payload)
 
 
+def save_unmatched_detection(detection: dict) -> dict:
+    """
+    Writes an UnmatchedDetection record — a signal-fusion hit that couldn't
+    be confidently tied to a specific truck (see signal_fusion.py). These
+    show up in the iOS app's Owner Dashboard "Pending Sighting
+    Confirmations" screen for a human to resolve: attach to a real truck,
+    or dismiss as noise.
+    """
+    payload = {
+        "operations": [
+            {
+                "operationType": "create",
+                "record": {
+                    "recordType": "UnmatchedDetection",
+                    "recordName": detection["id"],
+                    "fields": {
+                        "source": {"value": detection["source"]},
+                        "latitude": {"value": detection["latitude"]},
+                        "longitude": {"value": detection["longitude"]},
+                        "timestamp": {"value": detection["timestamp"]},
+                        "rawConfidence": {"value": detection["rawConfidence"]},
+                        "reason": {"value": detection["reason"]},
+                        "textHint": {"value": detection.get("textHint", "")},
+                        "note": {"value": detection.get("note", "")},
+                        "status": {"value": detection.get("status", "pending")},
+                    },
+                },
+            }
+        ]
+    }
+    return _post(_records_modify_subpath(), payload)
+
+
+def resolve_unmatched_detection(detection_id: str, resolution: str, truck_id: Optional[str] = None) -> dict:
+    """
+    Called when a human resolves a pending detection from the Owner
+    Dashboard: `resolution` is "attached" (with a truck_id) or "dismissed".
+    Updates the UnmatchedDetection's status and, if attached, creates the
+    real Sighting record at that point.
+    """
+    fields = {"status": {"value": resolution}}
+    if truck_id:
+        fields["resolvedTruckId"] = {"value": truck_id}
+
+    payload = {
+        "operations": [
+            {
+                "operationType": "update",
+                "record": {
+                    "recordType": "UnmatchedDetection",
+                    "recordName": detection_id,
+                    "fields": fields,
+                },
+            }
+        ]
+    }
+    return _post(_records_modify_subpath(), payload)
+
+
 if __name__ == "__main__":
     print(
         "Set CLOUDKIT_CONTAINER_ID, CLOUDKIT_KEY_ID, and "
