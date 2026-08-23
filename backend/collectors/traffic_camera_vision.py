@@ -19,8 +19,6 @@ import base64
 import requests
 import anthropic
 
-client = anthropic.Anthropic(api_key=os.getenv("ANTHROPIC_API_KEY"))
-
 DETECTION_PROMPT = """You are looking at a single frame from a public \
 traffic camera. Respond ONLY with a JSON object (no other text, no \
 markdown fences) in this shape:
@@ -37,15 +35,29 @@ wildly — if the image is too low-resolution, distant, or ambiguous, set
 confidence to "low"."""
 
 
-def check_frame_for_truck(image_url: str) -> dict:
+def check_frame_for_truck(image_url: str, anthropic_api_key: str = None) -> dict:
     """
     Fetches a single frame from a public camera image URL and asks Claude's
     vision capability whether a food truck is likely present.
+
+    anthropic_api_key: pass the caller's own key (e.g. from the app's
+    per-scan headers) rather than relying on a server-side env var — keeps
+    this consistent with the app's "no server-stored secrets" design.
+    Falls back to ANTHROPIC_API_KEY in the environment if not provided,
+    for local/CLI testing (see scheduler.py usage).
 
     NOTE: many public traffic cameras refresh a static image URL every N
     seconds rather than offering a video stream — that's actually easier to
     work with here, since you just fetch the current frame as an image.
     """
+    key = anthropic_api_key or os.getenv("ANTHROPIC_API_KEY")
+    if not key:
+        raise RuntimeError(
+            "No Anthropic API key available — pass anthropic_api_key or set "
+            "ANTHROPIC_API_KEY."
+        )
+    client = anthropic.Anthropic(api_key=key)
+
     response = requests.get(image_url, timeout=10)
     response.raise_for_status()
     image_b64 = base64.b64encode(response.content).decode("utf-8")
@@ -88,12 +100,12 @@ def check_frame_for_truck(image_url: str) -> dict:
         }
 
 
-def scan_known_cameras(camera_urls: list[str]) -> list[dict]:
+def scan_known_cameras(camera_urls: list[str], anthropic_api_key: str = None) -> list[dict]:
     """Runs detection across a curated list of known-public camera image URLs."""
     results = []
     for url in camera_urls:
         try:
-            result = check_frame_for_truck(url)
+            result = check_frame_for_truck(url, anthropic_api_key=anthropic_api_key)
             result["camera_url"] = url
             results.append(result)
         except Exception as e:
@@ -106,6 +118,7 @@ def scan_california_area(
     longitude: float,
     radius_miles: float = 5.0,
     max_cameras: int = None,
+    anthropic_api_key: str = None,
 ) -> list[dict]:
     """
     Scans real Caltrans CCTV cameras near a given point using the live,
@@ -128,7 +141,7 @@ def scan_california_area(
     results = []
     for cam in nearby:
         try:
-            result = check_frame_for_truck(cam.current_image_url)
+            result = check_frame_for_truck(cam.current_image_url, anthropic_api_key=anthropic_api_key)
             result["camera_url"] = cam.current_image_url
             result["location_name"] = cam.location_name
             result["latitude"] = cam.latitude
