@@ -1,0 +1,16 @@
+node_modules/
+.next/
+.vercel/
+__pycache__/
+*.py[cod]
+.env
+.env.*
+!.env.example
+.DS_Store
+*.log
+
+# Vercel/Next generated files
+.next/
+node_modules/
+*.pyc
+__pycache__/

@@ -1,0 +1,31 @@
+# Optional Phase 4 CloudKit fields / record types.
+# Add in CloudKit Dashboard DEVELOPMENT, test, then deploy.
+# Existing app works without these.
+
+Sighting.photoAsset = Asset
+Sighting.photoIntelScore = Double
+Sighting.photoIntelLabels = [String]
+
+RadarWatch.userID = String
+RadarWatch.truckID = String
+RadarWatch.latitude = Location
+RadarWatch.longitude = Location
+RadarWatch.radiusMeters = Double
+RadarWatch.enabled = Int(64)
+RadarWatch.createdAt = Date
+
+Reputation.userID = String
+Reputation.xp = Int(64)
+Reputation.confirmedReports = Int(64)
+Reputation.totalReports = Int(64)
+Reputation.accuracy = Double
+Reputation.badges = [String]
+
+PredictionSnapshot.truckID = String
+PredictionSnapshot.latitude = Double
+PredictionSnapshot.longitude = Double
+PredictionSnapshot.windowStart = Date
+PredictionSnapshot.windowEnd = Date
+PredictionSnapshot.confidence = Double
+PredictionSnapshot.generatedAt = Date
+PredictionSnapshot.evidence = [String]
