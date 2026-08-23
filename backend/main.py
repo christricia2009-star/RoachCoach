@@ -19,6 +19,7 @@ BackendUpdate/UPDATE_README.md for the full data-flow picture.
 import os
 import sys
 import uuid
+import traceback
 from datetime import datetime, timedelta
 from typing import Optional
 
@@ -277,127 +278,176 @@ def radar_scan(payload: RadarScanRequestIn, request: Request):
     than this server holding secrets — matches the Settings screen's
     "the configured backend receives only the credentials needed for
     that scan" copy.
+
+    RESILIENCE (patched): the phase3 imports used to run unconditionally
+    at the top of this function, before checking whether the request even
+    had the keys needed to use them. If a phase3/ module failed to import
+    in the deployed environment, the whole request threw an unhandled
+    exception and FastAPI returned a bare 500 with no detail — every scan
+    failed the same way regardless of input (confirmed via `curl -i`
+    against production: HTTP/2 500, generic Vercel "Internal Server
+    Error" body, no traceback). Each phase3 import is now scoped to its
+    own try/except next to the source that uses it, and the whole
+    function body has a final fallback, so a broken/unreachable module
+    degrades to one "error" source entry in a normal 200 response instead
+    of crashing the endpoint outright.
     """
     h = request.headers
     anthropic_key = h.get("x-rcr-anthropic-key") or os.getenv("ANTHROPIC_API_KEY")
     municipal_url = h.get("x-rcr-municipal-url") or None
     municipal_token = h.get("x-rcr-municipal-token") or None
 
-    sys.path.append("phase3")
-    from california_camera_directory import fetch_all_california_cameras, cameras_near
-    from traffic_camera_vision import check_frame_for_truck
-    from municipal_open_data import fetch_food_truck_permits
-
     sources: list[RadarSourceOut] = []
     cameras_out: list[RadarCameraOut] = []
     observations: list[RadarObservationOut] = []
     now_iso = datetime.utcnow().strftime("%Y-%m-%dT%H:%M:%SZ")
 
-    # ---- Camera vision (Caltrans) ----
-    if not anthropic_key:
-        sources.append(RadarSourceOut(
-            id="camera_vision", name="Traffic Camera Vision", status="skipped",
-            detail="No Anthropic API key — add one in Settings > AI Providers."
-        ))
-    else:
-        try:
-            all_cams = fetch_all_california_cameras()
-            nearby = [c for c in cameras_near(all_cams, payload.latitude, payload.longitude, payload.radiusMiles) if c.in_service]
-            # Cap how many cameras get an LLM vision call per scan — this
-            # costs real money per camera; a tighter cap than the module
-            # default keeps a single scan predictable. Raise if you want
-            # to spend more per scan than this.
-            nearby = nearby[:6]
+    try:
+        # Anchor the phase3 path to this file's own directory instead of
+        # the process's current working directory — cwd isn't guaranteed
+        # to be the repo root in every deployment target (Vercel included),
+        # which is the most likely reason the imports below were failing.
+        phase3_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), "phase3")
+        if phase3_dir not in sys.path:
+            sys.path.append(phase3_dir)
 
-            cameras_out = [
-                RadarCameraOut(
-                    id=cam.location_name, location_name=cam.location_name,
-                    county=cam.county, route=cam.route,
-                    latitude=cam.latitude, longitude=cam.longitude,
-                    current_image_url=cam.current_image_url, in_service=cam.in_service,
-                )
-                for cam in nearby
-            ]
+        # ---- Camera vision (Caltrans) ----
+        if not anthropic_key:
+            sources.append(RadarSourceOut(
+                id="camera_vision", name="Traffic Camera Vision", status="skipped",
+                detail="No Anthropic API key — add one in Settings > AI Providers."
+            ))
+        else:
+            try:
+                from california_camera_directory import fetch_all_california_cameras, cameras_near
+                from traffic_camera_vision import check_frame_for_truck
 
-            hits = 0
-            for cam in nearby:
-                try:
-                    result = check_frame_for_truck(cam.current_image_url, anthropic_api_key=anthropic_key)
-                except Exception as e:
-                    print(f"camera check failed for {cam.location_name}: {e}")
-                    continue
-                if result.get("likely_food_truck_present"):
-                    hits += 1
-                    conf_map = {"high": 0.85, "medium": 0.6, "low": 0.35}
-                    observations.append(RadarObservationOut(
-                        id=str(uuid.uuid4()), source="camera",
-                        sourceID=cam.location_name, observedAt=now_iso,
+                all_cams = fetch_all_california_cameras()
+                nearby = [c for c in cameras_near(all_cams, payload.latitude, payload.longitude, payload.radiusMiles) if c.in_service]
+                # Cap how many cameras get an LLM vision call per scan — this
+                # costs real money per camera; a tighter cap than the module
+                # default keeps a single scan predictable. Raise if you want
+                # to spend more per scan than this.
+                nearby = nearby[:6]
+
+                cameras_out = [
+                    RadarCameraOut(
+                        id=cam.location_name, location_name=cam.location_name,
+                        county=cam.county, route=cam.route,
                         latitude=cam.latitude, longitude=cam.longitude,
-                        text=result.get("reasoning"), sourceURL=cam.current_image_url,
-                        rawConfidence=conf_map.get(result.get("confidence"), 0.5),
-                        metadata={"estimated_crowd_size": str(result.get("estimated_crowd_size", ""))},
-                    ))
-            sources.append(RadarSourceOut(
-                id="camera_vision", name="Traffic Camera Vision", status="ok",
-                detail=f"Checked {len(nearby)} camera(s), {hits} likely detection(s)."
-            ))
-        except Exception as e:
-            sources.append(RadarSourceOut(
-                id="camera_vision", name="Traffic Camera Vision", status="error", detail=str(e)
-            ))
+                        current_image_url=cam.current_image_url, in_service=cam.in_service,
+                    )
+                    for cam in nearby
+                ]
 
-    # ---- Municipal food-truck permits ----
-    if not municipal_url:
-        sources.append(RadarSourceOut(
-            id="municipal", name="Municipal Permits", status="skipped",
-            detail="No municipal dataset URL — add one in Settings > Municipal/Signal/Delivery."
-        ))
-    else:
-        try:
-            permits = fetch_food_truck_permits(dataset_url=municipal_url, app_token=municipal_token)
-            for p in permits:
-                observations.append(RadarObservationOut(
-                    id=str(uuid.uuid4()), source="municipal",
-                    sourceID=str(p.get("truck_name") or "unknown"), observedAt=now_iso,
-                    latitude=payload.latitude, longitude=payload.longitude,  # permit data is rarely geocoded per-row; see note below
-                    text=p.get("permitted_location"), rawConfidence=0.4,
-                    metadata={"permit_valid_until": str(p.get("permit_valid_until") or "")},
+                hits = 0
+                for cam in nearby:
+                    try:
+                        result = check_frame_for_truck(cam.current_image_url, anthropic_api_key=anthropic_key)
+                    except Exception as e:
+                        print(f"camera check failed for {cam.location_name}: {e}")
+                        continue
+                    if result.get("likely_food_truck_present"):
+                        hits += 1
+                        conf_map = {"high": 0.85, "medium": 0.6, "low": 0.35}
+                        observations.append(RadarObservationOut(
+                            id=str(uuid.uuid4()), source="camera",
+                            sourceID=cam.location_name, observedAt=now_iso,
+                            latitude=cam.latitude, longitude=cam.longitude,
+                            text=result.get("reasoning"), sourceURL=cam.current_image_url,
+                            rawConfidence=conf_map.get(result.get("confidence"), 0.5),
+                            metadata={"estimated_crowd_size": str(result.get("estimated_crowd_size", ""))},
+                        ))
+                sources.append(RadarSourceOut(
+                    id="camera_vision", name="Traffic Camera Vision", status="ok",
+                    detail=f"Checked {len(nearby)} camera(s), {hits} likely detection(s)."
                 ))
+            except Exception as e:
+                print(f"camera_vision source failed: {traceback.format_exc()}")
+                sources.append(RadarSourceOut(
+                    id="camera_vision", name="Traffic Camera Vision", status="error",
+                    detail=f"{type(e).__name__}: {e}"
+                ))
+
+        # ---- Municipal food-truck permits ----
+        if not municipal_url:
             sources.append(RadarSourceOut(
-                id="municipal", name="Municipal Permits", status="ok",
-                detail=f"Found {len(permits)} permit record(s)."
+                id="municipal", name="Municipal Permits", status="skipped",
+                detail="No municipal dataset URL — add one in Settings > Municipal/Signal/Delivery."
             ))
-        except Exception as e:
+        else:
+            try:
+                from municipal_open_data import fetch_food_truck_permits
+
+                permits = fetch_food_truck_permits(dataset_url=municipal_url, app_token=municipal_token)
+                for p in permits:
+                    observations.append(RadarObservationOut(
+                        id=str(uuid.uuid4()), source="municipal",
+                        sourceID=str(p.get("truck_name") or "unknown"), observedAt=now_iso,
+                        latitude=payload.latitude, longitude=payload.longitude,  # permit data is rarely geocoded per-row; see note below
+                        text=p.get("permitted_location"), rawConfidence=0.4,
+                        metadata={"permit_valid_until": str(p.get("permit_valid_until") or "")},
+                    ))
+                sources.append(RadarSourceOut(
+                    id="municipal", name="Municipal Permits", status="ok",
+                    detail=f"Found {len(permits)} permit record(s)."
+                ))
+            except Exception as e:
+                print(f"municipal source failed: {traceback.format_exc()}")
+                sources.append(RadarSourceOut(
+                    id="municipal", name="Municipal Permits", status="error",
+                    detail=f"{type(e).__name__}: {e}"
+                ))
+
+        # ---- Not-yet-wired sources — reported honestly rather than omitted ----
+        for source_id, name in [
+            ("telecom", "Telecom Signal Anomalies"),
+            ("delivery", "Delivery Pickup Pins"),
+            ("social", "Social Scraper"),
+        ]:
             sources.append(RadarSourceOut(
-                id="municipal", name="Municipal Permits", status="error", detail=str(e)
+                id=source_id, name=name, status="skipped",
+                detail="Not wired into /api/radar/scan yet — see phase3/ module of the same purpose."
             ))
 
-    # ---- Not-yet-wired sources — reported honestly rather than omitted ----
-    for source_id, name in [
-        ("telecom", "Telecom Signal Anomalies"),
-        ("delivery", "Delivery Pickup Pins"),
-        ("social", "Social Scraper"),
-    ]:
-        sources.append(RadarSourceOut(
-            id=source_id, name=name, status="skipped",
-            detail="Not wired into /api/radar/scan yet — see phase3/ module of the same purpose."
-        ))
+        confidence = min(1.0, 0.2 + 0.15 * len(observations)) if observations else 0.0
+        summary = (
+            f"{len(observations)} signal(s) found across {sum(1 for s in sources if s.status == 'ok')} active source(s)."
+            if observations else
+            "No signals found in this scan."
+        )
 
-    confidence = min(1.0, 0.2 + 0.15 * len(observations)) if observations else 0.0
-    summary = (
-        f"{len(observations)} signal(s) found across {sum(1 for s in sources if s.status == 'ok')} active source(s)."
-        if observations else
-        "No signals found in this scan."
-    )
+        return RadarScanResultOut(
+            id=str(uuid.uuid4()),
+            scanned_at=now_iso,
+            sources=sources,
+            cameras=cameras_out,
+            sightings=[],
+            observations=observations,
+            summary=summary,
+            confidence=confidence,
+            evidence_count=len(observations),
+        )
 
-    return RadarScanResultOut(
-        id=str(uuid.uuid4()),
-        scanned_at=now_iso,
-        sources=sources,
-        cameras=cameras_out,
-        sightings=[],
-        observations=observations,
-        summary=summary,
-        confidence=confidence,
-        evidence_count=len(observations),
-    )
+    except Exception as e:
+        # Final safety net: something broke outside the per-source blocks
+        # above (e.g. the sys.path setup itself). Log the full traceback
+        # server-side for debugging, but still hand the client a normal
+        # 200 response instead of a bare 500 — the app's SCAN NOW alert
+        # will now show a real detail string instead of a generic
+        # NSURLErrorDomain -1011 with no information.
+        print(f"radar_scan crashed outside per-source handling: {traceback.format_exc()}")
+        return RadarScanResultOut(
+            id=str(uuid.uuid4()),
+            scanned_at=now_iso,
+            sources=[RadarSourceOut(
+                id="scan", name="Radar Scan", status="error",
+                detail=f"Scan failed unexpectedly: {type(e).__name__}: {e}"
+            )],
+            cameras=[],
+            sightings=[],
+            observations=[],
+            summary="Scan failed unexpectedly — see server logs.",
+            confidence=0.0,
+            evidence_count=0,
+        )
