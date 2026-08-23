@@ -131,12 +131,57 @@ def job_social_scraping():
     from llm_extract import extract_location_from_caption
     from geocoding import geocode
 
-    # Populate with real handles once you have Instagram Tester access set
-    # up for the trucks in your pilot.
-    instagram_ids: list[str] = []
+    # Populated from web searches of real Sacramento & Plumas Lake-vicinity
+    # trucks (Aug 2026). VERIFY these are still active before relying on
+    # them — business listings go stale fast, which is the whole reason
+    # this app exists. Only CONFIRMED handles (found directly on Instagram
+    # with follower counts/bio, not guessed from a business name) are
+    # listed here — see UNVERIFIED_LEADS below for names found via
+    # Yelp/directories with no confirmed handle yet.
+    instagram_business_discovery_usernames: list[str] = [
+        "drewskis",                 # Drewski's Hot Rod Kitchen — Sacramento
+        "thebuckhornbbqtruck",      # Buckhorn BBQ Truck — Sacramento
+        "sactomofo",                # SactoMoFo — event organizer/aggregator, posts about many trucks
+        "krushroseville",           # Krush Burger — Roseville; original Sac location shows closed on Yelp
+        "the_potato_truck",         # Potato Patoto — Yuba City, near Plumas Lake
+        "alamedatacossac",          # Alameda Tacos Food Truck — Sacramento
+        "muchonachossacramento",    # Mucho Nachos & Tacos — Sacramento
+        "sactopopuptruck",         # The Pop Up Truck (grilled cheese) — Sacramento
+        "santacosmx",               # SanTacos — Sacramento
+        "tacoasac",                 # Tacoa Sacramento (Tacos & Tequila)
+        "tacos_gto_",               # Tacos GTO — Sacramento
+        "tacomiendofoodtruck",      # Tacomiendo — Sacramento
+        "sactacosfoodtruck",        # Sac Tacos Foodtruck — Sacramento
+        "thelumpiatruck",           # The Lumpia Truck (Filipino) — Sacramento
+    ]
+
+    # UNVERIFIED_LEADS — real business names found via Yelp/directory
+    # listings, but I could not confirm an exact Instagram handle for these
+    # (guessing risks silently pulling data from the wrong account). Look
+    # these up manually and add to the list above once confirmed:
+    #   iLava Hawaiian Barbecue, Cichy Co., Locos Only, She Got Rolls,
+    #   Yummi BBQ, JoJo's Hawaiian Fried Chicken, Tasty Hawaiian BBQ,
+    #   Kado's Asian Grill, Local Kine Shave Ice, Shaka Grindz,
+    #   Island Fin Poke, Hele On To Hawaii, Sim's Bar-B-Que, Allen BBQ,
+    #   Taqueria Hernandez (Plumas Lake specifically)
+
+    instagram_ids: list[str] = []  # only for accounts YOU manage as a Tester — see social_scraper.py
     x_usernames: list[str] = []
 
-    posts = fetch_all_known_trucks(instagram_ids=instagram_ids, x_usernames=x_usernames)
+    # Facebook Page posts — requires EITHER a Page Access Token for a page
+    # you actually manage/admin, OR Meta App Review + Business
+    # Verification for Page Public Content Access (reading pages you don't
+    # manage). Your personal account following these trucks does not
+    # unlock this — see social_scraper.py's docstring. Empty until one of
+    # those is actually true; add page IDs/usernames once it is.
+    facebook_page_ids: list[str] = []
+
+    posts = fetch_all_known_trucks(
+        instagram_ids=instagram_ids,
+        x_usernames=x_usernames,
+        instagram_business_discovery_usernames=instagram_business_discovery_usernames,
+        facebook_page_ids=facebook_page_ids,
+    )
     for post in posts:
         extracted = extract_location_from_caption(post.caption)
         if extracted.get("confidence") not in ("high", "medium"):

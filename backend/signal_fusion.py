@@ -45,10 +45,34 @@ DIRECT_ID_MAPPINGS: dict[str, str] = {
 }
 
 # Known truck names for fuzzy text matching against social captions.
-# Populate from your actual Truck records (name -> id).
+# Populate from your actual Truck records (name -> id) once they exist in
+# CloudKit. Names below match the real Sacramento/Plumas Lake-area trucks
+# populated in scheduler.py's instagram_business_discovery_usernames — fill
+# in the actual CloudKit truck IDs once you've created those Truck records
+# (e.g. via DebugSeedDataView or CloudKit Dashboard).
 KNOWN_TRUCK_NAMES: dict[str, str] = {
-    # "bao bao bus": "truck-uuid-here",
-    # "el fuego": "truck-uuid-here",
+    # Deterministic IDs — computed from the same seed scheme the iOS app's
+    # DebugSeedDataView.swift uses (deterministicTruckID(from:)). Tap
+    # "Seed 14 Real Trucks Into CloudKit" in the app's Debug menu and it
+    # will create these EXACT same IDs — nothing to copy or reconcile.
+    # If the app ever shows a different ID than what's listed here for
+    # the same truck, that means the two algorithms drifted — trust
+    # whatever the app actually displays, since CloudKit's real records
+    # are the source of truth, not this file.
+    "drewski's": "aef2a8fe-c81f-3d00-70e8-2865f82f66e5",
+    "buckhorn bbq": "0c305c27-2c83-cadb-0242-f3cb8f9ba988",
+    "sactomofo": "88f02777-c70f-27e0-904e-63d752126949",
+    "krush burger": "963de2ba-a448-7bb8-8fa1-b9bb008b0be2",
+    "potato patoto": "2d64f57b-c49b-0b57-d027-34faa896d56a",
+    "alameda tacos": "384a2291-8029-e61a-789c-f56d6907b4b8",
+    "mucho nachos": "42ae8c26-93a8-95f8-9e09-076535083d92",
+    "the pop up truck": "b4bc3e6f-548f-969a-3359-d95d964c2eb7",
+    "santacos": "6b95d05b-dd65-e006-1ac1-a84a3ee50d39",
+    "tacoa": "e9a67371-ac8c-a13e-78fb-a80014f53ff9",
+    "tacos gto": "fc56801c-665d-9506-c9e5-3b135510414d",
+    "tacomiendo": "0a391681-443b-0716-3901-26439e6192cd",
+    "sac tacos": "a9e82fe6-62e4-3d6e-c66a-350ee5a08687",
+    "the lumpia truck": "59341ec1-17ca-4a30-a0dc-be2ea40d2280",
 }
 
 CORROBORATION_WINDOW_MINUTES = 20
