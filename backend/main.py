@@ -31,8 +31,8 @@ from typing import Optional
 from fastapi import FastAPI, HTTPException, Request
 from pydantic import BaseModel
 
-import signal_fusion
-from signal_fusion import RawDetection
+from backend import signal_fusion
+from backend.signal_fusion import RawDetection
 
 import cloudkit_bridge
 
