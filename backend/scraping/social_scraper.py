@@ -466,6 +466,113 @@ def fetch_recent_facebook_page_posts(
 
 
 # =========================================================================
+# CURATED ACCOUNT LISTS — single source of truth
+# =========================================================================
+#
+# Both scheduler.py (the background job that runs every 30 min) and
+# main.py's on-demand POST /api/radar/scan route need the same "which
+# accounts do we check" lists. Keeping them here means there's exactly one
+# place to add a truck's account instead of two that can silently drift
+# out of sync.
+
+INSTAGRAM_BUSINESS_DISCOVERY_USERNAMES: list[str] = [
+    "drewskis",
+    "thebuckhornbbqtruck",
+    "sactomofo",
+    "krushroseville",
+    "the_potato_truck",
+    "alamedatacossac",
+    "muchonachossacramento",
+    "sactopopuptruck",
+    "santacosmx",
+    "tacoasac",
+    "tacos_gto_",
+    "tacomiendofoodtruck",
+    "sactacosfoodtruck",
+    "thelumpiatruck",
+]
+
+# Facebook Page IDs (or usernames) for trucks whose owners have granted
+# your app a Page Access Token. Empty until you actually have one — see
+# fetch_recent_facebook_page_posts()'s docstring for what that requires.
+FACEBOOK_PAGE_IDS: list[str] = []
+
+
+# =========================================================================
+# OPENROUTER WEB SEARCH
+# =========================================================================
+
+def search_web_for_truck_location(truck_name: str) -> Optional[RawSocialPost]:
+    """
+    Uses OpenRouter's web-search-augmented completion (see
+    llm_providers.web_search_complete) to look up where a specific truck
+    is today, instead of relying on that truck having a monitored
+    Instagram/Facebook account at all.
+
+    Deliberately returns a RawSocialPost, source="web_search", with the
+    model's search-grounded answer sitting in `.caption` — exactly the
+    same shape an Instagram/Facebook post takes. That means it flows
+    through the EXACT same downstream pipeline (llm_extract.py's
+    extract_location_from_caption -> geocoding.py -> signal_fusion.py)
+    with no separate code path to maintain.
+
+    Returns None (not an exception) if OPENROUTER_API_KEY isn't set, or if
+    the search call itself fails — callers should treat "no result" here
+    the same as "this truck has no post today," not as a pipeline error.
+    """
+    from llm_providers import web_search_complete
+
+    prompt = (
+        f'Search the web for where the food truck "{truck_name}" is '
+        f"parked today. Check their most recent Instagram/Facebook posts, "
+        f"local food truck tracker sites, and review sites if you find "
+        f"any. Reply with 2-3 sentences stating the location and any "
+        f"hours/times mentioned. If you cannot find anything specific to "
+        f"today, say plainly that you found nothing recent — do not guess "
+        f"or reuse an old/typical location as if it were today's."
+    )
+
+    try:
+        answer = web_search_complete(prompt, max_tokens=400, max_results=4)
+    except Exception as e:
+        print(f"[web_search] failed for '{truck_name}': {e}")
+        return None
+
+    if not answer:
+        return None
+
+    return RawSocialPost(
+        truck_handle=truck_name,
+        caption=answer,
+        posted_at=datetime.datetime.now(datetime.timezone.utc),
+        post_url="",
+        source="web_search",
+    )
+
+
+def fetch_web_search_results(
+    truck_names: list[str],
+) -> list[RawSocialPost]:
+    """
+    Runs search_web_for_truck_location() for each name in truck_names.
+    Every lookup is independent — one truck's search failing/erroring
+    never stops the rest from running, matching the pattern every other
+    source in this file follows.
+    """
+    results: list[RawSocialPost] = []
+
+    for name in truck_names or []:
+        try:
+            post = search_web_for_truck_location(name)
+            if post:
+                results.append(post)
+        except Exception as e:
+            print(f"[web_search] unexpected failure for '{name}': {e}")
+
+    return results
+
+
+# =========================================================================
 # GENERIC PARTNERSHIP FEED
 # =========================================================================
 
