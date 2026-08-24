@@ -137,3 +137,51 @@ def complete(prompt: str, max_tokens: int = 300) -> str:
 
     else:  # "single"
         return _call_provider(LLM_PROVIDER, prompt, max_tokens)
+
+
+def web_search_complete(prompt: str, max_tokens: int = 500, max_results: int = 4) -> str:
+    """
+    OpenRouter-only. Runs a prompt through OpenRouter's server-side web
+    search plugin, so the model's answer is grounded in live search
+    results instead of whatever it memorized during training — this is
+    what makes "[truck name] location today"-style queries actually work,
+    since a plain LLM call has no way to know that.
+
+    This is intentionally separate from complete()/_call_provider() above:
+    the round_robin/fallback strategies are about spreading LOAD across
+    providers that all do the same thing (plain text completion), but web
+    search is a capability only OpenRouter's plugin provides here, so it
+    always goes straight to OpenRouter regardless of LLM_STRATEGY/
+    LLM_PROVIDER.
+
+    Requires OPENROUTER_API_KEY. Raises RuntimeError if it's not set —
+    callers (see scraping/social_scraper.py's search_web_for_truck_location)
+    are expected to catch this and treat it the same as "source not
+    configured," not as a pipeline-ending failure.
+    """
+    api_key = os.getenv("OPENROUTER_API_KEY")
+    if not api_key:
+        raise RuntimeError(
+            "OPENROUTER_API_KEY not set. The web-search step specifically "
+            "needs an OpenRouter key — having ANTHROPIC_API_KEY or "
+            "XAI_API_KEY set is not enough, since the search plugin is "
+            "an OpenRouter-specific feature (it calls Exa.ai under the "
+            "hood; see https://openrouter.ai/docs/guides/features/plugins/web-search)."
+        )
+
+    client = OpenAI(api_key=api_key, base_url="https://openrouter.ai/api/v1")
+    model = os.getenv("LLM_WEB_SEARCH_MODEL") or _model_for("openrouter")
+
+    response = client.chat.completions.create(
+        model=model,
+        max_tokens=max_tokens,
+        messages=[{"role": "user", "content": prompt}],
+        # OpenRouter-specific field — the OpenAI client passes unknown
+        # kwargs straight through in the request body via extra_body.
+        extra_body={
+            "plugins": [
+                {"id": "web", "max_results": max_results}
+            ]
+        },
+    )
+    return response.choices[0].message.content.strip()
