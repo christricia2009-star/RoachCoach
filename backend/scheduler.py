@@ -25,8 +25,8 @@ sys.path.append(os.path.join(os.path.dirname(__file__), "phase3"))
 
 from apscheduler.schedulers.blocking import BlockingScheduler
 
-import signal_fusion
-from signal_fusion import RawDetection
+from backend import signal_fusion
+from backend.signal_fusion import RawDetection
 
 
 # In-memory pool of recent detections across ALL sources.
