@@ -42,6 +42,20 @@ DEFAULT_MODELS = {
     # and set LLM_MODEL to one of those IDs if you want zero-cost testing.
 }
 
+# Separate, cheap default JUST for the web-search step (see
+# web_search_complete below) — deliberately NOT the same as
+# DEFAULT_MODELS["openrouter"] above.
+#
+# Grok 4.3 is a REASONING model: it spends output tokens on chain-of-
+# thought before ever writing the answer, and that reasoning cost is
+# what actually drove the >$1/run bill — reading a handful of search
+# results and stating a location doesn't need deep reasoning, so paying
+# for it is pure waste here. This default is a fast, non-reasoning model
+# instead. Pricing/availability drifts — check
+# https://openrouter.ai/models?q=web%20search (filter to plugin-
+# compatible, non-reasoning, cheap) before relying on this long-term.
+DEFAULT_WEB_SEARCH_MODEL = "google/gemini-3.7-flash"
+
 
 def _available_providers() -> list[str]:
     """Returns every provider that has an API key set in the environment,
@@ -145,7 +159,7 @@ def complete(prompt: str, max_tokens: int = 300) -> str:
         return _call_provider(LLM_PROVIDER, prompt, max_tokens)
 
 
-def web_search_complete(prompt: str, max_tokens: int = 500, max_results: int = 4) -> str:
+def web_search_complete(prompt: str, max_tokens: int = 350, max_results: int = 3) -> str:
     """
     OpenRouter-only. Runs a prompt through OpenRouter's server-side web
     search plugin, so the model's answer is grounded in live search
@@ -158,7 +172,13 @@ def web_search_complete(prompt: str, max_tokens: int = 500, max_results: int = 4
     providers that all do the same thing (plain text completion), but web
     search is a capability only OpenRouter's plugin provides here, so it
     always goes straight to OpenRouter regardless of LLM_STRATEGY/
-    LLM_PROVIDER.
+    LLM_PROVIDER. It also deliberately defaults to a DIFFERENT (cheaper,
+    non-reasoning) model than the rest of this file — see
+    DEFAULT_WEB_SEARCH_MODEL above — since this step runs once per known
+    truck every scan, and reasoning-model costs compound fast at that
+    volume. Override with LLM_WEB_SEARCH_MODEL if you want something else
+    (e.g. grok-4.3 for higher-quality extraction on ambiguous captions,
+    at reasoning-model prices).
 
     Requires OPENROUTER_API_KEY. Raises RuntimeError if it's not set —
     callers (see scraping/social_scraper.py's search_web_for_truck_location)
@@ -176,7 +196,7 @@ def web_search_complete(prompt: str, max_tokens: int = 500, max_results: int = 4
         )
 
     client = OpenAI(api_key=api_key, base_url="https://openrouter.ai/api/v1")
-    model = os.getenv("LLM_WEB_SEARCH_MODEL") or _model_for("openrouter")
+    model = os.getenv("LLM_WEB_SEARCH_MODEL") or DEFAULT_WEB_SEARCH_MODEL
 
     response = client.chat.completions.create(
         model=model,
