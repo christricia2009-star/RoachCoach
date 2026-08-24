@@ -99,18 +99,19 @@ def job_california_cameras():
 
     from traffic_camera_vision import scan_california_area
 
+    # `os.getenv(name, default)`'s default only kicks in when the
+    # variable is completely UNSET — if a GitHub Actions secret is
+    # referenced (env: HOME_BASE_LATITUDE: ${{ secrets.HOME_BASE_LATITUDE }})
+    # but that secret was never actually added in the repo's Settings,
+    # the env var still gets created, just as an empty string, so the
+    # default silently never applies and float('') raises ValueError.
+    # `or` catches both "unset" and "set but empty" the same way.
     latitude = float(
-        os.getenv(
-            "HOME_BASE_LATITUDE",
-            "38.5816",
-        )
+        os.getenv("HOME_BASE_LATITUDE") or "38.5816"
     )
 
     longitude = float(
-        os.getenv(
-            "HOME_BASE_LONGITUDE",
-            "-121.4944",
-        )
+        os.getenv("HOME_BASE_LONGITUDE") or "-121.4944"
     )
 
     results = scan_california_area(
