@@ -696,6 +696,101 @@ def save_sighting(
 
 
 # ============================================================
+# UNMATCHED DETECTION HELPERS
+#
+# THESE WERE DOCUMENTED (backend/UPDATE_README.md claims they were
+# "added") BUT NEVER ACTUALLY WRITTEN — signal_fusion.py has been
+# calling cloudkit_bridge.save_unmatched_detection() this whole time,
+# which raised AttributeError every single call. scheduler.py's job
+# wrapper (run_all_once) and main.py's per-detection loop both catch
+# and swallow that exception, so every detection that didn't cleanly
+# auto-attach to a known truck — i.e. almost all of them, since
+# KNOWN_TRUCK_NAMES/DIRECT_ID_MAPPINGS start empty — was silently
+# discarded. This is a primary reason the app shows no data: not just
+# the live scan timing out, but the background pipeline that's
+# supposed to backfill CloudKit every 15 minutes never actually
+# persisting anything for the unmatched (majority) case either.
+#
+# NOTE: the "UnmatchedDetection" record type must exist in the
+# CloudKit Dashboard. CloudKit's development environment can usually
+# infer a new record type from its first write; if these calls start
+# 400/404ing instead, create it manually with fields: source (String),
+# latitude (Double), longitude (Double), timestamp (Date/Time),
+# rawConfidence (Double), reason (String), textHint (String),
+# note (String), status (String), resolvedTruckId (String, optional).
+# ============================================================
+
+def get_unmatched_detections() -> list[dict[str, Any]]:
+
+    return query_all_records(
+        "UnmatchedDetection"
+    )
+
+
+def save_unmatched_detection(
+    detection: dict[str, Any],
+) -> dict[str, Any]:
+    """
+    detection is a plain dict, e.g.:
+
+        {
+            "id": "...",
+            "source": "camera",
+            "latitude": 38.5,
+            "longitude": -121.4,
+            "timestamp": "2026-08-24T20:00:00Z",
+            "rawConfidence": 0.5,
+            "reason": "...",
+            "textHint": "...",
+            "note": "...",
+            "status": "pending",
+        }
+
+    "id", if present, becomes the CloudKit recordName (so the record is
+    addressable/updatable later, e.g. by resolve_unmatched_detection);
+    everything else is wrapped into CloudKit's {"value": ...} field
+    format and written as an UnmatchedDetection record.
+    """
+
+    detection = dict(detection)
+
+    record_name = (
+        detection.pop("id", None)
+        or f"unmatched_{uuid_safe_id()}"
+    )
+
+    return upsert_record(
+        record_type="UnmatchedDetection",
+        record_name=str(record_name),
+        fields=to_cloudkit_fields(detection),
+    )
+
+
+def resolve_unmatched_detection(
+    record_name: str,
+    resolved_truck_id: str,
+) -> dict[str, Any]:
+    """
+    Marks a pending UnmatchedDetection as resolved to a specific truck.
+    Not currently called from anywhere in the app or backend — the
+    Owner Dashboard's "pending sightings" review works off Sighting
+    records directly today — but kept available for whenever a human
+    review queue is wired up against UnmatchedDetection records.
+    """
+
+    return upsert_record(
+        record_type="UnmatchedDetection",
+        record_name=record_name,
+        fields=to_cloudkit_fields(
+            {
+                "status": "resolved",
+                "resolvedTruckId": resolved_truck_id,
+            }
+        ),
+    )
+
+
+# ============================================================
 # SAFE ID
 # ============================================================
 
@@ -725,6 +820,23 @@ def cloudkit_field_value(
         "value",
         default,
     )
+
+
+def to_cloudkit_fields(
+    fields: dict[str, Any],
+) -> dict[str, Any]:
+    """
+    Write-side counterpart to cloudkit_field_value(): converts a plain
+    {"latitude": 38.5, ...} dict into the {"latitude": {"value": 38.5}, ...}
+    shape records/modify requires. None values are dropped rather than
+    sent, since CloudKit rejects a field value of null on some types.
+    """
+
+    return {
+        key: {"value": value}
+        for key, value in fields.items()
+        if value is not None
+    }
 
 
 def record_field(
