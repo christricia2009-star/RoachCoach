@@ -156,11 +156,13 @@ class RadarScanResultOut(BaseModel):
 
 
 # ============================================================
-# HELPERS
+# CLOUDKIT HELPERS
 # ============================================================
 
 def _parse_datetime(value) -> datetime:
     if isinstance(value, datetime):
+        if value.tzinfo is None:
+            return value.replace(tzinfo=timezone.utc)
         return value
 
     if not value:
@@ -183,8 +185,31 @@ def _parse_datetime(value) -> datetime:
         return datetime.now(timezone.utc)
 
 
-def _cloudkit_record_value(record: dict, field_name: str, default=None):
+def _cloudkit_record_value(
+    record: dict,
+    field_name: str,
+    default=None,
+):
+    """
+    Extract a CloudKit field value.
+
+    CloudKit records look like:
+
+        {
+            "recordName": "...",
+            "recordType": "Truck",
+            "fields": {
+                "name": {
+                    "value": "My Truck"
+                }
+            }
+        }
+    """
+
     fields = record.get("fields", {})
+
+    if not isinstance(fields, dict):
+        return default
 
     field = fields.get(field_name)
 
@@ -194,13 +219,42 @@ def _cloudkit_record_value(record: dict, field_name: str, default=None):
     return field.get("value", default)
 
 
-def _cloudkit_records(response: dict) -> list[dict]:
-    records = response.get("records")
+def _cloudkit_records(result) -> list[dict]:
+    """
+    IMPORTANT:
 
-    if isinstance(records, list):
-        return records
+    cloudkit_bridge.query_records() already returns:
+
+        list[dict]
+
+    It does NOT return:
+
+        {"records": [...]}
+
+    This helper therefore accepts both formats for compatibility.
+    """
+
+    if isinstance(result, list):
+        return result
+
+    if isinstance(result, dict):
+        records = result.get("records")
+
+        if isinstance(records, list):
+            return records
 
     return []
+
+
+def _cloudkit_field(value):
+    """
+    Convert a normal Python value into the CloudKit server-to-server
+    field format expected by records/modify.
+    """
+
+    return {
+        "value": value
+    }
 
 
 # ============================================================
@@ -231,9 +285,21 @@ def _resolve_vision_keys(h) -> dict[str, str]:
     keys = {}
 
     for provider, header_name, env_name in [
-        ("anthropic", "x-rcr-anthropic-key", "ANTHROPIC_API_KEY"),
-        ("grok", "x-rcr-xai-key", "XAI_API_KEY"),
-        ("openrouter", "x-rcr-openrouter-key", "OPENROUTER_API_KEY"),
+        (
+            "anthropic",
+            "x-rcr-anthropic-key",
+            "ANTHROPIC_API_KEY",
+        ),
+        (
+            "grok",
+            "x-rcr-xai-key",
+            "XAI_API_KEY",
+        ),
+        (
+            "openrouter",
+            "x-rcr-openrouter-key",
+            "OPENROUTER_API_KEY",
+        ),
     ]:
 
         key = h.get(header_name) or os.getenv(env_name)
@@ -283,12 +349,14 @@ def _vision_check_with_strategy(
         ordered = [
             preferred_provider
         ] + [
-            p for p in vision_keys
+            p
+            for p in vision_keys
             if p != preferred_provider
         ]
 
         ordered = [
-            p for p in ordered
+            p
+            for p in ordered
             if p in vision_keys
         ]
 
@@ -348,13 +416,14 @@ def get_trucks():
 
     try:
 
-        response = cloudkit_bridge.query_records(
+        # query_records() returns a LIST.
+        records = cloudkit_bridge.query_records(
             "Truck"
         )
 
         trucks = []
 
-        for record in _cloudkit_records(response):
+        for record in _cloudkit_records(records):
 
             record_name = record.get(
                 "recordName",
@@ -364,20 +433,24 @@ def get_trucks():
             trucks.append(
                 TruckOut(
                     id=record_name,
+
                     name=_cloudkit_record_value(
                         record,
                         "name",
                         "Unknown Truck",
                     ),
+
                     cuisine_type=_cloudkit_record_value(
                         record,
                         "cuisineType",
                     ),
+
                     social_links=_cloudkit_record_value(
                         record,
                         "socialLinks",
                         [],
                     ) or [],
+
                     average_confidence_score=float(
                         _cloudkit_record_value(
                             record,
@@ -385,11 +458,13 @@ def get_trucks():
                             0.0,
                         ) or 0.0
                     ),
+
                     menu_highlights=_cloudkit_record_value(
                         record,
                         "menuHighlights",
                         [],
                     ) or [],
+
                     image_url=_cloudkit_record_value(
                         record,
                         "imageURL",
@@ -420,7 +495,9 @@ def get_trucks():
 # CLOUDKIT — SIGHTINGS
 # ============================================================
 
-def _record_to_sighting(record: dict) -> SightingOut:
+def _record_to_sighting(
+    record: dict,
+) -> SightingOut:
 
     record_name = record.get(
         "recordName",
@@ -465,18 +542,25 @@ def _record_to_sighting(record: dict) -> SightingOut:
 
     return SightingOut(
         id=record_name,
-        truck_id=str(truck_id),
+
+        truck_id=str(
+            truck_id
+        ),
+
         latitude=latitude,
         longitude=longitude,
+
         note=_cloudkit_record_value(
             record,
             "note",
         ),
+
         confidence_level=_cloudkit_record_value(
             record,
             "confidenceLevel",
             "scheduled",
         ),
+
         timestamp=timestamp,
         expires_at=expires_at,
     )
@@ -484,11 +568,12 @@ def _record_to_sighting(record: dict) -> SightingOut:
 
 def _get_sighting_records() -> list[dict]:
 
-    response = cloudkit_bridge.query_records(
+    # query_records() returns a LIST.
+    result = cloudkit_bridge.query_records(
         "Sighting"
     )
 
-    return _cloudkit_records(response)
+    return _cloudkit_records(result)
 
 
 @app.get(
@@ -517,7 +602,9 @@ def get_truck_sightings(
                 )
             )
 
-            if record_truck_id != str(truck_id):
+            if record_truck_id != str(
+                truck_id
+            ):
                 continue
 
             sighting = _record_to_sighting(
@@ -525,7 +612,10 @@ def get_truck_sightings(
             )
 
             if sighting.expires_at > now:
-                results.append(sighting)
+
+                results.append(
+                    sighting
+                )
 
         results.sort(
             key=lambda x: x.timestamp,
@@ -543,7 +633,10 @@ def get_truck_sightings(
 
         raise HTTPException(
             status_code=500,
-            detail=f"CloudKit Sighting query failed: {e}",
+            detail=(
+                "CloudKit Sighting query failed: "
+                f"{e}"
+            ),
         )
 
 
@@ -568,7 +661,10 @@ def get_active_sightings():
             )
 
             if sighting.expires_at > now:
-                results.append(sighting)
+
+                results.append(
+                    sighting
+                )
 
         results.sort(
             key=lambda x: x.timestamp,
@@ -586,9 +682,16 @@ def get_active_sightings():
 
         raise HTTPException(
             status_code=500,
-            detail=f"CloudKit Sighting query failed: {e}",
+            detail=(
+                "CloudKit Sighting query failed: "
+                f"{e}"
+            ),
         )
 
+
+# ============================================================
+# CREATE SIGHTING
+# ============================================================
 
 @app.post(
     "/api/sightings",
@@ -628,7 +731,9 @@ def create_sighting(
                 )
             )
 
-            if timestamp > now - timedelta(hours=1):
+            if timestamp > (
+                now - timedelta(hours=1)
+            ):
                 recent_count += 1
 
         confidence = compute_confidence(
@@ -642,36 +747,95 @@ def create_sighting(
             now + timedelta(hours=3)
         )
 
-        record_id = str(uuid.uuid4())
+        record_id = str(
+            uuid.uuid4()
+        )
 
-        cloudkit_sighting = {
-            "id": record_id,
-            "truckId": str(sighting.truck_id),
-            "latitude": sighting.latitude,
-            "longitude": sighting.longitude,
-            "reportedByUserId": (
-                str(sighting.reported_by_user_id)
-                if sighting.reported_by_user_id
-                else None
+        # ====================================================
+        # IMPORTANT CLOUDKIT FIX
+        #
+        # CloudKit records/modify requires:
+        #
+        # "field": {
+        #     "value": actual_value
+        # }
+        #
+        # Do NOT send plain Python values here.
+        # ====================================================
+
+        fields = {
+            "truckId": _cloudkit_field(
+                str(sighting.truck_id)
             ),
-            "photoURL": sighting.photo_url,
-            "note": sighting.note,
-            "timestamp": timestamp.isoformat(),
-            "confidenceLevel": confidence,
-            "expiresAt": expires_at.isoformat(),
+
+            "latitude": _cloudkit_field(
+                sighting.latitude
+            ),
+
+            "longitude": _cloudkit_field(
+                sighting.longitude
+            ),
+
+            "confidenceLevel": _cloudkit_field(
+                confidence
+            ),
+
+            "timestamp": _cloudkit_field(
+                timestamp.isoformat()
+            ),
+
+            "expiresAt": _cloudkit_field(
+                expires_at.isoformat()
+            ),
         }
 
+        if sighting.reported_by_user_id:
+
+            fields[
+                "reportedByUserId"
+            ] = _cloudkit_field(
+                str(
+                    sighting.reported_by_user_id
+                )
+            )
+
+        if sighting.photo_url:
+
+            fields[
+                "photoURL"
+            ] = _cloudkit_field(
+                sighting.photo_url
+            )
+
+        if sighting.note:
+
+            fields[
+                "note"
+            ] = _cloudkit_field(
+                sighting.note
+            )
+
+        # Save directly through the bridge using the
+        # record-name + fields compatibility form.
         cloudkit_bridge.save_sighting(
-            cloudkit_sighting
+            record_id,
+            fields,
         )
 
         return SightingOut(
             id=record_id,
-            truck_id=str(sighting.truck_id),
+
+            truck_id=str(
+                sighting.truck_id
+            ),
+
             latitude=sighting.latitude,
             longitude=sighting.longitude,
+
             note=sighting.note,
+
             confidence_level=confidence,
+
             timestamp=timestamp,
             expires_at=expires_at,
         )
@@ -685,7 +849,10 @@ def create_sighting(
 
         raise HTTPException(
             status_code=500,
-            detail=f"CloudKit Sighting write failed: {e}",
+            detail=(
+                "CloudKit Sighting write failed: "
+                f"{e}"
+            ),
         )
 
 
@@ -698,7 +865,9 @@ def health_check():
 
     cloudkit_configured = bool(
         os.getenv("CLOUDKIT_CONTAINER_ID")
-        and os.getenv("CLOUDKIT_KEY_ID")
+        and os.getenv("CLOUDKIT_SERVER_KEY_ID")
+        and os.getenv("CLOUDKIT_SERVER_PRIVATE_KEY")
+        and os.getenv("CLOUDKIT_ENVIRONMENT")
     )
 
     return {
@@ -743,14 +912,28 @@ def california_cameras_near(
 
         return [
             {
-                "location_name": cam.location_name,
-                "county": cam.county,
-                "route": cam.route,
-                "latitude": cam.latitude,
-                "longitude": cam.longitude,
-                "current_image_url": cam.current_image_url,
-                "in_service": cam.in_service,
+                "location_name":
+                    cam.location_name,
+
+                "county":
+                    cam.county,
+
+                "route":
+                    cam.route,
+
+                "latitude":
+                    cam.latitude,
+
+                "longitude":
+                    cam.longitude,
+
+                "current_image_url":
+                    cam.current_image_url,
+
+                "in_service":
+                    cam.in_service,
             }
+
             for cam in nearby
         ]
 
@@ -766,7 +949,7 @@ def california_cameras_near(
 
 
 # ============================================================
-# TELECOM
+# TELECOM COLLECTOR
 # ============================================================
 
 def _run_telecom_source(
@@ -799,7 +982,8 @@ def _run_telecom_source(
                 detail=(
                     "Telecom collector is installed, "
                     "but TELECOM_API_KEY / "
-                    "TELECOM_API_BASE_URL are not configured."
+                    "TELECOM_API_BASE_URL "
+                    "are not configured."
                 ),
             )
 
@@ -822,24 +1006,24 @@ def _run_telecom_source(
         for anomaly in anomalies:
 
             lat_delta = abs(
-                anomaly.latitude -
-                payload.latitude
+                anomaly.latitude
+                - payload.latitude
             )
 
             lon_delta = abs(
-                anomaly.longitude -
-                payload.longitude
+                anomaly.longitude
+                - payload.longitude
             )
 
             if (
-                lat_delta >
-                payload.radiusMiles / 69.0
+                lat_delta
+                > payload.radiusMiles / 69.0
             ):
                 continue
 
             if (
-                lon_delta >
-                payload.radiusMiles / 50.0
+                lon_delta
+                > payload.radiusMiles / 50.0
             ):
                 continue
 
@@ -849,8 +1033,8 @@ def _run_telecom_source(
                 0.65,
                 max(
                     0.25,
-                    0.25 +
-                    anomaly.anomaly_score * 0.25,
+                    0.25
+                    + anomaly.anomaly_score * 0.25,
                 ),
             )
 
@@ -872,12 +1056,21 @@ def _run_telecom_source(
                     metadata={
                         "sector_id":
                             anomaly.sector_id,
+
                         "baseline_load":
-                            str(anomaly.baseline_load),
+                            str(
+                                anomaly.baseline_load
+                            ),
+
                         "current_load":
-                            str(anomaly.current_load),
+                            str(
+                                anomaly.current_load
+                            ),
+
                         "anomaly_score":
-                            str(anomaly.anomaly_score),
+                            str(
+                                anomaly.anomaly_score
+                            ),
                     },
                 )
             )
@@ -902,7 +1095,7 @@ def _run_telecom_source(
             name="Telecom Signal Anomalies",
             status="ok",
             detail=(
-                f"Collector loaded and returned "
+                "Collector loaded and returned "
                 f"{count} nearby anomaly/anomalies."
             ),
         )
@@ -918,12 +1111,14 @@ def _run_telecom_source(
             id="telecom",
             name="Telecom Signal Anomalies",
             status="error",
-            detail=f"{type(e).__name__}: {e}",
+            detail=(
+                f"{type(e).__name__}: {e}"
+            ),
         )
 
 
 # ============================================================
-# DELIVERY / PICKUP
+# DELIVERY / PICKUP COLLECTOR
 # ============================================================
 
 def _run_delivery_source(
@@ -941,7 +1136,9 @@ def _run_delivery_source(
         )
 
         uber_configured = bool(
-            os.getenv("UBER_PARTNER_CLIENT_ID")
+            os.getenv(
+                "UBER_PARTNER_CLIENT_ID"
+            )
             and os.getenv(
                 "UBER_PARTNER_CLIENT_SECRET"
             )
@@ -986,8 +1183,8 @@ def _run_delivery_source(
                 status="skipped",
                 detail=(
                     "Delivery collector is installed, "
-                    "but no agreed merchant/store IDs "
-                    "are configured."
+                    "but no agreed merchant/store "
+                    "IDs are configured."
                 ),
             )
 
@@ -998,24 +1195,24 @@ def _run_delivery_source(
         for pin in pins:
 
             lat_delta = abs(
-                pin.latitude -
-                payload.latitude
+                pin.latitude
+                - payload.latitude
             )
 
             lon_delta = abs(
-                pin.longitude -
-                payload.longitude
+                pin.longitude
+                - payload.longitude
             )
 
             if (
-                lat_delta >
-                payload.radiusMiles / 69.0
+                lat_delta
+                > payload.radiusMiles / 69.0
             ):
                 continue
 
             if (
-                lon_delta >
-                payload.radiusMiles / 50.0
+                lon_delta
+                > payload.radiusMiles / 50.0
             ):
                 continue
 
@@ -1039,7 +1236,9 @@ def _run_delivery_source(
                     text=pin.merchant_name,
                     rawConfidence=0.55,
                     metadata={
-                        "platform": pin.platform,
+                        "platform":
+                            pin.platform,
+
                         "merchant_id":
                             pin.merchant_id,
                     },
@@ -1067,7 +1266,7 @@ def _run_delivery_source(
             name="Delivery Pickup Pins",
             status="ok",
             detail=(
-                f"Collector loaded and returned "
+                "Collector loaded and returned "
                 f"{count} nearby pickup pin(s)."
             ),
         )
@@ -1083,7 +1282,9 @@ def _run_delivery_source(
             id="delivery",
             name="Delivery Pickup Pins",
             status="error",
-            detail=f"{type(e).__name__}: {e}",
+            detail=(
+                f"{type(e).__name__}: {e}"
+            ),
         )
 
 
@@ -1128,21 +1329,27 @@ def radar_scan(
 
     municipal_url = (
         h.get("x-rcr-municipal-url")
-        or os.getenv("MUNICIPAL_DATASET_URL")
+        or None
     )
 
     municipal_token = (
         h.get("x-rcr-municipal-token")
-        or os.getenv("MUNICIPAL_APP_TOKEN")
+        or None
     )
 
     sources = []
+
     cameras_out = []
+
     observations = []
+
     detections = []
+
     sightings_out = []
 
-    now = datetime.now(timezone.utc)
+    now = datetime.now(
+        timezone.utc
+    )
 
     now_iso = now.strftime(
         "%Y-%m-%dT%H:%M:%SZ"
@@ -1162,7 +1369,8 @@ def radar_scan(
                     name="Traffic Camera Vision",
                     status="skipped",
                     detail=(
-                        "No AI provider key configured."
+                        "No AI provider key. Add Anthropic, "
+                        "xAI/Grok, and/or OpenRouter in Settings."
                     ),
                 )
             )
@@ -1215,7 +1423,9 @@ def radar_scan(
 
                 hits = 0
 
-                rr_state = {"i": 0}
+                rr_state = {
+                    "i": 0
+                }
 
                 providers_used = set()
 
@@ -1269,10 +1479,6 @@ def radar_scan(
                             )
                         )
 
-                        reasoning = result.get(
-                            "reasoning"
-                        )
-
                         observations.append(
                             RadarObservationOut(
                                 id=str(uuid.uuid4()),
@@ -1283,7 +1489,9 @@ def radar_scan(
                                 observedAt=now_iso,
                                 latitude=cam.latitude,
                                 longitude=cam.longitude,
-                                text=reasoning,
+                                text=result.get(
+                                    "reasoning"
+                                ),
                                 sourceURL=(
                                     cam.current_image_url
                                 ),
@@ -1298,6 +1506,7 @@ def radar_scan(
                                                 "",
                                             )
                                         ),
+
                                     "vision_provider":
                                         provider_used,
                                 },
@@ -1319,14 +1528,14 @@ def radar_scan(
                                 note=(
                                     f"Camera at "
                                     f"{cam.location_name}: "
-                                    f"{reasoning or ''}"
+                                    f"{result.get('reasoning', '')}"
                                 ),
                             )
                         )
 
                 strategy_note = (
                     f"strategy={llm_strategy}, "
-                    f"provider(s) used: "
+                    "provider(s) used: "
                     f"{', '.join(sorted(providers_used)) or 'none'}"
                 )
 
@@ -1363,7 +1572,7 @@ def radar_scan(
                 )
 
         # ====================================================
-        # MUNICIPAL
+        # MUNICIPAL PERMITS
         # ====================================================
 
         if not municipal_url:
@@ -1374,7 +1583,8 @@ def radar_scan(
                     name="Municipal Permits",
                     status="skipped",
                     detail=(
-                        "No municipal dataset URL configured."
+                        "No municipal dataset URL. "
+                        "Add one in Settings."
                     ),
                 )
             )
@@ -1387,11 +1597,9 @@ def radar_scan(
                     fetch_food_truck_permits,
                 )
 
-                permits = (
-                    fetch_food_truck_permits(
-                        dataset_url=municipal_url,
-                        app_token=municipal_token,
-                    )
+                permits = fetch_food_truck_permits(
+                    dataset_url=municipal_url,
+                    app_token=municipal_token,
                 )
 
                 for p in permits:
@@ -1405,7 +1613,8 @@ def radar_scan(
                             id=str(uuid.uuid4()),
                             source="municipal",
                             sourceID=str(
-                                truck_name or "unknown"
+                                truck_name
+                                or "unknown"
                             ),
                             observedAt=now_iso,
                             latitude=payload.latitude,
@@ -1421,7 +1630,7 @@ def radar_scan(
                                             "permit_valid_until"
                                         )
                                         or ""
-                                    )
+                                    ),
                             },
                         )
                     )
@@ -1483,7 +1692,7 @@ def radar_scan(
         )
 
         # ====================================================
-        # DELIVERY
+        # DELIVERY / PICKUP
         # ====================================================
 
         sources.append(
@@ -1511,7 +1720,7 @@ def radar_scan(
         )
 
         # ====================================================
-        # SIGNAL FUSION / CLOUDKIT
+        # SIGNAL FUSION / CLOUDKIT WRITE-THROUGH
         # ====================================================
 
         if not detections:
@@ -1552,6 +1761,7 @@ def radar_scan(
                     )
 
                     errored += 1
+
                     continue
 
                 if result.sighting:
@@ -1582,11 +1792,12 @@ def radar_scan(
 
             detail = (
                 f"{written} sighting(s) written "
-                f"to CloudKit, "
+                "to CloudKit, "
                 f"{queued} queued for review"
             )
 
             if errored:
+
                 detail += (
                     f", {errored} failed"
                 )
@@ -1614,8 +1825,10 @@ def radar_scan(
             min(
                 1.0,
                 0.2
-                + 0.15 * len(observations)
-                + 0.1 * len(sightings_out),
+                + 0.15
+                * len(observations)
+                + 0.1
+                * len(sightings_out),
             )
             if observations
             else 0.0
@@ -1623,20 +1836,26 @@ def radar_scan(
 
         if observations:
 
-            summary = (
-                f"{len(observations)} signal(s) "
-                f"found across "
-                f"{active_source_count} "
-                f"active source(s)."
-            )
+            summary_bits = [
+                (
+                    f"{len(observations)} signal(s) "
+                    "found across "
+                    f"{active_source_count} "
+                    "active source(s)."
+                )
+            ]
 
             if sightings_out:
 
-                summary += (
-                    f" {len(sightings_out)} "
-                    f"confirmed sighting(s) "
-                    f"added to the map."
+                summary_bits.append(
+                    f"{len(sightings_out)} "
+                    "confirmed sighting(s) "
+                    "added to the map."
                 )
+
+            summary = " ".join(
+                summary_bits
+            )
 
         else:
 
@@ -1653,7 +1872,9 @@ def radar_scan(
             observations=observations,
             summary=summary,
             confidence=confidence,
-            evidence_count=len(observations),
+            evidence_count=len(
+                observations
+            ),
         )
 
     except Exception as e:
@@ -1666,6 +1887,7 @@ def radar_scan(
         return RadarScanResultOut(
             id=str(uuid.uuid4()),
             scanned_at=now_iso,
+
             sources=[
                 RadarSourceOut(
                     id="scan",
@@ -1677,13 +1899,16 @@ def radar_scan(
                     ),
                 )
             ],
+
             cameras=[],
             sightings=[],
             observations=[],
+
             summary=(
                 "Scan failed unexpectedly — "
                 "see server logs."
             ),
+
             confidence=0.0,
             evidence_count=0,
         )
