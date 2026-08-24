@@ -11,16 +11,6 @@ Required environment variables:
     CLOUDKIT_SERVER_PRIVATE_KEY
     CLOUDKIT_ENVIRONMENT
 
-Example:
-
-    CLOUDKIT_CONTAINER_ID=iCloud.com.TrueFamily.RoachCoachRadar
-    CLOUDKIT_SERVER_KEY_ID=XXXXXXXXXX
-    CLOUDKIT_SERVER_PRIVATE_KEY="-----BEGIN EC PRIVATE KEY-----
-    ...
-    -----END EC PRIVATE KEY-----"
-    CLOUDKIT_ENVIRONMENT=production
-
-IMPORTANT:
 CloudKit server-to-server keys access the PUBLIC database.
 """
 
@@ -30,7 +20,6 @@ import base64
 import hashlib
 from datetime import datetime, timezone
 from typing import Any, Optional
-from urllib.parse import quote
 
 import requests
 from cryptography.hazmat.primitives import hashes, serialization
@@ -97,16 +86,16 @@ def _validate_configuration() -> None:
 
 
 # ============================================================
-# PRIVATE KEY LOADING
+# PRIVATE KEY
 # ============================================================
 
 def _load_private_key():
     """
-    Load the EC private key from CLOUDKIT_SERVER_PRIVATE_KEY.
+    Load the EC private key from the environment.
 
-    Supports PEM stored directly in the environment variable.
-    Also handles escaped \\n characters, which are common when
-    storing multiline secrets in Vercel.
+    Handles both:
+      - real multiline PEM
+      - literal \\n characters from Vercel
     """
 
     _validate_configuration()
@@ -118,9 +107,16 @@ def _load_private_key():
             "CLOUDKIT_SERVER_PRIVATE_KEY is empty."
         )
 
-    # Vercel/environment variables sometimes contain literal
-    # backslash-n characters rather than real newlines.
+    # Convert literal backslash-n sequences into newlines.
     key_text = key_text.replace("\\n", "\n").strip()
+
+    # Remove accidental surrounding quotes.
+    if (
+        len(key_text) >= 2
+        and key_text[0] == '"'
+        and key_text[-1] == '"'
+    ):
+        key_text = key_text[1:-1].strip()
 
     key_bytes = key_text.encode("utf-8")
 
@@ -133,8 +129,8 @@ def _load_private_key():
         raise RuntimeError(
             "Unable to load CLOUDKIT_SERVER_PRIVATE_KEY. "
             "Make sure the complete EC private key PEM was "
-            "copied into the environment variable, including "
-            "BEGIN/END lines."
+            "copied into the Vercel environment variable, "
+            "including BEGIN/END lines."
         ) from exc
 
     if not isinstance(
@@ -153,35 +149,25 @@ def _load_private_key():
 # ============================================================
 
 def _cloudkit_date() -> str:
-    """
-    CloudKit requires ISO-8601 UTC time without milliseconds.
-
-    Example:
-        2026-08-24T16:30:00Z
-    """
-
     return datetime.now(timezone.utc).strftime(
         "%Y-%m-%dT%H:%M:%SZ"
     )
 
 
 # ============================================================
-# REQUEST BODY HASH
+# BODY HASH
 # ============================================================
 
 def _body_hash(body: bytes) -> str:
-    """
-    CloudKit signature uses the Base64 encoded SHA-256
-    hash of the request body.
-    """
-
     digest = hashlib.sha256(body).digest()
 
-    return base64.b64encode(digest).decode("ascii")
+    return base64.b64encode(
+        digest
+    ).decode("ascii")
 
 
 # ============================================================
-# SIGNATURE
+# SIGN REQUEST
 # ============================================================
 
 def _sign_request(
@@ -189,16 +175,6 @@ def _sign_request(
     body: bytes,
     path: str,
 ) -> str:
-    """
-    Create the CloudKit server-to-server ECDSA signature.
-
-    CloudKit signing payload:
-
-        [date]:[base64 SHA256(body)]:[web service path]
-
-    Apple requires the resulting ECDSA signature to be
-    Base64 encoded.
-    """
 
     private_key = _load_private_key()
 
@@ -215,22 +191,16 @@ def _sign_request(
         ec.ECDSA(hashes.SHA256()),
     )
 
-    return base64.b64encode(signature).decode("ascii")
+    return base64.b64encode(
+        signature
+    ).decode("ascii")
 
 
 # ============================================================
-# PATH BUILDER
+# PATH
 # ============================================================
 
 def _path(operation: str) -> str:
-    """
-    Build the CloudKit Web Services path.
-
-    Example:
-
-        /database/1/iCloud.com.TrueFamily.RoachCoachRadar/
-        production/public/records/modify
-    """
 
     _validate_configuration()
 
@@ -238,8 +208,8 @@ def _path(operation: str) -> str:
 
     if not container.startswith("iCloud."):
         raise RuntimeError(
-            "CLOUDKIT_CONTAINER_ID should normally begin with "
-            "'iCloud.'. Received: "
+            "CLOUDKIT_CONTAINER_ID should normally begin "
+            "with 'iCloud.'. Received: "
             + container
         )
 
@@ -255,7 +225,7 @@ def _path(operation: str) -> str:
 
 
 # ============================================================
-# GENERIC REQUEST
+# GENERIC CLOUDKIT REQUEST
 # ============================================================
 
 def cloudkit_request(
@@ -263,9 +233,6 @@ def cloudkit_request(
     body: Optional[dict[str, Any]] = None,
     timeout: int = 30,
 ) -> dict[str, Any]:
-    """
-    Make an authenticated CloudKit Web Services request.
-    """
 
     _validate_configuration()
 
@@ -289,29 +256,30 @@ def cloudkit_request(
     )
 
     headers = {
-        "Content-Type": "text/plain",
+        "Content-Type": "application/json",
         "Accept": "application/json",
-
         "X-Apple-CloudKit-Request-KeyID":
             CLOUDKIT_SERVER_KEY_ID,
-
         "X-Apple-CloudKit-Request-ISO8601Date":
             date_string,
-
         "X-Apple-CloudKit-Request-SignatureV1":
             signature,
     }
 
     url = CLOUDKIT_BASE_URL + path
 
-    response = requests.post(
-        url,
-        headers=headers,
-        data=body_bytes,
-        timeout=timeout,
-    )
+    try:
+        response = requests.post(
+            url,
+            headers=headers,
+            data=body_bytes,
+            timeout=timeout,
+        )
+    except requests.RequestException as exc:
+        raise RuntimeError(
+            f"CloudKit network request failed: {exc}"
+        ) from exc
 
-    # CloudKit normally returns JSON even for errors.
     try:
         response_json = response.json()
     except ValueError:
@@ -320,10 +288,16 @@ def cloudkit_request(
         }
 
     if not response.ok:
+
+        error_payload = json.dumps(
+            response_json,
+            default=str,
+        )
+
         raise RuntimeError(
             "CloudKit request failed "
             f"(HTTP {response.status_code}): "
-            f"{json.dumps(response_json)}"
+            f"{error_payload}"
         )
 
     return response_json
@@ -335,13 +309,10 @@ def cloudkit_request(
 
 def cloudkit_test() -> dict[str, Any]:
     """
-    Test the server-to-server credentials by querying the
-    public database.
-
-    This does NOT modify data.
+    Non-destructive CloudKit authentication test.
     """
 
-    result = cloudkit_request(
+    return cloudkit_request(
         "records/query",
         {
             "query": {
@@ -351,8 +322,6 @@ def cloudkit_test() -> dict[str, Any]:
             "resultsLimit": 1,
         },
     )
-
-    return result
 
 
 # ============================================================
@@ -364,9 +333,6 @@ def query_records(
     filters: Optional[list[dict[str, Any]]] = None,
     results_limit: int = 100,
 ) -> list[dict[str, Any]]:
-    """
-    Query records from the CloudKit public database.
-    """
 
     if not record_type:
         raise ValueError(
@@ -392,7 +358,10 @@ def query_records(
         body,
     )
 
-    return result.get("records", [])
+    return result.get(
+        "records",
+        [],
+    )
 
 
 # ============================================================
@@ -404,12 +373,6 @@ def query_all_records(
     filters: Optional[list[dict[str, Any]]] = None,
     batch_size: int = 200,
 ) -> list[dict[str, Any]]:
-    """
-    Query records using CloudKit cursors.
-
-    Continues until CloudKit stops returning a continuation
-    cursor.
-    """
 
     if filters is None:
         filters = []
@@ -420,12 +383,8 @@ def query_all_records(
 
     while True:
 
-        query: dict[str, Any] = {
-            "recordType": record_type,
-            "filterBy": filters,
-        }
-
         if cursor:
+
             body = {
                 "resultsLimit": min(
                     max(batch_size, 1),
@@ -433,9 +392,14 @@ def query_all_records(
                 ),
                 "continuationMarker": cursor,
             }
+
         else:
+
             body = {
-                "query": query,
+                "query": {
+                    "recordType": record_type,
+                    "filterBy": filters,
+                },
                 "resultsLimit": min(
                     max(batch_size, 1),
                     200,
@@ -472,9 +436,6 @@ def lookup_records(
     record_type: str,
     record_names: list[str],
 ) -> list[dict[str, Any]]:
-    """
-    Lookup specific CloudKit records by recordName.
-    """
 
     if not record_names:
         return []
@@ -501,43 +462,33 @@ def lookup_records(
 
 
 # ============================================================
-# CREATE / UPDATE RECORDS
+# SAVE RECORDS
 # ============================================================
 
 def save_records(
     records: list[dict[str, Any]],
 ) -> dict[str, Any]:
-    """
-    Save/create/update CloudKit records.
-
-    Each record should look like:
-
-        {
-            "recordType": "Truck",
-            "recordName": "truck_123",
-            "fields": {
-                "name": {
-                    "value": "Taco Truck"
-                }
-            }
-        }
-    """
 
     if not records:
         return {
             "records": []
         }
 
+    operations = []
+
+    for record in records:
+
+        operations.append(
+            {
+                "operationType": "create",
+                "record": record,
+            }
+        )
+
     return cloudkit_request(
         "records/modify",
         {
-            "operations": [
-                {
-                    "operationType": "create",
-                    "record": record,
-                }
-                for record in records
-            ]
+            "operations": operations,
         },
     )
 
@@ -551,12 +502,6 @@ def upsert_record(
     record_name: str,
     fields: dict[str, Any],
 ) -> dict[str, Any]:
-    """
-    Create or update a CloudKit record.
-
-    Uses forceUpdate so the record can be written even when
-    it already exists.
-    """
 
     record = {
         "recordType": record_type,
@@ -564,7 +509,7 @@ def upsert_record(
         "fields": fields,
     }
 
-    result = cloudkit_request(
+    return cloudkit_request(
         "records/modify",
         {
             "operations": [
@@ -572,11 +517,9 @@ def upsert_record(
                     "operationType": "forceUpdate",
                     "record": record,
                 }
-            ]
+            ],
         },
     )
-
-    return result
 
 
 # ============================================================
@@ -587,9 +530,6 @@ def delete_records(
     record_type: str,
     record_names: list[str],
 ) -> dict[str, Any]:
-    """
-    Delete records from the public database.
-    """
 
     if not record_names:
         return {
@@ -599,6 +539,7 @@ def delete_records(
     operations = []
 
     for record_name in record_names:
+
         operations.append(
             {
                 "operationType": "forceDelete",
@@ -612,7 +553,7 @@ def delete_records(
     return cloudkit_request(
         "records/modify",
         {
-            "operations": operations
+            "operations": operations,
         },
     )
 
@@ -622,9 +563,6 @@ def delete_records(
 # ============================================================
 
 def get_trucks() -> list[dict[str, Any]]:
-    """
-    Retrieve all Truck records.
-    """
 
     return query_all_records(
         "Truck"
@@ -634,9 +572,6 @@ def get_trucks() -> list[dict[str, Any]]:
 def get_truck(
     record_name: str,
 ) -> Optional[dict[str, Any]]:
-    """
-    Retrieve one Truck by record name.
-    """
 
     records = lookup_records(
         "Truck",
@@ -651,9 +586,6 @@ def get_truck(
 # ============================================================
 
 def get_sightings() -> list[dict[str, Any]]:
-    """
-    Retrieve all Sighting records.
-    """
 
     return query_all_records(
         "Sighting"
@@ -663,9 +595,6 @@ def get_sightings() -> list[dict[str, Any]]:
 def get_sighting(
     record_name: str,
 ) -> Optional[dict[str, Any]]:
-    """
-    Retrieve one Sighting by record name.
-    """
 
     records = lookup_records(
         "Sighting",
@@ -675,40 +604,119 @@ def get_sighting(
     return records[0] if records else None
 
 
+# ============================================================
+# SAVE SIGHTING
+# ============================================================
+
 def save_sighting(
-    record_name: str,
-    fields: dict[str, Any],
+    record_or_name,
+    fields: Optional[dict[str, Any]] = None,
 ) -> dict[str, Any]:
     """
-    Write a Sighting record.
+    Save a Sighting.
+
+    Supports BOTH forms:
+
+    1.
+        save_sighting(
+            "sighting_123",
+            {
+                "truckId": {"value": "..."}
+            }
+        )
+
+    2. Main.py can pass a complete CloudKit record:
+
+        save_sighting({
+            "recordType": "Sighting",
+            "recordName": "sighting_123",
+            "fields": {...}
+        })
+
+    This compatibility is intentional.
     """
 
-    return upsert_record(
-        record_type="Sighting",
-        record_name=record_name,
-        fields=fields,
+    # --------------------------------------------------------
+    # FORM 1:
+    # save_sighting(record_name, fields)
+    # --------------------------------------------------------
+
+    if isinstance(record_or_name, str):
+
+        record_name = record_or_name
+
+        if fields is None:
+            fields = {}
+
+        return upsert_record(
+            record_type="Sighting",
+            record_name=record_name,
+            fields=fields,
+        )
+
+    # --------------------------------------------------------
+    # FORM 2:
+    # save_sighting(full_record)
+    # --------------------------------------------------------
+
+    if isinstance(record_or_name, dict):
+
+        record = dict(record_or_name)
+
+        record_type = record.get(
+            "recordType",
+            "Sighting",
+        )
+
+        record_name = record.get(
+            "recordName"
+        )
+
+        record_fields = record.get(
+            "fields",
+            {},
+        )
+
+        if not record_name:
+            record_name = (
+                f"sighting_{uuid_safe_id()}"
+            )
+
+        return upsert_record(
+            record_type=record_type,
+            record_name=record_name,
+            fields=record_fields,
+        )
+
+    raise TypeError(
+        "save_sighting() expects either "
+        "(record_name, fields) or a complete "
+        "CloudKit record dictionary."
     )
 
 
 # ============================================================
-# GENERIC CLOUDKIT RECORD CONVERTER
+# SAFE ID
+# ============================================================
+
+def uuid_safe_id() -> str:
+    """
+    Generate a CloudKit-safe record suffix.
+    """
+
+    import uuid
+
+    return uuid.uuid4().hex
+
+
+# ============================================================
+# CLOUDKIT FIELD HELPERS
 # ============================================================
 
 def cloudkit_field_value(
     field: Optional[dict[str, Any]],
     default: Any = None,
 ) -> Any:
-    """
-    Extract the value from a CloudKit field.
-
-    CloudKit fields are returned as:
-
-        {
-            "value": ...
-        }
-
-    This helper makes consuming those fields easier.
-    """
 
     if not field:
         return default
@@ -724,9 +732,6 @@ def record_field(
     field_name: str,
     default: Any = None,
 ) -> Any:
-    """
-    Read a field from a CloudKit record.
-    """
 
     fields = record.get(
         "fields",
@@ -740,12 +745,55 @@ def record_field(
 
 
 # ============================================================
-# ENVIRONMENT INFO
+# RECORD NORMALIZATION
+# ============================================================
+
+def normalize_record(
+    record: dict[str, Any],
+) -> dict[str, Any]:
+    """
+    Convert a CloudKit record into a convenient dictionary
+    while preserving the original record metadata.
+    """
+
+    normalized = {
+        "recordName": record.get(
+            "recordName"
+        ),
+        "recordType": record.get(
+            "recordType"
+        ),
+        "fields": record.get(
+            "fields",
+            {},
+        ),
+    }
+
+    for field_name, field in record.get(
+        "fields",
+        {},
+    ).items():
+
+        if isinstance(field, dict):
+
+            normalized[field_name] = field.get(
+                "value"
+            )
+
+        else:
+
+            normalized[field_name] = field
+
+    return normalized
+
+
+# ============================================================
+# ENVIRONMENT STATUS
 # ============================================================
 
 def cloudkit_config_status() -> dict[str, Any]:
     """
-    Safe configuration diagnostic.
+    Safe diagnostic.
 
     NEVER returns the private key.
     """
