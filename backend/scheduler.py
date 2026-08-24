@@ -21,6 +21,7 @@ import datetime
 import traceback
 
 sys.path.append(os.path.join(os.path.dirname(__file__), "scraping"))
+sys.path.append(os.path.join(os.path.dirname(__file__), "collectors"))
 sys.path.append(os.path.join(os.path.dirname(__file__), "phase3"))
 
 from apscheduler.schedulers.blocking import BlockingScheduler
