@@ -117,22 +117,15 @@ async def import_trucks(request: Request):
     # Protect the importer
     # -----------------------------------------------------
 
-    expected_token = os.getenv(
-        "IMPORT_ADMIN_TOKEN"
-    )
+    expected_token = os.getenv("IMPORT_ADMIN_TOKEN")
 
     if not expected_token:
         raise HTTPException(
             status_code=500,
-            detail=(
-                "IMPORT_ADMIN_TOKEN "
-                "is not configured"
-            ),
+            detail="IMPORT_ADMIN_TOKEN is not configured",
         )
 
-    supplied_token = request.headers.get(
-        "X-Import-Token"
-    )
+    supplied_token = request.headers.get("X-Import-Token")
 
     if supplied_token != expected_token:
         raise HTTPException(
@@ -173,19 +166,13 @@ async def import_trucks(request: Request):
     except json.JSONDecodeError as exc:
         raise HTTPException(
             status_code=500,
-            detail=(
-                "Invalid truck JSON: "
-                f"{exc}"
-            ),
+            detail=f"Invalid truck JSON: {exc}",
         )
 
     except Exception as exc:
         raise HTTPException(
             status_code=500,
-            detail=(
-                "Unable to read truck JSON: "
-                f"{exc}"
-            ),
+            detail=f"Unable to read truck JSON: {exc}",
         )
 
     # -----------------------------------------------------
@@ -219,35 +206,32 @@ async def import_trucks(request: Request):
     # -----------------------------------------------------
 
     try:
-        results = upsert_trucks(
-            trucks
-        )
+        results = upsert_trucks(trucks)
 
     except CloudKitError as exc:
         raise HTTPException(
             status_code=502,
-            detail=(
-                "CloudKit import failed: "
-                f"{exc}"
-            ),
+            detail=f"CloudKit import failed: {exc}",
         )
 
     except Exception as exc:
         raise HTTPException(
             status_code=500,
-            detail=(
-                "Truck import failed: "
-                f"{exc}"
-            ),
+            detail=f"Truck import failed: {exc}",
         )
 
     # -----------------------------------------------------
     # Process CloudKit results
     #
-    # IMPORTANT:
-    # CloudKit can return errors in several places.
-    # Preserve the COMPLETE item instead of throwing
-    # away the useful diagnostic information.
+    # CloudKit can return successful records in either:
+    #
+    #   {"record": {...}}
+    #
+    # OR directly as:
+    #
+    #   {"recordName": "...", "recordType": "Truck", ...}
+    #
+    # Your production response is the second format.
     # -----------------------------------------------------
 
     successful = 0
@@ -256,159 +240,173 @@ async def import_trucks(request: Request):
 
     for result in results:
 
-        # Keep the complete batch response available.
-        batch_errors = result.get(
-            "errors",
-            [],
-        )
+        if not isinstance(result, dict):
+            failed += 1
 
-        batch_records = result.get(
-            "records",
-            [],
-        )
+            errors.append({
+                "recordName": None,
+                "reason": "Invalid CloudKit batch response",
+                "serverErrorCode": None,
+                "record": None,
+                "raw": result,
+            })
 
-        # Normal successful records.
+            continue
+
+        batch_records = result.get("records", [])
+        batch_errors = result.get("errors", [])
+
+        if not isinstance(batch_records, list):
+            batch_records = []
+
+        if not isinstance(batch_errors, list):
+            batch_errors = []
+
+        # -------------------------------------------------
+        # Process records
+        # -------------------------------------------------
+
         for item in batch_records:
 
-            record = item.get(
-                "record"
-            )
+            if not isinstance(item, dict):
+                failed += 1
 
-            if record:
+                errors.append({
+                    "recordName": None,
+                    "reason": "Invalid CloudKit record response",
+                    "serverErrorCode": None,
+                    "record": None,
+                    "raw": item,
+                })
+
+                continue
+
+            # -------------------------------------------------
+            # FORMAT 1:
+            #
+            # {
+            #   "record": {...}
+            # }
+            # -------------------------------------------------
+
+            nested_record = item.get("record")
+
+            if isinstance(nested_record, dict):
                 successful += 1
                 continue
 
+            # -------------------------------------------------
+            # FORMAT 2:
+            #
+            # {
+            #   "recordName": "...",
+            #   "recordType": "Truck",
+            #   "fields": {...},
+            #   "reason": null,
+            #   "serverErrorCode": null
+            # }
+            #
+            # This is the format your production CloudKit
+            # response is actually returning.
+            # -------------------------------------------------
+
+            record_name = item.get("recordName")
+            record_type = item.get("recordType")
+            fields = item.get("fields")
+
+            reason = item.get("reason")
+            server_error_code = item.get("serverErrorCode")
+
+            if (
+                record_name
+                and record_type
+                and isinstance(fields, dict)
+                and not reason
+                and not server_error_code
+            ):
+                successful += 1
+                continue
+
+            # -------------------------------------------------
+            # Anything else is an actual failure.
+            # -------------------------------------------------
+
             failed += 1
 
-            errors.append(
-                {
-                    "recordName":
-                        item.get(
-                            "recordName"
-                        ),
+            errors.append({
+                "recordName": record_name,
+                "reason": reason,
+                "serverErrorCode": server_error_code,
+                "record": nested_record,
+                "raw": item,
+            })
 
-                    "reason":
-                        item.get(
-                            "reason"
-                        ),
+        # -------------------------------------------------
+        # Process explicit CloudKit errors
+        # -------------------------------------------------
 
-                    "serverErrorCode":
-                        item.get(
-                            "serverErrorCode"
-                        ),
-
-                    "record":
-                        item.get(
-                            "record"
-                        ),
-
-                    "raw":
-                        item,
-                }
-            )
-
-        # CloudKit may return failures in an
-        # errors array instead of records.
         for item in batch_errors:
 
             failed += 1
 
-            if isinstance(
-                item,
-                dict,
-            ):
-                errors.append(
-                    {
-                        "recordName":
-                            item.get(
-                                "recordName"
-                            ),
-
-                        "reason":
-                            item.get(
-                                "reason"
-                            ),
-
-                        "serverErrorCode":
-                            item.get(
-                                "serverErrorCode"
-                            ),
-
-                        "record":
-                            item.get(
-                                "record"
-                            ),
-
-                        "raw":
-                            item,
-                    }
-                )
+            if isinstance(item, dict):
+                errors.append({
+                    "recordName": item.get("recordName"),
+                    "reason": item.get("reason"),
+                    "serverErrorCode": item.get(
+                        "serverErrorCode"
+                    ),
+                    "record": item.get("record"),
+                    "raw": item,
+                })
 
             else:
-                errors.append(
-                    {
-                        "recordName": None,
-                        "reason": str(item),
-                        "serverErrorCode": None,
-                        "record": None,
-                        "raw": item,
-                    }
-                )
-
-        # If CloudKit gave us a response that contains
-        # neither records nor errors, preserve it.
-        if (
-            not batch_records
-            and not batch_errors
-        ):
-            errors.append(
-                {
+                errors.append({
                     "recordName": None,
-                    "reason":
-                        "CloudKit returned no records or errors",
+                    "reason": str(item),
                     "serverErrorCode": None,
                     "record": None,
-                    "raw": result,
-                }
-            )
+                    "raw": item,
+                })
+
+        # -------------------------------------------------
+        # Empty CloudKit response
+        # -------------------------------------------------
+
+        if not batch_records and not batch_errors:
+            errors.append({
+                "recordName": None,
+                "reason": (
+                    "CloudKit returned no records or errors"
+                ),
+                "serverErrorCode": None,
+                "record": None,
+                "raw": result,
+            })
 
     # -----------------------------------------------------
-    # Safety correction:
-    #
-    # The API requested N trucks. If CloudKit returned
-    # fewer than N successful/failed items, expose that
-    # fact instead of pretending the accounting is exact.
+    # Make sure accounting matches the requested count.
     # -----------------------------------------------------
 
-    accounted = (
-        successful
-        + failed
-    )
+    accounted = successful + failed
 
     if accounted < len(trucks):
 
-        errors.append(
-            {
-                "recordName": None,
+        missing = len(trucks) - accounted
 
-                "reason": (
-                    "CloudKit response accounted for "
-                    f"{accounted} of "
-                    f"{len(trucks)} requested records"
-                ),
+        failed += missing
 
-                "serverErrorCode": None,
-
-                "record": None,
-
-                "raw": results,
-            }
-        )
-
-        failed += (
-            len(trucks)
-            - accounted
-        )
+        errors.append({
+            "recordName": None,
+            "reason": (
+                "CloudKit response accounted for "
+                f"{accounted} of "
+                f"{len(trucks)} requested records"
+            ),
+            "serverErrorCode": None,
+            "record": None,
+            "raw": results,
+        })
 
     # -----------------------------------------------------
     # Return import summary
@@ -420,19 +418,12 @@ async def import_trucks(request: Request):
             if failed == 0
             else "partial"
         ),
-
         "environment": os.getenv(
             "CLOUDKIT_ENVIRONMENT",
             "production",
         ),
-
-        "requested": len(
-            trucks
-        ),
-
+        "requested": len(trucks),
         "successful": successful,
-
         "failed": failed,
-
         "errors": errors,
     }
