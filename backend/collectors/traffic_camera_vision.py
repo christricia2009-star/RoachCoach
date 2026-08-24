@@ -16,7 +16,20 @@ Environment variables:
 
 Optional:
     VISION_PROVIDER=openrouter
-    VISION_MODEL=x-ai/grok-4.1-fast
+    VISION_MODEL=openai/gpt-5.6-luna
+    # This step runs once per nearby camera every scan (9+ calls/run isn't
+    # unusual), so it's worth keeping on a cheap, non-heavy-reasoning
+    # model rather than a frontier one — this is a simple "is there a
+    # food truck in this frame" classification, not something that
+    # benefits from deep reasoning. Two good current options on
+    # OpenRouter (verify pricing/availability before relying on this
+    # long-term, it shifts):
+    #   openai/gpt-5.6-luna       — ~$0.10-0.20/M in, $0.60-1.20/M out
+    #                               (price varies by which underlying
+    #                               provider OpenRouter routes to)
+    #   google/gemini-3.5-flash-lite — ~$0.30/M in, ~$1.50-2.50/M out
+    # Both accept image input. Set VISION_MODEL to switch between them
+    # (or anything else) without a code change.
 """
 
 import os
@@ -60,9 +73,14 @@ estimated_crowd_size must be:
 """
 
 
+# grok-4.1-fast was retired (same deprecation seen in
+# scraping/llm_providers.py) — switched the OpenRouter default to
+# openai/gpt-5.6-luna: cheap, image-capable, and built for exactly this
+# kind of high-volume routine classification. Override with VISION_MODEL
+# if you'd rather use google/gemini-3.5-flash-lite or something else.
 VISION_DEFAULT_MODELS = {
-    "openrouter": "x-ai/grok-4.1-fast",
-    "grok": "grok-4-1-fast",
+    "openrouter": "openai/gpt-5.6-luna",
+    "grok": "grok-4.3",
     "anthropic": "claude-sonnet-4-6",
 }
 
@@ -149,7 +167,7 @@ def _resolve_model(
 
     return VISION_DEFAULT_MODELS.get(
         provider,
-        "x-ai/grok-4.1-fast",
+        "openai/gpt-5.6-luna",
     )
 
 
