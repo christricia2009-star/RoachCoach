@@ -67,6 +67,14 @@ COLLECTORS_DIR = os.path.join(
 if COLLECTORS_DIR not in sys.path:
     sys.path.insert(0, COLLECTORS_DIR)
 
+SCRAPING_DIR = os.path.join(
+    os.path.dirname(os.path.abspath(__file__)),
+    "scraping",
+)
+
+if SCRAPING_DIR not in sys.path:
+    sys.path.insert(0, SCRAPING_DIR)
+
 
 # ============================================================
 # SCHEMAS
@@ -1304,6 +1312,223 @@ def _run_delivery_source(
         )
 
 
+def _run_social_source(
+    payload: RadarScanRequestIn,
+    observations: list[RadarObservationOut],
+    detections: list[RawDetection],
+) -> RadarSourceOut:
+    """
+    On-demand counterpart to scheduler.py's job_social_scraping() — same
+    fetch -> LLM extract -> geocode pipeline, just triggered by a single
+    /api/radar/scan call instead of the 30-minute background job, and
+    scoped to observations/detections for THIS scan instead of the
+    scheduler's own in-memory RECENT_DETECTIONS pool.
+
+    Every underlying source (Instagram Business Discovery, Facebook Page,
+    OpenRouter web search) is independently optional — this returns
+    status="skipped" only if NONE of them are configured, and a source
+    failing never stops the others (same pattern as _run_telecom_source /
+    _run_delivery_source above).
+    """
+
+    try:
+
+        from social_scraper import (
+            fetch_all_known_trucks,
+            fetch_web_search_results,
+            INSTAGRAM_BUSINESS_DISCOVERY_USERNAMES,
+            FACEBOOK_PAGE_IDS,
+        )
+
+        from llm_extract import extract_location_from_caption
+
+        from geocoding import geocode
+
+        instagram_configured = bool(
+            os.getenv("INSTAGRAM_BUSINESS_ACCOUNT_ID")
+            and os.getenv("INSTAGRAM_ACCESS_TOKEN")
+        )
+
+        facebook_configured = bool(
+            os.getenv("FACEBOOK_PAGE_ACCESS_TOKEN")
+            and FACEBOOK_PAGE_IDS
+        )
+
+        web_search_configured = bool(
+            os.getenv("OPENROUTER_API_KEY")
+        )
+
+        if (
+            not instagram_configured
+            and not facebook_configured
+            and not web_search_configured
+        ):
+
+            return RadarSourceOut(
+                id="social",
+                name="Social Scraper",
+                status="skipped",
+                detail=(
+                    "Social collector is installed, but none of "
+                    "Instagram Business Discovery "
+                    "(INSTAGRAM_BUSINESS_ACCOUNT_ID + "
+                    "INSTAGRAM_ACCESS_TOKEN), a Facebook Page "
+                    "(FACEBOOK_PAGE_ACCESS_TOKEN + at least one "
+                    "configured page ID), or web search "
+                    "(OPENROUTER_API_KEY) are configured."
+                ),
+            )
+
+        posts = fetch_all_known_trucks(
+            instagram_business_discovery_usernames=(
+                INSTAGRAM_BUSINESS_DISCOVERY_USERNAMES
+                if instagram_configured
+                else []
+            ),
+            facebook_page_ids=(
+                FACEBOOK_PAGE_IDS
+                if facebook_configured
+                else []
+            ),
+        )
+
+        if web_search_configured:
+
+            posts += fetch_web_search_results(
+                [
+                    name.title()
+                    for name in signal_fusion.KNOWN_TRUCK_NAMES.keys()
+                ]
+            )
+
+        matched = 0
+        skipped_no_location = 0
+
+        confidence_map = {
+            "high": 0.65,
+            "medium": 0.4,
+        }
+
+        for post in posts:
+
+            try:
+                extracted = extract_location_from_caption(
+                    post.caption
+                )
+            except Exception as e:
+                print(
+                    f"[social] llm_extract failed for "
+                    f"{post.truck_handle}: {e}"
+                )
+                continue
+
+            if extracted.get("confidence") not in (
+                "high",
+                "medium",
+            ):
+                continue
+
+            location_text = extracted.get("location_text")
+
+            geocoded = (
+                geocode(location_text)
+                if location_text
+                else None
+            )
+
+            if not geocoded:
+                skipped_no_location += 1
+                continue
+
+            # Filter to the requested scan radius, same as every other
+            # source below — no point returning a truck posted about a
+            # location 40 miles from where the app is asking.
+            lat_delta = abs(geocoded["latitude"] - payload.latitude)
+            lon_delta = abs(geocoded["longitude"] - payload.longitude)
+
+            if lat_delta > payload.radiusMiles / 69.0:
+                continue
+            if lon_delta > payload.radiusMiles / 50.0:
+                continue
+
+            matched += 1
+
+            raw_confidence = confidence_map.get(
+                extracted["confidence"], 0.4
+            )
+
+            posted_at = (
+                post.posted_at
+                if post.posted_at.tzinfo
+                else post.posted_at.replace(tzinfo=timezone.utc)
+            )
+
+            observations.append(
+                RadarObservationOut(
+                    id=str(uuid.uuid4()),
+                    source="social",
+                    sourceID=f"{post.source}:{post.truck_handle}",
+                    observedAt=posted_at.isoformat(),
+                    latitude=geocoded["latitude"],
+                    longitude=geocoded["longitude"],
+                    text=post.caption[:280],
+                    sourceURL=post.post_url or None,
+                    rawConfidence=raw_confidence,
+                    metadata={
+                        "platform": post.source,
+                        "location_text": location_text or "",
+                        "geocoded_display_name": geocoded.get(
+                            "display_name", ""
+                        ),
+                    },
+                )
+            )
+
+            detections.append(
+                RawDetection(
+                    source="social",
+                    latitude=geocoded["latitude"],
+                    longitude=geocoded["longitude"],
+                    timestamp=posted_at,
+                    raw_confidence=raw_confidence,
+                    text_hint=post.caption,
+                    note=(
+                        f"{post.source} post: "
+                        f'"{post.caption[:100]}" -> '
+                        f"{geocoded.get('display_name', location_text)}"
+                    ),
+                )
+            )
+
+        return RadarSourceOut(
+            id="social",
+            name="Social Scraper",
+            status="ok",
+            detail=(
+                f"Checked {len(posts)} post(s)/search result(s); "
+                f"{matched} had a location in range, "
+                f"{skipped_no_location} had a location we couldn't "
+                f"geocode."
+            ),
+        )
+
+    except Exception as e:
+
+        print(
+            "social source failed:\n"
+            + traceback.format_exc()
+        )
+
+        return RadarSourceOut(
+            id="social",
+            name="Social Scraper",
+            status="error",
+            detail=(
+                f"{type(e).__name__}: {e}"
+            ),
+        )
+
+
 # ============================================================
 # RADAR SCAN
 # ============================================================
@@ -1720,14 +1945,10 @@ def radar_scan(
         # ====================================================
 
         sources.append(
-            RadarSourceOut(
-                id="social",
-                name="Social Scraper",
-                status="skipped",
-                detail=(
-                    "Social scraper collector is present "
-                    "but is not enabled by this radar route."
-                ),
+            _run_social_source(
+                payload,
+                observations,
+                detections,
             )
         )
 
