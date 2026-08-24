@@ -27,10 +27,16 @@ LLM_PROVIDER = os.getenv("LLM_PROVIDER", "anthropic")  # used only in "single" m
 
 # Cheap default models per provider — check current pricing before relying
 # on these long-term, since providers change model lineups frequently.
+#
+# grok-4.1-fast was retired (xAI/OpenRouter now 404 it, pointing at
+# grok-4.3 instead) — updated Aug 2026. If you see a
+# "<model> is deprecated" 404 in the logs again later, that means these
+# need bumping again; check https://openrouter.ai/models?q=grok for
+# whatever's current before hardcoding a replacement.
 DEFAULT_MODELS = {
     "anthropic": "claude-sonnet-4-6",
-    "grok": "grok-4-1-fast",              # cheapest general xAI tier as of Aug 2026
-    "openrouter": "x-ai/grok-4.1-fast",   # same model, routed through OpenRouter
+    "grok": "grok-4.3",                 # current general xAI tier as of Aug 2026
+    "openrouter": "x-ai/grok-4.3",      # same model, routed through OpenRouter
     # OpenRouter also lists free, rate-limited models — check
     # https://openrouter.ai/models filtered by "free" for current options
     # and set LLM_MODEL to one of those IDs if you want zero-cost testing.
