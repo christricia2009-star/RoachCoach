@@ -38,6 +38,17 @@ import cloudkit_bridge
 
 app = FastAPI(title="Roach Coach Radar API")
 
+@app.get("/api/diagnostics/vision")
+def vision_diagnostics():
+    return {
+        "openrouter_configured": bool(os.getenv("OPENROUTER_API_KEY")),
+        "xai_configured": bool(os.getenv("XAI_API_KEY")),
+        "x_bearer_configured": bool(os.getenv("X_API_BEARER_TOKEN")),
+        "llm_strategy": os.getenv("LLM_STRATEGY") or "(empty)",
+        "llm_provider": os.getenv("LLM_PROVIDER") or "(empty)",
+        "llm_model": os.getenv("LLM_MODEL") or "(empty)",
+    }
+
 
 # ============================================================
 # COLLECTOR PATH
