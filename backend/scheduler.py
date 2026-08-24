@@ -263,49 +263,19 @@ def job_social_scraping():
     RoachCoach pipeline to fail.
     """
 
-    from social_scraper import fetch_all_known_trucks
+    from social_scraper import (
+        fetch_all_known_trucks,
+        fetch_web_search_results,
+        INSTAGRAM_BUSINESS_DISCOVERY_USERNAMES,
+        FACEBOOK_PAGE_IDS,
+    )
     from llm_extract import extract_location_from_caption
     from geocoding import geocode
+    from backend.signal_fusion import KNOWN_TRUCK_NAMES
 
-    # ------------------------------------------------------------------
-    # INSTAGRAM BUSINESS DISCOVERY
-    #
-    # These are curated Instagram usernames for Sacramento / Plumas
-    # Lake-area food trucks.
-    #
-    # The actual API call is now OPTIONAL.
-    # ------------------------------------------------------------------
-
-    instagram_business_discovery_usernames: list[str] = [
-
-        "drewskis",
-
-        "thebuckhornbbqtruck",
-
-        "sactomofo",
-
-        "krushroseville",
-
-        "the_potato_truck",
-
-        "alamedatacossac",
-
-        "muchonachossacramento",
-
-        "sactopopuptruck",
-
-        "santacosmx",
-
-        "tacoasac",
-
-        "tacos_gto_",
-
-        "tacomiendofoodtruck",
-
-        "sactacosfoodtruck",
-
-        "thelumpiatruck",
-    ]
+    # Curated account lists now live in social_scraper.py (single source
+    # of truth shared with main.py's on-demand /api/radar/scan route) —
+    # see INSTAGRAM_BUSINESS_DISCOVERY_USERNAMES / FACEBOOK_PAGE_IDS there.
 
     # Accounts YOU personally manage as Instagram testers.
     #
@@ -317,11 +287,6 @@ def job_social_scraping():
     # Leave empty until X API access is configured.
     x_usernames: list[str] = []
 
-    # Facebook pages.
-    #
-    # Leave empty until appropriate Facebook Page API access exists.
-    facebook_page_ids: list[str] = []
-
     # ------------------------------------------------------------------
     # FETCH SOCIAL DATA
     # ------------------------------------------------------------------
@@ -332,10 +297,24 @@ def job_social_scraping():
         x_usernames=x_usernames,
 
         instagram_business_discovery_usernames=(
-            instagram_business_discovery_usernames
+            INSTAGRAM_BUSINESS_DISCOVERY_USERNAMES
         ),
 
-        facebook_page_ids=facebook_page_ids,
+        facebook_page_ids=FACEBOOK_PAGE_IDS,
+    )
+
+    # ------------------------------------------------------------------
+    # WEB SEARCH FALLBACK/SUPPLEMENT
+    #
+    # Runs an OpenRouter web-search-grounded lookup for every truck we
+    # already know by name (same KNOWN_TRUCK_NAMES list signal_fusion.py
+    # uses to match captions), regardless of whether that truck has a
+    # monitored social account. Skips cleanly (empty list) if
+    # OPENROUTER_API_KEY isn't set — see llm_providers.web_search_complete.
+    # ------------------------------------------------------------------
+
+    posts += fetch_web_search_results(
+        [name.title() for name in KNOWN_TRUCK_NAMES.keys()]
     )
 
     # ------------------------------------------------------------------
