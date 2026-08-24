@@ -6,6 +6,10 @@
   },
   "rewrites": [
     {
+      "source": "/admin/import-trucks",
+      "destination": "/api/index.py"
+    },
+    {
       "source": "/api/:path*",
       "destination": "/api/index.py"
     },
@@ -20,10 +24,6 @@
     {
       "source": "/sightings",
       "destination": "/api/index.py"
-    },
-    {
-      "source": "/admin/import_trucks",
-      "destination": "/api/admin/import_trucks.py"
     },
     {
       "source": "/radar/observations",
