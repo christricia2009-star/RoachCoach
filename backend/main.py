@@ -1530,7 +1530,273 @@ def _run_social_source(
 
 
 # ============================================================
-# RADAR SCAN
+# RADAR SCAN — CACHED READ PATH (default, fast)
+#
+# This endpoint used to run the ENTIRE live pipeline synchronously on
+# every tap of the "Scan" button: fetch every nearby traffic camera,
+# then call an AI vision model on each one SEQUENTIALLY, then fetch
+# municipal permits, then the telecom source, then the delivery
+# source, then the social source (which itself fetches Instagram/
+# Facebook/web-search posts and runs an LLM extraction + geocode call
+# PER POST). That's dozens of sequential network/LLM calls stacked
+# inside one HTTP request, bounded by Vercel's 60s function limit —
+# it was always going to time out under any real-world latency.
+#
+# backend/scheduler.py already runs this exact pipeline on a schedule
+# (every 5-30 min per source, via GitHub Actions / .github/workflows/
+# scheduler.yml) and writes results straight into CloudKit. So the
+# right job for a button tap is: read what's already there, near this
+# point, fast. That's what this does now. The old live-fan-out code is
+# still below, gated behind an "x-rcr-live-scan: true" header, for
+# manual/debug use — but it's no longer what the app calls by default.
+# ============================================================
+
+_DETECTION_SOURCE_TO_OBSERVATION_SOURCE = {
+    # RawDetection.source values (written by scheduler.py / main.py's
+    # live sources into UnmatchedDetection.source) -> the vocabulary
+    # RadarObservationOut.source actually uses, which must in turn be
+    # one of RadarObservation.SourceKind's raw values on the iOS side
+    # (userReport, social, camera, event, municipal, delivery,
+    # schedule, owner, web, telecom) or the WHOLE observations array
+    # fails to decode client-side over one bad value.
+    "traffic_cam": "camera",
+    "camera": "camera",
+    "telecom_signal": "telecom",
+    "telecom": "telecom",
+    "delivery_pickup": "delivery",
+    "delivery": "delivery",
+    "municipal_permit": "municipal",
+    "municipal": "municipal",
+    "social": "social",
+}
+
+UNMATCHED_DETECTION_WINDOW_HOURS = 6
+
+
+def _valid_uuid_str(value) -> Optional[str]:
+    """
+    iOS decodes id / truckId / truckID as Swift's native UUID, which
+    fails (and takes the WHOLE array down with it) on anything that
+    isn't a canonical UUID string. Guard here rather than trust every
+    CloudKit record to be clean — e.g. the blank records the
+    save_sighting bug wrote before it was fixed.
+    """
+
+    try:
+        return str(uuid.UUID(str(value)))
+    except (ValueError, AttributeError, TypeError):
+        return None
+
+
+def _within_radius(
+    lat: float,
+    lon: float,
+    payload: "RadarScanRequestIn",
+) -> bool:
+
+    lat_delta = abs(lat - payload.latitude)
+    lon_delta = abs(lon - payload.longitude)
+
+    return (
+        lat_delta <= payload.radiusMiles / 69.0
+        and lon_delta <= payload.radiusMiles / 50.0
+    )
+
+
+def _record_to_radar_sighting(
+    record: dict,
+) -> Optional["RadarSightingOut"]:
+
+    record_id = _valid_uuid_str(record.get("recordName"))
+    truck_id = _valid_uuid_str(_cloudkit_record_value(record, "truckId"))
+
+    if not record_id or not truck_id:
+        return None
+
+    return RadarSightingOut(
+        id=record_id,
+        truckId=truck_id,
+        latitude=float(_cloudkit_record_value(record, "latitude", 0) or 0),
+        longitude=float(_cloudkit_record_value(record, "longitude", 0) or 0),
+        reportedByUserId=_valid_uuid_str(
+            _cloudkit_record_value(record, "reportedByUserId")
+        ),
+        photoURL=_cloudkit_record_value(record, "photoURL") or None,
+        note=_cloudkit_record_value(record, "note"),
+        timestamp=_parse_datetime(
+            _cloudkit_record_value(record, "timestamp")
+        ).isoformat(),
+        confidenceLevel=_cloudkit_record_value(
+            record, "confidenceLevel", "scheduled"
+        ),
+        expiresAt=_parse_datetime(
+            _cloudkit_record_value(record, "expiresAt")
+        ).isoformat(),
+    )
+
+
+def _record_to_radar_observation(
+    record: dict,
+) -> Optional[RadarObservationOut]:
+
+    obs_id = _valid_uuid_str(record.get("recordName"))
+
+    if not obs_id:
+        return None
+
+    raw_source = str(_cloudkit_record_value(record, "source", "") or "")
+
+    resolved_truck_id = None
+
+    if _cloudkit_record_value(record, "status") == "resolved":
+        resolved_truck_id = _valid_uuid_str(
+            _cloudkit_record_value(record, "resolvedTruckId")
+        )
+
+    return RadarObservationOut(
+        id=obs_id,
+        truckID=resolved_truck_id,
+        source=_DETECTION_SOURCE_TO_OBSERVATION_SOURCE.get(
+            raw_source, "web"
+        ),
+        sourceID=raw_source or "unknown",
+        observedAt=_parse_datetime(
+            _cloudkit_record_value(record, "timestamp")
+        ).isoformat(),
+        latitude=float(_cloudkit_record_value(record, "latitude", 0) or 0),
+        longitude=float(_cloudkit_record_value(record, "longitude", 0) or 0),
+        text=(
+            _cloudkit_record_value(record, "textHint")
+            or _cloudkit_record_value(record, "note")
+            or _cloudkit_record_value(record, "reason")
+        ),
+        rawConfidence=float(
+            _cloudkit_record_value(record, "rawConfidence", 0.3) or 0.3
+        ),
+        state="live",
+        metadata={
+            "reason": str(
+                _cloudkit_record_value(record, "reason", "") or ""
+            ),
+            "status": str(
+                _cloudkit_record_value(record, "status", "pending")
+                or "pending"
+            ),
+        },
+    )
+
+
+def _cached_radar_scan(
+    payload: RadarScanRequestIn,
+) -> RadarScanResultOut:
+
+    now = datetime.now(timezone.utc)
+    now_iso = now.strftime("%Y-%m-%dT%H:%M:%SZ")
+
+    sightings_out: list[RadarSightingOut] = []
+
+    for record in _get_sighting_records():
+
+        expires_at = _parse_datetime(
+            _cloudkit_record_value(record, "expiresAt")
+        )
+
+        if expires_at <= now:
+            continue
+
+        lat = float(_cloudkit_record_value(record, "latitude", 0) or 0)
+        lon = float(_cloudkit_record_value(record, "longitude", 0) or 0)
+
+        if not _within_radius(lat, lon, payload):
+            continue
+
+        radar_sighting = _record_to_radar_sighting(record)
+
+        if radar_sighting:
+            sightings_out.append(radar_sighting)
+
+    observations: list[RadarObservationOut] = []
+
+    cutoff = now - timedelta(hours=UNMATCHED_DETECTION_WINDOW_HOURS)
+
+    try:
+        unmatched_records = cloudkit_bridge.get_unmatched_detections()
+    except Exception:
+        print(
+            "get_unmatched_detections failed:\n"
+            + traceback.format_exc()
+        )
+        unmatched_records = []
+
+    for record in unmatched_records:
+
+        timestamp = _parse_datetime(
+            _cloudkit_record_value(record, "timestamp")
+        )
+
+        if timestamp < cutoff:
+            continue
+
+        lat = float(_cloudkit_record_value(record, "latitude", 0) or 0)
+        lon = float(_cloudkit_record_value(record, "longitude", 0) or 0)
+
+        if not _within_radius(lat, lon, payload):
+            continue
+
+        observation = _record_to_radar_observation(record)
+
+        if observation:
+            observations.append(observation)
+
+    evidence_count = len(sightings_out) + len(observations)
+
+    sources = [
+        RadarSourceOut(
+            id="cached_snapshot",
+            name="Cached Signal Snapshot",
+            status="ok",
+            detail=(
+                f"{len(sightings_out)} sighting(s) and "
+                f"{len(observations)} pending signal(s) near this "
+                "location, from the scheduled background scan "
+                "(runs every 5-30 min per source)."
+            ),
+        )
+    ]
+
+    confidence = (
+        min(
+            1.0,
+            0.2
+            + 0.15 * len(observations)
+            + 0.1 * len(sightings_out),
+        )
+        if evidence_count
+        else 0.0
+    )
+
+    summary = (
+        f"{len(sightings_out)} confirmed sighting(s) and "
+        f"{len(observations)} unconfirmed signal(s) nearby."
+        if evidence_count
+        else "No signals found near this location right now."
+    )
+
+    return RadarScanResultOut(
+        id=str(uuid.uuid4()),
+        scanned_at=now_iso,
+        sources=sources,
+        cameras=[],
+        sightings=sightings_out,
+        observations=observations,
+        summary=summary,
+        confidence=confidence,
+        evidence_count=evidence_count,
+    )
+
+
+# ============================================================
+# RADAR SCAN — LIVE FAN-OUT (debug/manual only; see header gate below)
 # ============================================================
 
 @app.post(
@@ -1543,6 +1809,52 @@ def radar_scan(
 ):
 
     h = request.headers
+
+    live_scan = (
+        h.get("x-rcr-live-scan") or ""
+    ).strip().lower() in ("1", "true", "yes")
+
+    if not live_scan:
+
+        try:
+
+            return _cached_radar_scan(payload)
+
+        except Exception as e:
+
+            print(
+                "cached radar scan failed:\n"
+                + traceback.format_exc()
+            )
+
+            now = datetime.now(timezone.utc)
+
+            return RadarScanResultOut(
+                id=str(uuid.uuid4()),
+                scanned_at=now.strftime("%Y-%m-%dT%H:%M:%SZ"),
+                sources=[
+                    RadarSourceOut(
+                        id="cached_snapshot",
+                        name="Cached Signal Snapshot",
+                        status="error",
+                        detail=f"{type(e).__name__}: {e}",
+                    )
+                ],
+                cameras=[],
+                sightings=[],
+                observations=[],
+                summary=(
+                    "Scan failed unexpectedly — see server logs."
+                ),
+                confidence=0.0,
+                evidence_count=0,
+            )
+
+    # ------------------------------------------------------------
+    # Everything below only runs when the caller explicitly opts in
+    # via the x-rcr-live-scan header — kept as-is for manual/debug
+    # use, not part of the app's default tap-to-scan path anymore.
+    # ------------------------------------------------------------
 
     vision_keys = _resolve_vision_keys(h)
 
