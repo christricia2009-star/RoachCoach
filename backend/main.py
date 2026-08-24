@@ -1333,14 +1333,6 @@ llm_provider_pref = (
     or "openrouter"
 ).lower()
 
-    llm_provider_pref = (
-        h.get("x-rcr-llm-provider")
-        or os.getenv(
-            "LLM_PROVIDER",
-            "anthropic",
-        )
-    ).lower()
-
     llm_model_override = (
         h.get("x-rcr-llm-model")
         or os.getenv("LLM_MODEL")
