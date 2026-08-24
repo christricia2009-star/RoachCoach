@@ -22,8 +22,13 @@ ENVIRONMENT = os.getenv(
     "production",
 ).strip().lower()
 
-KEY_ID = os.getenv("CLOUDKIT_SERVER_KEY_ID")
-PRIVATE_KEY = os.getenv("CLOUDKIT_SERVER_PRIVATE_KEY")
+KEY_ID = os.getenv(
+    "CLOUDKIT_SERVER_KEY_ID"
+)
+
+PRIVATE_KEY = os.getenv(
+    "CLOUDKIT_SERVER_PRIVATE_KEY"
+)
 
 
 class CloudKitError(RuntimeError):
@@ -42,15 +47,22 @@ def _get_private_key():
             "CLOUDKIT_SERVER_PRIVATE_KEY is not configured"
         )
 
-    pem = PRIVATE_KEY.replace("\\n", "\n").strip()
+    pem = PRIVATE_KEY.replace(
+        "\\n",
+        "\n",
+    ).strip()
 
     try:
-        private_key = serialization.load_pem_private_key(
-            pem.encode("utf-8"),
-            password=None,
+
+        private_key = (
+            serialization.load_pem_private_key(
+                pem.encode("utf-8"),
+                password=None,
+            )
         )
 
     except Exception as exc:
+
         raise CloudKitError(
             "CLOUDKIT_SERVER_PRIVATE_KEY is not a valid PEM EC private key"
         ) from exc
@@ -59,6 +71,7 @@ def _get_private_key():
         private_key,
         ec.EllipticCurvePrivateKey,
     ):
+
         raise CloudKitError(
             "CLOUDKIT_SERVER_PRIVATE_KEY is not an EC private key"
         )
@@ -66,7 +79,9 @@ def _get_private_key():
     return private_key
 
 
-def _endpoint(operation: str) -> str:
+def _endpoint(
+    operation: str,
+) -> str:
 
     return (
         f"/database/1/"
@@ -85,19 +100,28 @@ def _sign_request(
     private_key = _get_private_key()
 
     request_date = (
-        datetime.now(timezone.utc)
-        .replace(microsecond=0)
+        datetime.now(
+            timezone.utc
+        )
+        .replace(
+            microsecond=0
+        )
         .isoformat()
-        .replace("+00:00", "Z")
+        .replace(
+            "+00:00",
+            "Z",
+        )
     )
 
     body_hash = hashlib.sha256(
         body
     ).digest()
 
-    body_hash_base64 = base64.b64encode(
-        body_hash
-    ).decode("ascii")
+    body_hash_base64 = (
+        base64.b64encode(
+            body_hash
+        ).decode("ascii")
+    )
 
     message = (
         f"{request_date}:"
@@ -107,18 +131,29 @@ def _sign_request(
 
     signature_der = private_key.sign(
         message,
-        ec.ECDSA(hashes.SHA256()),
+        ec.ECDSA(
+            hashes.SHA256()
+        ),
     )
 
-    signature_base64 = base64.b64encode(
-        signature_der
-    ).decode("ascii")
+    signature_base64 = (
+        base64.b64encode(
+            signature_der
+        ).decode("ascii")
+    )
 
     return {
-        "Content-Type": "application/json",
-        "X-Apple-CloudKit-Request-KeyID": KEY_ID,
-        "X-Apple-CloudKit-Request-ISO8601Date": request_date,
-        "X-Apple-CloudKit-Request-SignatureV1": signature_base64,
+        "Content-Type":
+            "application/json",
+
+        "X-Apple-CloudKit-Request-KeyID":
+            KEY_ID,
+
+        "X-Apple-CloudKit-Request-ISO8601Date":
+            request_date,
+
+        "X-Apple-CloudKit-Request-SignatureV1":
+            signature_base64,
     }
 
 
@@ -127,11 +162,16 @@ def _request(
     payload: dict[str, Any],
 ) -> dict[str, Any]:
 
-    path = _endpoint(operation)
+    path = _endpoint(
+        operation
+    )
 
     body = json.dumps(
         payload,
-        separators=(",", ":"),
+        separators=(
+            ",",
+            ":",
+        ),
         ensure_ascii=False,
     ).encode("utf-8")
 
@@ -189,7 +229,9 @@ def _request(
             f"{reason}"
         )
 
-    if data.get("serverErrorCode"):
+    if data.get(
+        "serverErrorCode"
+    ):
 
         raise CloudKitError(
             "CloudKit error: "
@@ -215,7 +257,9 @@ def _field(
         {},
     )
 
-    value = fields.get(name)
+    value = fields.get(
+        name
+    )
 
     if not isinstance(
         value,
@@ -252,6 +296,7 @@ def _timestamp_value(
             text = value.strip()
 
             if text.endswith("Z"):
+
                 text = (
                     text[:-1]
                     + "+00:00"
@@ -275,23 +320,32 @@ def _timestamp_value(
 def query_records(
     record_type: str,
     *,
-    filters: list[dict[str, Any]] | None = None,
+    filters: list[
+        dict[str, Any]
+    ] | None = None,
     limit: int = 200,
 ) -> list[dict[str, Any]]:
 
     query: dict[str, Any] = {
-        "recordType": record_type,
+        "recordType":
+            record_type,
     }
 
     if filters:
+
         query["filterBy"] = filters
 
     payload: dict[str, Any] = {
-        "resultsLimit": limit,
-        "query": query,
+        "resultsLimit":
+            limit,
+
+        "query":
+            query,
     }
 
-    records: list[dict[str, Any]] = []
+    records: list[
+        dict[str, Any]
+    ] = []
 
     while True:
 
@@ -310,6 +364,7 @@ def query_records(
             )
 
             if record:
+
                 records.append(
                     record
                 )
@@ -332,7 +387,9 @@ def query_records(
 # TRUCK READ
 # =========================================================
 
-def fetch_trucks() -> list[dict[str, Any]]:
+def fetch_trucks() -> list[
+    dict[str, Any]
+]:
 
     records = query_records(
         "Truck"
@@ -351,76 +408,80 @@ def fetch_trucks() -> list[dict[str, Any]]:
 
         trucks.append(
             {
-                "id": record_id,
+                "id":
+                    record_id,
 
-                "name": _field(
-                    record,
-                    "name",
-                    "",
-                ),
-
-                "cuisine_type": _field(
-                    record,
-                    "cuisineType",
-                    "",
-                ),
-
-                "social_links": _field(
-                    record,
-                    "socialLinks",
-                    [],
-                ) or [],
-
-                "average_confidence_score": float(
+                "name":
                     _field(
                         record,
-                        "averageConfidenceScore",
-                        0.0,
-                    ) or 0.0
-                ),
+                        "name",
+                        "",
+                    ),
 
-                "average_wait_minutes": int(
+                "cuisine_type":
                     _field(
                         record,
-                        "averageWaitMinutes",
-                        0,
-                    ) or 0
-                ),
+                        "cuisineType",
+                        "",
+                    ),
 
-                "rating": float(
+                "social_links":
                     _field(
                         record,
-                        "rating",
-                        0.0,
-                    ) or 0.0
-                ),
+                        "socialLinks",
+                        [],
+                    ) or [],
 
-                "menu_highlights": _field(
-                    record,
-                    "menuHighlights",
-                    [],
-                ) or [],
+                "average_confidence_score":
+                    float(
+                        _field(
+                            record,
+                            "averageConfidenceScore",
+                            0.0,
+                        ) or 0.0
+                    ),
 
-                "image_url": _field(
-                    record,
-                    "imageURL",
-                ),
+                "average_wait_minutes":
+                    int(
+                        _field(
+                            record,
+                            "averageWaitMinutes",
+                            0,
+                        ) or 0
+                    ),
 
-                "menu": _field(
-                    record,
-                    "menu",
-                    "",
-                ),
+                "rating":
+                    float(
+                        _field(
+                            record,
+                            "rating",
+                            0.0,
+                        ) or 0.0
+                    ),
+
+                "menu_highlights":
+                    _field(
+                        record,
+                        "menuHighlights",
+                        [],
+                    ) or [],
+
+                "image_url":
+                    _field(
+                        record,
+                        "imageURL",
+                    ),
             }
         )
 
     trucks.sort(
-        key=lambda truck: str(
-            truck.get(
-                "name",
-                "",
-            )
-        ).lower()
+        key=lambda truck:
+            str(
+                truck.get(
+                    "name",
+                    "",
+                )
+            ).lower()
     )
 
     return trucks
@@ -430,7 +491,9 @@ def fetch_trucks() -> list[dict[str, Any]]:
 # SIGHTINGS READ
 # =========================================================
 
-def fetch_sightings() -> list[dict[str, Any]]:
+def fetch_sightings() -> list[
+    dict[str, Any]
+]:
 
     records = query_records(
         "Sighting"
@@ -440,7 +503,9 @@ def fetch_sightings() -> list[dict[str, Any]]:
         datetime.now(
             timezone.utc
         ).timestamp()
-        - (3 * 60 * 60)
+        - (
+            3 * 60 * 60
+        )
     )
 
     sightings = []
@@ -464,8 +529,10 @@ def fetch_sightings() -> list[dict[str, Any]]:
             "timestamp",
         )
 
-        timestamp_epoch = _timestamp_value(
-            timestamp
+        timestamp_epoch = (
+            _timestamp_value(
+                timestamp
+            )
         )
 
         if timestamp_epoch > 0:
@@ -475,48 +542,57 @@ def fetch_sightings() -> list[dict[str, Any]]:
 
         sightings.append(
             {
-                "id": record_id,
+                "id":
+                    record_id,
 
-                "truck_id": truck_id,
+                "truck_id":
+                    truck_id,
 
-                "latitude": float(
+                "latitude":
+                    float(
+                        _field(
+                            record,
+                            "latitude",
+                            0.0,
+                        ) or 0.0
+                    ),
+
+                "longitude":
+                    float(
+                        _field(
+                            record,
+                            "longitude",
+                            0.0,
+                        ) or 0.0
+                    ),
+
+                "note":
                     _field(
                         record,
-                        "latitude",
-                        0.0,
-                    ) or 0.0
-                ),
+                        "note",
+                    ),
 
-                "longitude": float(
+                "photo_url":
                     _field(
                         record,
-                        "longitude",
-                        0.0,
-                    ) or 0.0
-                ),
+                        "photoURL",
+                    ),
 
-                "note": _field(
-                    record,
-                    "note",
-                ),
+                "confidence_level":
+                    _field(
+                        record,
+                        "confidenceLevel",
+                        "Likely",
+                    ),
 
-                "photo_url": _field(
-                    record,
-                    "photoURL",
-                ),
+                "timestamp":
+                    timestamp,
 
-                "confidence_level": _field(
-                    record,
-                    "confidenceLevel",
-                    "Likely",
-                ),
-
-                "timestamp": timestamp,
-
-                "expires_at": _field(
-                    record,
-                    "expiresAt",
-                ),
+                "expires_at":
+                    _field(
+                        record,
+                        "expiresAt",
+                    ),
             }
         )
 
@@ -543,13 +619,18 @@ def fetch_sightings_for_truck(
 
     filters = [
         {
-            "fieldName": "truckId",
+            "fieldName":
+                "truckId",
 
-            "comparator": "EQUALS",
+            "comparator":
+                "EQUALS",
 
             "fieldValue": {
-                "value": truck_id,
-                "type": "STRING",
+                "value":
+                    truck_id,
+
+                "type":
+                    "STRING",
             },
         }
     ]
@@ -577,51 +658,60 @@ def fetch_sightings_for_truck(
 
         sightings.append(
             {
-                "id": record_id,
+                "id":
+                    record_id,
 
-                "truck_id": _field(
-                    record,
-                    "truckId",
-                ),
-
-                "latitude": float(
+                "truck_id":
                     _field(
                         record,
-                        "latitude",
-                        0.0,
-                    ) or 0.0
-                ),
+                        "truckId",
+                    ),
 
-                "longitude": float(
+                "latitude":
+                    float(
+                        _field(
+                            record,
+                            "latitude",
+                            0.0,
+                        ) or 0.0
+                    ),
+
+                "longitude":
+                    float(
+                        _field(
+                            record,
+                            "longitude",
+                            0.0,
+                        ) or 0.0
+                    ),
+
+                "note":
                     _field(
                         record,
-                        "longitude",
-                        0.0,
-                    ) or 0.0
-                ),
+                        "note",
+                    ),
 
-                "note": _field(
-                    record,
-                    "note",
-                ),
+                "photo_url":
+                    _field(
+                        record,
+                        "photoURL",
+                    ),
 
-                "photo_url": _field(
-                    record,
-                    "photoURL",
-                ),
+                "confidence_level":
+                    _field(
+                        record,
+                        "confidenceLevel",
+                        "Likely",
+                    ),
 
-                "confidence_level": _field(
-                    record,
-                    "confidenceLevel",
-                    "Likely",
-                ),
+                "timestamp":
+                    timestamp,
 
-                "timestamp": timestamp,
-
-                "expires_at": _field(
-                    record,
-                    "expiresAt",
-                ),
+                "expires_at":
+                    _field(
+                        record,
+                        "expiresAt",
+                    ),
             }
         )
 
@@ -642,39 +732,57 @@ def fetch_sightings_for_truck(
 # TRUCK IMPORT / UPSERT
 # =========================================================
 
-def _string(value: Any) -> str:
+def _string(
+    value: Any,
+) -> str:
 
     if value is None:
         return ""
 
-    return str(value).strip()
+    return str(
+        value
+    ).strip()
 
 
-def _double(value: Any) -> float:
+def _double(
+    value: Any,
+) -> float:
 
     if value is None:
         return 0.0
 
     try:
-        return float(value)
+
+        return float(
+            value
+        )
 
     except Exception:
+
         return 0.0
 
 
-def _int64(value: Any) -> int:
+def _int64(
+    value: Any,
+) -> int:
 
     if value is None:
         return 0
 
     try:
-        return int(value)
+
+        return int(
+            value
+        )
 
     except Exception:
+
         return 0
 
 
-def _string_list(value: Any) -> list[str]:
+def _string_list(
+    value: Any,
+) -> list[str]:
 
     if value is None:
         return []
@@ -711,46 +819,48 @@ def _normalize_truck(
 ) -> dict[str, Any]:
 
     name = _string(
-        truck.get("name")
+        truck.get(
+            "name"
+        )
     )
 
     if not name:
+
         raise ValueError(
             "Truck is missing required name"
         )
 
     return {
-        "name": name,
+        "name":
+            name,
 
-        "cuisineType": _string(
-            truck.get(
-                "cuisineType"
-            )
-        ),
+        "cuisineType":
+            _string(
+                truck.get(
+                    "cuisineType"
+                )
+            ),
 
-        "imageURL": _string(
-            truck.get(
-                "imageURL"
-            )
-        ),
+        "imageURL":
+            _string(
+                truck.get(
+                    "imageURL"
+                )
+            ),
 
-        "menu": _string(
-            truck.get(
-                "menu"
-            )
-        ),
+        "menuHighlights":
+            _string_list(
+                truck.get(
+                    "menuHighlights"
+                )
+            ),
 
-        "menuHighlights": _string_list(
-            truck.get(
-                "menuHighlights"
-            )
-        ),
-
-        "socialLinks": _string_list(
-            truck.get(
-                "socialLinks"
-            )
-        ),
+        "socialLinks":
+            _string_list(
+                truck.get(
+                    "socialLinks"
+                )
+            ),
 
         "averageConfidenceScore":
             _double(
@@ -801,7 +911,9 @@ def _truck_record_name(
 
 
 def upsert_trucks(
-    trucks: list[dict[str, Any]],
+    trucks: list[
+        dict[str, Any]
+    ],
     chunk_size: int = 50,
 ) -> list[dict[str, Any]]:
 
@@ -809,6 +921,7 @@ def upsert_trucks(
         trucks,
         list,
     ):
+
         raise ValueError(
             "Truck import must be a list"
         )
@@ -824,7 +937,9 @@ def upsert_trucks(
 
     for start in range(
         0,
-        len(normalized_trucks),
+        len(
+            normalized_trucks
+        ),
         chunk_size,
     ):
 
@@ -861,13 +976,6 @@ def upsert_trucks(
                     "value":
                         truck[
                             "imageURL"
-                        ]
-                },
-
-                "menu": {
-                    "value":
-                        truck[
-                            "menu"
                         ]
                 },
 
