@@ -1333,41 +1333,41 @@ llm_provider_pref = (
     or "openrouter"
 ).lower()
 
-    llm_model_override = (
-        h.get("x-rcr-llm-model")
-        or os.getenv("LLM_MODEL")
-        or None
-    )
+llm_model_override = (
+    h.get("x-rcr-llm-model")
+    or os.getenv("LLM_MODEL")
+    or None
+)
 
-    municipal_url = (
-        h.get("x-rcr-municipal-url")
-        or None
-    )
+municipal_url = (
+    h.get("x-rcr-municipal-url")
+    or None
+)
 
-    municipal_token = (
-        h.get("x-rcr-municipal-token")
-        or None
-    )
+municipal_token = (
+    h.get("x-rcr-municipal-token")
+    or None
+)
 
-    sources = []
+sources = []
 
-    cameras_out = []
+cameras_out = []
 
-    observations = []
+observations = []
 
-    detections = []
+detections = []
 
-    sightings_out = []
+sightings_out = []
 
-    now = datetime.now(
-        timezone.utc
-    )
+now = datetime.now(
+    timezone.utc
+)
 
-    now_iso = now.strftime(
-        "%Y-%m-%dT%H:%M:%SZ"
-    )
+now_iso = now.strftime(
+    "%Y-%m-%dT%H:%M:%SZ"
+)
 
-    try:
+try:
 
         # ====================================================
         # TRAFFIC CAMERA VISION
