@@ -11,7 +11,6 @@ from urllib.parse import quote
 import requests
 from cryptography.hazmat.primitives import hashes, serialization
 from cryptography.hazmat.primitives.asymmetric import ec
-from cryptography.hazmat.primitives.asymmetric.utils import decode_dss_signature
 
 
 CONTAINER_ID = os.getenv(
@@ -70,20 +69,20 @@ def _sign_request(path: str, body: bytes) -> dict[str, str]:
 
     message = f"{now}:{body_hash}:{path}".encode("utf-8")
 
+    # Apple CloudKit Server-to-Server authentication uses
+    # the ECDSA signature generated from the complete message.
+    #
+    # IMPORTANT:
+    # Keep the DER-encoded ECDSA signature intact.
+    # Do NOT convert it to raw r||s bytes.
+
     signature_der = _get_private_key().sign(
         message,
         ec.ECDSA(hashes.SHA256()),
     )
 
-    r, s = decode_dss_signature(signature_der)
-
-    raw_signature = (
-        r.to_bytes(32, "big")
-        + s.to_bytes(32, "big")
-    )
-
     signature = base64.b64encode(
-        raw_signature
+        signature_der
     ).decode("ascii")
 
     return {
