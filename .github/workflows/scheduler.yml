@@ -19,7 +19,7 @@ jobs:
 
       - name: Install dependencies
         run: |
-          cd Backend
+          cd backend
           pip install -r requirements.txt
 
       - name: Reconstruct CloudKit private key from secret
@@ -51,5 +51,5 @@ jobs:
           FACEBOOK_PAGE_ACCESS_TOKEN: ${{ secrets.FACEBOOK_PAGE_ACCESS_TOKEN }}
           X_API_BEARER_TOKEN: ${{ secrets.X_API_BEARER_TOKEN }}
         run: |
-          cd Backend
+          cd backend
           python3 scheduler.py --once
