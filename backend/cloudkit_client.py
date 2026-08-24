@@ -31,6 +31,7 @@ class CloudKitError(RuntimeError):
 
 
 def _get_private_key():
+
     if not KEY_ID:
         raise CloudKitError(
             "CLOUDKIT_SERVER_KEY_ID is not configured"
@@ -48,6 +49,7 @@ def _get_private_key():
             pem.encode("utf-8"),
             password=None,
         )
+
     except Exception as exc:
         raise CloudKitError(
             "CLOUDKIT_SERVER_PRIVATE_KEY is not a valid PEM EC private key"
@@ -65,6 +67,7 @@ def _get_private_key():
 
 
 def _endpoint(operation: str) -> str:
+
     return (
         f"/database/1/"
         f"{CONTAINER_ID}/"
@@ -88,7 +91,9 @@ def _sign_request(
         .replace("+00:00", "Z")
     )
 
-    body_hash = hashlib.sha256(body).digest()
+    body_hash = hashlib.sha256(
+        body
+    ).digest()
 
     body_hash_base64 = base64.b64encode(
         body_hash
@@ -136,22 +141,32 @@ def _request(
     )
 
     try:
+
         response = requests.post(
             url,
             data=body,
-            headers=_sign_request(path, body),
-            timeout=20,
+            headers=_sign_request(
+                path,
+                body,
+            ),
+            timeout=30,
         )
+
     except requests.RequestException as exc:
+
         raise CloudKitError(
             f"CloudKit request exception: {exc}"
         ) from exc
 
     try:
+
         data = response.json()
+
     except Exception as exc:
+
         raise CloudKitError(
-            f"CloudKit returned HTTP {response.status_code} "
+            f"CloudKit returned HTTP "
+            f"{response.status_code} "
             "with a non-JSON response"
         ) from exc
 
@@ -159,18 +174,25 @@ def _request(
 
         reason = (
             data.get("reason")
-            or data.get("serverErrorDescription")
-            or data.get("serverErrorCode")
+            or data.get(
+                "serverErrorDescription"
+            )
+            or data.get(
+                "serverErrorCode"
+            )
             or "CloudKit request failed"
         )
 
         raise CloudKitError(
-            f"CloudKit HTTP {response.status_code}: {reason}"
+            f"CloudKit HTTP "
+            f"{response.status_code}: "
+            f"{reason}"
         )
 
     if data.get("serverErrorCode"):
+
         raise CloudKitError(
-            f"CloudKit error: "
+            "CloudKit error: "
             f"{data['serverErrorCode']}: "
             f"{data.get('reason', '')}"
         )
@@ -178,16 +200,27 @@ def _request(
     return data
 
 
+# =========================================================
+# CLOUDKIT FIELD HELPERS
+# =========================================================
+
 def _field(
     record: dict[str, Any],
     name: str,
     default=None,
 ):
-    fields = record.get("fields", {})
+
+    fields = record.get(
+        "fields",
+        {},
+    )
 
     value = fields.get(name)
 
-    if not isinstance(value, dict):
+    if not isinstance(
+        value,
+        dict,
+    ):
         return default
 
     return value.get(
@@ -203,26 +236,41 @@ def _timestamp_value(
     if value is None:
         return 0.0
 
-    if isinstance(value, (int, float)):
+    if isinstance(
+        value,
+        (int, float),
+    ):
         return float(value)
 
-    if isinstance(value, str):
+    if isinstance(
+        value,
+        str,
+    ):
 
         try:
+
             text = value.strip()
 
             if text.endswith("Z"):
-                text = text[:-1] + "+00:00"
+                text = (
+                    text[:-1]
+                    + "+00:00"
+                )
 
             return datetime.fromisoformat(
                 text
             ).timestamp()
 
         except Exception:
+
             return 0.0
 
     return 0.0
 
+
+# =========================================================
+# CLOUDKIT QUERY
+# =========================================================
 
 def query_records(
     record_type: str,
@@ -257,10 +305,14 @@ def query_records(
             [],
         ):
 
-            record = item.get("record")
+            record = item.get(
+                "record"
+            )
 
             if record:
-                records.append(record)
+                records.append(
+                    record
+                )
 
         marker = result.get(
             "continuationMarker"
@@ -275,6 +327,10 @@ def query_records(
 
     return records
 
+
+# =========================================================
+# TRUCK READ
+# =========================================================
 
 def fetch_trucks() -> list[dict[str, Any]]:
 
@@ -296,21 +352,25 @@ def fetch_trucks() -> list[dict[str, Any]]:
         trucks.append(
             {
                 "id": record_id,
+
                 "name": _field(
                     record,
                     "name",
                     "",
                 ),
+
                 "cuisine_type": _field(
                     record,
                     "cuisineType",
                     "",
                 ),
+
                 "social_links": _field(
                     record,
                     "socialLinks",
                     [],
                 ) or [],
+
                 "average_confidence_score": float(
                     _field(
                         record,
@@ -318,14 +378,38 @@ def fetch_trucks() -> list[dict[str, Any]]:
                         0.0,
                     ) or 0.0
                 ),
+
+                "average_wait_minutes": int(
+                    _field(
+                        record,
+                        "averageWaitMinutes",
+                        0,
+                    ) or 0
+                ),
+
+                "rating": float(
+                    _field(
+                        record,
+                        "rating",
+                        0.0,
+                    ) or 0.0
+                ),
+
                 "menu_highlights": _field(
                     record,
                     "menuHighlights",
                     [],
                 ) or [],
+
                 "image_url": _field(
                     record,
                     "imageURL",
+                ),
+
+                "menu": _field(
+                    record,
+                    "menu",
+                    "",
                 ),
             }
         )
@@ -342,21 +426,20 @@ def fetch_trucks() -> list[dict[str, Any]]:
     return trucks
 
 
-def fetch_sightings() -> list[dict[str, Any]]:
+# =========================================================
+# SIGHTINGS READ
+# =========================================================
 
-    # IMPORTANT:
-    # Do NOT filter by timestamp in CloudKit.
-    #
-    # The current CloudKit schema is rejecting the timestamp
-    # filter type. Retrieve the records first and filter them
-    # locally instead.
+def fetch_sightings() -> list[dict[str, Any]]:
 
     records = query_records(
         "Sighting"
     )
 
     cutoff = (
-        datetime.now(timezone.utc).timestamp()
+        datetime.now(
+            timezone.utc
+        ).timestamp()
         - (3 * 60 * 60)
     )
 
@@ -385,9 +468,8 @@ def fetch_sightings() -> list[dict[str, Any]]:
             timestamp
         )
 
-        # If timestamp is present and parseable,
-        # enforce the 3-hour window locally.
         if timestamp_epoch > 0:
+
             if timestamp_epoch < cutoff:
                 continue
 
@@ -439,14 +521,21 @@ def fetch_sightings() -> list[dict[str, Any]]:
         )
 
     sightings.sort(
-        key=lambda sighting: _timestamp_value(
-            sighting.get("timestamp")
-        ),
+        key=lambda sighting:
+            _timestamp_value(
+                sighting.get(
+                    "timestamp"
+                )
+            ),
         reverse=True,
     )
 
     return sightings
 
+
+# =========================================================
+# TRUCK SIGHTINGS READ
+# =========================================================
 
 def fetch_sightings_for_truck(
     truck_id: str,
@@ -455,7 +544,9 @@ def fetch_sightings_for_truck(
     filters = [
         {
             "fieldName": "truckId",
+
             "comparator": "EQUALS",
+
             "fieldValue": {
                 "value": truck_id,
                 "type": "STRING",
@@ -535,10 +626,316 @@ def fetch_sightings_for_truck(
         )
 
     sightings.sort(
-        key=lambda sighting: _timestamp_value(
-            sighting.get("timestamp")
-        ),
+        key=lambda sighting:
+            _timestamp_value(
+                sighting.get(
+                    "timestamp"
+                )
+            ),
         reverse=True,
     )
 
     return sightings
+
+
+# =========================================================
+# TRUCK IMPORT / UPSERT
+# =========================================================
+
+def _string(value: Any) -> str:
+
+    if value is None:
+        return ""
+
+    return str(value).strip()
+
+
+def _double(value: Any) -> float:
+
+    if value is None:
+        return 0.0
+
+    try:
+        return float(value)
+
+    except Exception:
+        return 0.0
+
+
+def _int64(value: Any) -> int:
+
+    if value is None:
+        return 0
+
+    try:
+        return int(value)
+
+    except Exception:
+        return 0
+
+
+def _string_list(value: Any) -> list[str]:
+
+    if value is None:
+        return []
+
+    if isinstance(
+        value,
+        str,
+    ):
+
+        if not value.strip():
+            return []
+
+        return [
+            value.strip()
+        ]
+
+    if isinstance(
+        value,
+        list,
+    ):
+
+        return [
+            str(item).strip()
+            for item in value
+            if item is not None
+            and str(item).strip()
+        ]
+
+    return []
+
+
+def _normalize_truck(
+    truck: dict[str, Any],
+) -> dict[str, Any]:
+
+    name = _string(
+        truck.get("name")
+    )
+
+    if not name:
+        raise ValueError(
+            "Truck is missing required name"
+        )
+
+    return {
+        "name": name,
+
+        "cuisineType": _string(
+            truck.get(
+                "cuisineType"
+            )
+        ),
+
+        "imageURL": _string(
+            truck.get(
+                "imageURL"
+            )
+        ),
+
+        "menu": _string(
+            truck.get(
+                "menu"
+            )
+        ),
+
+        "menuHighlights": _string_list(
+            truck.get(
+                "menuHighlights"
+            )
+        ),
+
+        "socialLinks": _string_list(
+            truck.get(
+                "socialLinks"
+            )
+        ),
+
+        "averageConfidenceScore":
+            _double(
+                truck.get(
+                    "averageConfidenceScore",
+                    0.0,
+                )
+            ),
+
+        "averageWaitMinutes":
+            _int64(
+                truck.get(
+                    "averageWaitMinutes",
+                    0,
+                )
+            ),
+
+        "rating":
+            _double(
+                truck.get(
+                    "rating",
+                    0.0,
+                )
+            ),
+    }
+
+
+def _truck_record_name(
+    name: str,
+) -> str:
+
+    normalized = (
+        name
+        .strip()
+        .casefold()
+    )
+
+    digest = hashlib.sha256(
+        normalized.encode(
+            "utf-8"
+        )
+    ).hexdigest()
+
+    return (
+        "truck_"
+        + digest[:32]
+    )
+
+
+def upsert_trucks(
+    trucks: list[dict[str, Any]],
+    chunk_size: int = 50,
+) -> list[dict[str, Any]]:
+
+    if not isinstance(
+        trucks,
+        list,
+    ):
+        raise ValueError(
+            "Truck import must be a list"
+        )
+
+    normalized_trucks = [
+        _normalize_truck(
+            truck
+        )
+        for truck in trucks
+    ]
+
+    responses = []
+
+    for start in range(
+        0,
+        len(normalized_trucks),
+        chunk_size,
+    ):
+
+        chunk = normalized_trucks[
+            start:
+            start + chunk_size
+        ]
+
+        operations = []
+
+        for truck in chunk:
+
+            record_name = (
+                _truck_record_name(
+                    truck["name"]
+                )
+            )
+
+            fields = {
+
+                "name": {
+                    "value":
+                        truck["name"]
+                },
+
+                "cuisineType": {
+                    "value":
+                        truck[
+                            "cuisineType"
+                        ]
+                },
+
+                "imageURL": {
+                    "value":
+                        truck[
+                            "imageURL"
+                        ]
+                },
+
+                "menu": {
+                    "value":
+                        truck[
+                            "menu"
+                        ]
+                },
+
+                "menuHighlights": {
+                    "value":
+                        truck[
+                            "menuHighlights"
+                        ]
+                },
+
+                "socialLinks": {
+                    "value":
+                        truck[
+                            "socialLinks"
+                        ]
+                },
+
+                "averageConfidenceScore": {
+                    "value":
+                        truck[
+                            "averageConfidenceScore"
+                        ]
+                },
+
+                "averageWaitMinutes": {
+                    "value":
+                        truck[
+                            "averageWaitMinutes"
+                        ]
+                },
+
+                "rating": {
+                    "value":
+                        truck[
+                            "rating"
+                        ]
+                },
+            }
+
+            operations.append(
+                {
+                    "operationType":
+                        "forceReplace",
+
+                    "record": {
+
+                        "recordName":
+                            record_name,
+
+                        "recordType":
+                            "Truck",
+
+                        "fields":
+                            fields,
+                    },
+                }
+            )
+
+        result = _request(
+            "records/modify",
+            {
+                "operations":
+                    operations
+            },
+        )
+
+        responses.append(
+            result
+        )
+
+    return responses
