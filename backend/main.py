@@ -1305,13 +1305,17 @@ def radar_scan(
 
     vision_keys = _resolve_vision_keys(h)
 
-    llm_strategy = (
-        h.get("x-rcr-llm-strategy")
-        or os.getenv(
-            "LLM_STRATEGY",
-            "fallback",
-        )
-    ).lower()
+llm_strategy = (
+    h.get("x-rcr-llm-strategy")
+    or os.getenv("LLM_STRATEGY")
+    or "fallback"
+).lower()
+
+llm_provider_pref = (
+    h.get("x-rcr-llm-provider")
+    or os.getenv("LLM_PROVIDER")
+    or "openrouter"
+).lower()
 
     llm_provider_pref = (
         h.get("x-rcr-llm-provider")
