@@ -226,7 +226,21 @@ def process_detection(detection: RawDetection, recent_detections: list[RawDetect
             "confidenceLevel": confidence_level,
             "expiresAt": (detection.timestamp + datetime.timedelta(hours=3)).isoformat(),
         }
-        cloudkit_bridge.save_sighting(sighting)
+        # NOTE: save_sighting(sighting) — passing the bare dict as a
+        # single positional arg — used to hit its "full CloudKit record"
+        # branch, which looks for "recordName"/"fields" keys. This dict
+        # has neither (it has "id" and flat field names), so that branch
+        # silently fell through to a random generated record name and an
+        # EMPTY fields dict — every auto-attached sighting was written
+        # as a blank record nobody could ever see. Pass (record_name,
+        # fields) explicitly instead, with every field wrapped the way
+        # CloudKit's records/modify actually requires.
+        cloudkit_bridge.save_sighting(
+            sighting["id"],
+            cloudkit_bridge.to_cloudkit_fields(
+                {k: v for k, v in sighting.items() if k != "id"}
+            ),
+        )
         result.sighting = sighting
         print(f"[fusion] auto-attached {detection.source} detection to truck {result.matched_truck_id} ({result.reason})")
     else:
