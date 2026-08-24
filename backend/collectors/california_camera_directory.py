@@ -1,54 +1,23 @@
 """
 California-wide public traffic camera directory — Caltrans CWWP2.
 
-Uses the official Caltrans CWWP2 CCTV CSV feeds.
+Fetches the live official Caltrans CCTV CSV feeds and preserves the
+complete camera information needed by Roach Coach Radar, including:
 
-The CSV format includes:
-    index
-    recordDate
-    recordTime
-    recordEpoch
-    district
-    locationName
-    nearbyPlace
-    longitude
-    latitude
-    elevation
-    direction
-    county
-    route
-    routeSuffix
-    postmilePrefix
-    postmile
-    alignment
-    milepost
-    inService
-    imageDescription
-    streamingVideoURL
-    currentImageUpdateFrequency
-    currentImageURL
-    referenceImageUpdateFrequency
-    referenceImage1UpdatesAgoURL
-    ...
-    referenceImage12UpdatesAgoURL
-
-This module intentionally fetches the live district directories rather
-than maintaining a hardcoded list of individual cameras.
+- Current still image
+- Previous still images (-1 through -12)
+- Streaming HLS URL
+- Camera metadata
 """
 
 import csv
 import io
-import math
 import time
 import requests
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import Optional
 
-
-# ---------------------------------------------------------------------------
-# Caltrans CWWP2 district CCTV feeds
-# ---------------------------------------------------------------------------
 
 DISTRICT_CSV_URLS = {
     1: "https://cwwp2.dot.ca.gov/data/d1/cctv/cctvStatusD01.csv",
@@ -82,37 +51,58 @@ DISTRICT_LABELS = {
 }
 
 
-# ---------------------------------------------------------------------------
-# Configuration
-# ---------------------------------------------------------------------------
-
-# Keep this below the bulk-streaming threshold unless you actually have
-# written authorization covering simultaneous streaming at a higher level.
-#
-# NOTE:
-# Fetching the CSV directory itself is lightweight. This limit is primarily
-# used by the vision scanner when deciding how many camera images to inspect.
+# Keep this at 9 unless you have the required Caltrans written agreement.
 HAS_BULK_STREAMING_AGREEMENT = False
+MAX_CONCURRENT_CHECKS = 50 if HAS_BULK_STREAMING_AGREEMENT else 9
 
-MAX_CONCURRENT_CHECKS = 9 if not HAS_BULK_STREAMING_AGREEMENT else 50
+
+@dataclass
+class CaltransCamera:
+    district: int
+    location_name: str
+    nearby_place: str
+    county: str
+    route: str
+    latitude: float
+    longitude: float
+    direction: str
+    in_service: bool
+
+    # Current still image.
+    current_image_url: str
+
+    # Live HLS stream.
+    stream_url: Optional[str] = None
+
+    # Previous still images supplied by Caltrans.
+    previous_image_urls: list[str] = field(default_factory=list)
+
+    # Additional useful Caltrans metadata.
+    image_description: Optional[str] = None
+    image_update_frequency: Optional[str] = None
+    elevation: Optional[str] = None
+    route_suffix: Optional[str] = None
+    postmile_prefix: Optional[str] = None
+    postmile: Optional[str] = None
+    alignment: Optional[str] = None
+    milepost: Optional[str] = None
 
 
-# ---------------------------------------------------------------------------
-# CSV field layout
-# ---------------------------------------------------------------------------
-
-# IMPORTANT:
-# Caltrans currently includes recordEpoch after recordTime and uses
-# "inService" with a capital S.
+# Known fixed portion of Caltrans CSV.
 #
-# The previous parser omitted recordEpoch and used "inservice", which shifted
-# every subsequent field and caused every camera row to be discarded.
-
+# The fields after currentImageURL are the reference-image URLs:
+#
+#   referenceImageURL1
+#   referenceImageURL2
+#   ...
+#   referenceImageURL12
+#
+# Some district feeds can contain additional fields, so we simply preserve
+# the first 12 reference URLs that occur after currentImageURL.
 _FIELD_NAMES = [
     "index",
     "recordDate",
     "recordTime",
-    "recordEpoch",
     "district",
     "locationName",
     "nearbyPlace",
@@ -127,233 +117,133 @@ _FIELD_NAMES = [
     "postmile",
     "alignment",
     "milepost",
-    "inService",
+    "inservice",
     "imageDescription",
     "streamingVideoURL",
     "currentImageUpdateFrequency",
     "currentImageURL",
-    "referenceImageUpdateFrequency",
-    "referenceImage1UpdatesAgoURL",
-    "referenceImage2UpdatesAgoURL",
-    "referenceImage3UpdatesAgoURL",
-    "referenceImage4UpdatesAgoURL",
-    "referenceImage5UpdatesAgoURL",
-    "referenceImage6UpdatesAgoURL",
-    "referenceImage7UpdatesAgoURL",
-    "referenceImage8UpdatesAgoURL",
-    "referenceImage9UpdatesAgoURL",
-    "referenceImage10UpdatesAgoURL",
-    "referenceImage11UpdatesAgoURL",
-    "referenceImage12UpdatesAgoURL",
 ]
 
 
-# ---------------------------------------------------------------------------
-# Data model
-# ---------------------------------------------------------------------------
-
-@dataclass
-class CaltransCamera:
-    district: int
-    location_name: str
-    nearby_place: str
-    county: str
-    route: str
-    latitude: float
-    longitude: float
-    direction: str
-    in_service: bool
-    current_image_url: str
-    streaming_video_url: Optional[str] = None
-    image_update_frequency: Optional[float] = None
-
-
-# ---------------------------------------------------------------------------
-# Helpers
-# ---------------------------------------------------------------------------
-
-def _parse_bool(value: str) -> bool:
-    """Safely parse Caltrans boolean values."""
-
-    if value is None:
-        return False
-
-    return value.strip().lower() in {
-        "true",
-        "1",
-        "yes",
-        "y",
-    }
-
-
-def _parse_optional_float(value: str) -> Optional[float]:
-    """Safely parse an optional numeric value."""
-
-    if value is None:
-        return None
-
-    value = value.strip()
-
-    if not value:
-        return None
-
-    try:
-        return float(value)
-    except (ValueError, TypeError):
-        return None
-
-
 def _clean(value: Optional[str]) -> str:
-    """Normalize a CSV string."""
-
     if value is None:
         return ""
-
     return value.strip()
 
 
-def _parse_camera_row(
-    row: list[str],
-    district: int,
-) -> Optional[CaltransCamera]:
+def _is_valid_url(value: str) -> bool:
+    value = _clean(value)
+    return value.startswith("http://") or value.startswith("https://")
+
+
+def _extract_previous_images(row: list[str]) -> list[str]:
     """
-    Convert one Caltrans CSV row into a CaltransCamera.
+    Extract all Caltrans previous/reference image URLs after the known
+    current-image column.
 
-    Returns None for malformed rows instead of allowing one bad camera
-    record to break the entire district.
+    We intentionally don't depend on exact column names because the live
+    Caltrans CSV layout can contain additional fields.
     """
 
-    if len(row) < len(_FIELD_NAMES):
-        return None
+    if len(row) <= len(_FIELD_NAMES):
+        return []
 
-    record = dict(zip(_FIELD_NAMES, row))
+    candidates = row[len(_FIELD_NAMES):]
 
-    try:
-        latitude = float(record["latitude"])
-        longitude = float(record["longitude"])
-    except (ValueError, TypeError, KeyError):
-        return None
+    urls: list[str] = []
 
-    # Basic coordinate sanity check.
-    if not (-90 <= latitude <= 90):
-        return None
+    for value in candidates:
+        value = _clean(value)
 
-    if not (-180 <= longitude <= 180):
-        return None
+        if _is_valid_url(value):
+            lower = value.lower()
 
-    location_name = _clean(record.get("locationName"))
+            # We only want the reference/previous still-image URLs here.
+            if lower.endswith(".jpg") or lower.endswith(".jpeg") or lower.endswith(".png"):
+                urls.append(value)
 
-    # A camera without a location name isn't useful to the app.
-    if not location_name:
-        location_name = f"Caltrans Camera {record.get('index', 'unknown')}"
-
-    image_url = _clean(record.get("currentImageURL"))
-
-    # A directory record without an image isn't useful for the vision
-    # collector, but we keep it in the directory so callers can still
-    # inspect the metadata.
-    return CaltransCamera(
-        district=district,
-        location_name=location_name,
-        nearby_place=_clean(record.get("nearbyPlace")),
-        county=_clean(record.get("county")),
-        route=_clean(record.get("route")),
-        latitude=latitude,
-        longitude=longitude,
-        direction=_clean(record.get("direction")),
-        in_service=_parse_bool(record.get("inService")),
-        current_image_url=image_url,
-        streaming_video_url=_clean(
-            record.get("streamingVideoURL")
-        ) or None,
-        image_update_frequency=_parse_optional_float(
-            record.get("currentImageUpdateFrequency")
-        ),
-    )
+    return urls[:12]
 
 
-# ---------------------------------------------------------------------------
-# Fetch one district
-# ---------------------------------------------------------------------------
-
-def fetch_district_cameras(
-    district: int,
-    timeout: int = 15,
-) -> list[CaltransCamera]:
-    """
-    Fetch the live Caltrans CCTV directory for one district.
-
-    Example:
-
-        cameras = fetch_district_cameras(3)
-
-    District 3 covers the Sacramento / Marysville area.
-    """
+def fetch_district_cameras(district: int) -> list[CaltransCamera]:
+    """Fetch and parse the live camera list for one Caltrans district."""
 
     url = DISTRICT_CSV_URLS.get(district)
 
     if not url:
         raise ValueError(
-            f"Unknown district {district}. Valid range is 1-12."
+            f"Unknown district {district}. Valid range: 1-12."
         )
 
     response = requests.get(
         url,
-        timeout=timeout,
+        timeout=20,
         headers={
-            "User-Agent": "RoachCoachRadar/1.0",
-            "Accept": "text/csv,*/*",
+            "User-Agent": "RoachCoachRadar/1.0"
         },
     )
 
     response.raise_for_status()
 
-    # Caltrans currently publishes UTF-8-compatible CSV.
-    text_data = response.content.decode(
-        "utf-8-sig",
-        errors="replace",
-    )
-
-    reader = csv.reader(io.StringIO(text_data))
+    reader = csv.reader(io.StringIO(response.text))
 
     cameras: list[CaltransCamera] = []
 
-    first_row = True
-
     for row in reader:
-        if not row:
+        if len(row) < len(_FIELD_NAMES):
             continue
 
-        # Skip a header row if Caltrans ever returns one in addition to
-        # the expected positional layout.
-        if first_row:
-            first_row = False
+        record = dict(zip(_FIELD_NAMES, row))
 
-            if row[0].strip().lower() == "index":
-                continue
+        try:
+            latitude = float(record["latitude"])
+            longitude = float(record["longitude"])
+        except (ValueError, TypeError):
+            continue
 
-        camera = _parse_camera_row(
-            row,
-            district,
+        current_image_url = _clean(record["currentImageURL"])
+
+        # Skip records without a usable camera image.
+        if not current_image_url:
+            continue
+
+        previous_images = _extract_previous_images(row)
+
+        camera = CaltransCamera(
+            district=district,
+            location_name=_clean(record["locationName"]),
+            nearby_place=_clean(record["nearbyPlace"]),
+            county=_clean(record["county"]),
+            route=_clean(record["route"]),
+            latitude=latitude,
+            longitude=longitude,
+            direction=_clean(record["direction"]),
+            in_service=_clean(record["inservice"]).lower() == "true",
+            current_image_url=current_image_url,
+            stream_url=_clean(record["streamingVideoURL"]) or None,
+            previous_image_urls=previous_images,
+            image_description=_clean(record["imageDescription"]) or None,
+            image_update_frequency=_clean(
+                record["currentImageUpdateFrequency"]
+            ) or None,
+            elevation=_clean(record["elevation"]) or None,
+            route_suffix=_clean(record["routeSuffix"]) or None,
+            postmile_prefix=_clean(record["postmilePrefix"]) or None,
+            postmile=_clean(record["postmile"]) or None,
+            alignment=_clean(record["alignment"]) or None,
+            milepost=_clean(record["milepost"]) or None,
         )
 
-        if camera is not None:
-            cameras.append(camera)
+        cameras.append(camera)
 
     return cameras
 
 
-# ---------------------------------------------------------------------------
-# Fetch all California cameras
-# ---------------------------------------------------------------------------
-
 def fetch_all_california_cameras(
-    delay_between_districts: float = 0.25,
+    delay_between_districts: float = 0.5,
 ) -> list[CaltransCamera]:
     """
-    Fetch the live CCTV directory for all 12 Caltrans districts.
-
-    This makes one lightweight CSV request per district.
+    Fetch live cameras across all 12 Caltrans districts.
     """
 
     all_cameras: list[CaltransCamera] = []
@@ -361,74 +251,23 @@ def fetch_all_california_cameras(
     for district in DISTRICT_CSV_URLS:
         try:
             cameras = fetch_district_cameras(district)
+            all_cameras.extend(cameras)
 
             print(
-                f"[Caltrans] District {district} "
-                f"({DISTRICT_LABELS.get(district, 'Unknown')}): "
+                f"Caltrans District {district}: "
                 f"{len(cameras)} cameras"
             )
 
-            all_cameras.extend(cameras)
-
         except Exception as exc:
             print(
-                f"[Caltrans] Failed to fetch district "
-                f"{district}: {type(exc).__name__}: {exc}"
+                f"Failed to fetch Caltrans District "
+                f"{district}: {exc}"
             )
 
-        if delay_between_districts > 0:
-            time.sleep(delay_between_districts)
-
-    print(
-        f"[Caltrans] Total cameras loaded: {len(all_cameras)}"
-    )
+        time.sleep(delay_between_districts)
 
     return all_cameras
 
-
-# ---------------------------------------------------------------------------
-# Distance calculation
-# ---------------------------------------------------------------------------
-
-def distance_miles(
-    latitude1: float,
-    longitude1: float,
-    latitude2: float,
-    longitude2: float,
-) -> float:
-    """
-    Calculate great-circle distance between two coordinates.
-
-    Returns miles.
-    """
-
-    earth_radius_miles = 3958.7613
-
-    lat1 = math.radians(latitude1)
-    lat2 = math.radians(latitude2)
-
-    delta_lat = math.radians(latitude2 - latitude1)
-    delta_lon = math.radians(longitude2 - longitude1)
-
-    a = (
-        math.sin(delta_lat / 2) ** 2
-        +
-        math.cos(lat1)
-        * math.cos(lat2)
-        * math.sin(delta_lon / 2) ** 2
-    )
-
-    c = 2 * math.atan2(
-        math.sqrt(a),
-        math.sqrt(1 - a),
-    )
-
-    return earth_radius_miles * c
-
-
-# ---------------------------------------------------------------------------
-# Find nearby cameras
-# ---------------------------------------------------------------------------
 
 def cameras_near(
     cameras: list[CaltransCamera],
@@ -437,50 +276,45 @@ def cameras_near(
     radius_miles: float = 5.0,
 ) -> list[CaltransCamera]:
     """
-    Return cameras within radius_miles of the supplied coordinate.
+    Return cameras inside an approximate radius.
 
-    Results are sorted nearest-first.
+    This is intentionally lightweight because the endpoint is used as a
+    geographic pre-filter.
     """
 
-    if radius_miles < 0:
-        raise ValueError("radius_miles cannot be negative")
+    def rough_distance_miles(
+        lat1: float,
+        lon1: float,
+        lat2: float,
+        lon2: float,
+    ) -> float:
 
-    nearby: list[tuple[float, CaltransCamera]] = []
+        lat_miles = (lat1 - lat2) * 69.0
 
-    for camera in cameras:
-        distance = distance_miles(
-            latitude,
-            longitude,
-            camera.latitude,
-            camera.longitude,
-        )
+        # Approximate longitude miles around California.
+        lon_miles = (lon1 - lon2) * 54.6
 
-        if distance <= radius_miles:
-            nearby.append(
-                (distance, camera)
-            )
-
-    nearby.sort(
-        key=lambda item: item[0]
-    )
+        return (
+            lat_miles ** 2 +
+            lon_miles ** 2
+        ) ** 0.5
 
     return [
         camera
-        for _, camera in nearby
+        for camera in cameras
+        if rough_distance_miles(
+            camera.latitude,
+            camera.longitude,
+            latitude,
+            longitude,
+        ) <= radius_miles
     ]
 
-
-# ---------------------------------------------------------------------------
-# County filtering
-# ---------------------------------------------------------------------------
 
 def cameras_in_county(
     cameras: list[CaltransCamera],
     county_name: str,
 ) -> list[CaltransCamera]:
-    """
-    Return cameras in a specific county.
-    """
 
     target = county_name.strip().lower()
 
@@ -491,144 +325,26 @@ def cameras_in_county(
     ]
 
 
-# ---------------------------------------------------------------------------
-# Service filtering
-# ---------------------------------------------------------------------------
-
-def active_cameras(
-    cameras: list[CaltransCamera],
-) -> list[CaltransCamera]:
-    """
-    Return cameras currently marked in service and having a current image
-    URL.
-    """
-
-    return [
-        camera
-        for camera in cameras
-        if camera.in_service
-        and bool(camera.current_image_url)
-    ]
-
-
-# ---------------------------------------------------------------------------
-# Convenience function for radar
-# ---------------------------------------------------------------------------
-
-def find_active_cameras_near(
-    latitude: float,
-    longitude: float,
-    radius_miles: float = 5.0,
-    max_cameras: Optional[int] = None,
-) -> list[CaltransCamera]:
-    """
-    Fetch all California cameras, filter to active cameras near the
-    requested location, and optionally cap the result count.
-    """
-
-    cameras = fetch_all_california_cameras()
-
-    nearby = cameras_near(
-        cameras,
-        latitude,
-        longitude,
-        radius_miles,
-    )
-
-    nearby = [
-        camera
-        for camera in nearby
-        if camera.in_service
-        and camera.current_image_url
-    ]
-
-    if max_cameras is not None:
-        nearby = nearby[:max_cameras]
-
-    return nearby
-
-
-# ---------------------------------------------------------------------------
-# Local test
-# ---------------------------------------------------------------------------
-
 if __name__ == "__main__":
-    print()
-    print("==========================================")
-    print(" Roach Coach Radar - Caltrans CCTV Test")
-    print("==========================================")
-    print()
-
-    # Sacramento test coordinate.
-    latitude = 38.7071
-    longitude = -121.2811
+    cameras = fetch_district_cameras(3)
 
     print(
-        f"Searching near "
-        f"{latitude}, {longitude}"
+        f"District 3: {len(cameras)} cameras"
     )
-    print()
 
-    try:
-        district_3 = fetch_district_cameras(3)
+    if cameras:
+        camera = cameras[0]
 
-        print()
+        print("Location:", camera.location_name)
+        print("Current:", camera.current_image_url)
+        print("Stream:", camera.stream_url)
         print(
-            f"District 3 cameras loaded: "
-            f"{len(district_3)}"
+            "Previous images:",
+            len(camera.previous_image_urls),
         )
 
-        nearby = cameras_near(
-            district_3,
-            latitude,
-            longitude,
-            radius_miles=20,
-        )
-
-        active = [
-            camera
-            for camera in nearby
-            if camera.in_service
-            and camera.current_image_url
-        ]
-
-        print(
-            f"Nearby cameras within 20 miles: "
-            f"{len(nearby)}"
-        )
-
-        print(
-            f"Nearby active cameras with images: "
-            f"{len(active)}"
-        )
-
-        print()
-
-        for camera in active[:10]:
-            distance = distance_miles(
-                latitude,
-                longitude,
-                camera.latitude,
-                camera.longitude,
-            )
-
-            print(
-                f"{distance:.2f} mi | "
-                f"{camera.location_name} | "
-                f"{camera.county} | "
-                f"{camera.route} | "
-                f"{camera.latitude}, "
-                f"{camera.longitude}"
-            )
-
-            print(
-                f"    Image: "
-                f"{camera.current_image_url}"
-            )
-
-    except Exception as exc:
-        print(
-            f"TEST FAILED: "
-            f"{type(exc).__name__}: {exc}"
-        )
-        raise
+        for index, url in enumerate(
+            camera.previous_image_urls,
+            start=1,
+        ):
+            print(f"Previous {index}: {url}")
