@@ -12,10 +12,6 @@ from cryptography.hazmat.primitives import hashes, serialization
 from cryptography.hazmat.primitives.asymmetric import ec
 
 
-# ============================================================
-# CONFIGURATION
-# ============================================================
-
 CONTAINER_ID = os.getenv(
     "CLOUDKIT_CONTAINER_ID",
     "iCloud.com.TrueFamily.RoachCoachRadar",
@@ -26,26 +22,13 @@ ENVIRONMENT = os.getenv(
     "production",
 ).strip().lower()
 
-KEY_ID = os.getenv(
-    "CLOUDKIT_SERVER_KEY_ID"
-)
+KEY_ID = os.getenv("CLOUDKIT_SERVER_KEY_ID")
+PRIVATE_KEY = os.getenv("CLOUDKIT_SERVER_PRIVATE_KEY")
 
-PRIVATE_KEY = os.getenv(
-    "CLOUDKIT_SERVER_PRIVATE_KEY"
-)
-
-
-# ============================================================
-# ERRORS
-# ============================================================
 
 class CloudKitError(RuntimeError):
     pass
 
-
-# ============================================================
-# PRIVATE KEY
-# ============================================================
 
 def _get_private_key():
     if not KEY_ID:
@@ -58,7 +41,6 @@ def _get_private_key():
             "CLOUDKIT_SERVER_PRIVATE_KEY is not configured"
         )
 
-    # Vercel may store newline characters as literal \n.
     pem = PRIVATE_KEY.replace("\\n", "\n").strip()
 
     try:
@@ -82,10 +64,6 @@ def _get_private_key():
     return private_key
 
 
-# ============================================================
-# CLOUDKIT ENDPOINT
-# ============================================================
-
 def _endpoint(operation: str) -> str:
     return (
         f"/database/1/"
@@ -95,10 +73,6 @@ def _endpoint(operation: str) -> str:
         f"{operation}"
     )
 
-
-# ============================================================
-# CLOUDKIT SERVER-TO-SERVER SIGNATURE
-# ============================================================
 
 def _sign_request(
     path: str,
@@ -120,10 +94,6 @@ def _sign_request(
         body_hash
     ).decode("ascii")
 
-    # Apple CloudKit authentication string:
-    #
-    # [date]:[base64 SHA256 body hash]:[web service URL subpath]
-    #
     message = (
         f"{request_date}:"
         f"{body_hash_base64}:"
@@ -147,10 +117,6 @@ def _sign_request(
     }
 
 
-# ============================================================
-# CLOUDKIT HTTP REQUEST
-# ============================================================
-
 def _request(
     operation: str,
     payload: dict[str, Any],
@@ -169,21 +135,16 @@ def _request(
         + path
     )
 
-    headers = _sign_request(
-        path,
-        body,
-    )
-
     try:
         response = requests.post(
             url,
             data=body,
-            headers=headers,
+            headers=_sign_request(path, body),
             timeout=20,
         )
     except requests.RequestException as exc:
         raise CloudKitError(
-            f"Unable to connect to CloudKit: {exc}"
+            f"CloudKit request exception: {exc}"
         ) from exc
 
     try:
@@ -217,19 +178,12 @@ def _request(
     return data
 
 
-# ============================================================
-# FIELD HELPER
-# ============================================================
-
 def _field(
     record: dict[str, Any],
     name: str,
     default=None,
 ):
-    fields = record.get(
-        "fields",
-        {},
-    )
+    fields = record.get("fields", {})
 
     value = fields.get(name)
 
@@ -241,10 +195,6 @@ def _field(
         default,
     )
 
-
-# ============================================================
-# VALUE HELPERS
-# ============================================================
 
 def _timestamp_value(
     value: Any,
@@ -274,10 +224,6 @@ def _timestamp_value(
     return 0.0
 
 
-# ============================================================
-# QUERY RECORDS
-# ============================================================
-
 def query_records(
     record_type: str,
     *,
@@ -291,16 +237,6 @@ def query_records(
 
     if filters:
         query["filterBy"] = filters
-
-    # IMPORTANT:
-    #
-    # There is deliberately NO sortBy here.
-    #
-    # CloudKit requires an appropriate index for fields used
-    # for sorting. Our schema currently does not have those
-    # fields configured as sortable.
-    #
-    # We sort the returned records in Python instead.
 
     payload: dict[str, Any] = {
         "resultsLimit": limit,
@@ -321,14 +257,10 @@ def query_records(
             [],
         ):
 
-            record = item.get(
-                "record"
-            )
+            record = item.get("record")
 
             if record:
-                records.append(
-                    record
-                )
+                records.append(record)
 
         marker = result.get(
             "continuationMarker"
@@ -344,17 +276,13 @@ def query_records(
     return records
 
 
-# ============================================================
-# TRUCKS
-# ============================================================
-
 def fetch_trucks() -> list[dict[str, Any]]:
 
     records = query_records(
         "Truck"
     )
 
-    trucks: list[dict[str, Any]] = []
+    trucks = []
 
     for record in records:
 
@@ -368,25 +296,21 @@ def fetch_trucks() -> list[dict[str, Any]]:
         trucks.append(
             {
                 "id": record_id,
-
                 "name": _field(
                     record,
                     "name",
                     "",
                 ),
-
                 "cuisine_type": _field(
                     record,
                     "cuisineType",
                     "",
                 ),
-
                 "social_links": _field(
                     record,
                     "socialLinks",
                     [],
                 ) or [],
-
                 "average_confidence_score": float(
                     _field(
                         record,
@@ -394,13 +318,11 @@ def fetch_trucks() -> list[dict[str, Any]]:
                         0.0,
                     ) or 0.0
                 ),
-
                 "menu_highlights": _field(
                     record,
                     "menuHighlights",
                     [],
                 ) or [],
-
                 "image_url": _field(
                     record,
                     "imageURL",
@@ -408,58 +330,37 @@ def fetch_trucks() -> list[dict[str, Any]]:
             }
         )
 
-    # Sort locally instead of asking CloudKit to sort.
     trucks.sort(
-        key=lambda truck: (
-            str(
-                truck.get(
-                    "name",
-                    "",
-                )
-            ).lower()
-        )
+        key=lambda truck: str(
+            truck.get(
+                "name",
+                "",
+            )
+        ).lower()
     )
 
     return trucks
 
 
-# ============================================================
-# SIGHTINGS
-# ============================================================
-
 def fetch_sightings() -> list[dict[str, Any]]:
 
-    cutoff = datetime.fromtimestamp(
-        datetime.now(timezone.utc).timestamp()
-        - (3 * 60 * 60),
-        timezone.utc,
-    )
-
-    cutoff_string = (
-        cutoff.isoformat()
-        .replace(
-            "+00:00",
-            "Z",
-        )
-    )
-
-    filters = [
-        {
-            "fieldName": "timestamp",
-            "comparator": "GREATER_THAN",
-            "fieldValue": {
-                "value": cutoff_string,
-                "type": "TIMESTAMP",
-            },
-        }
-    ]
+    # IMPORTANT:
+    # Do NOT filter by timestamp in CloudKit.
+    #
+    # The current CloudKit schema is rejecting the timestamp
+    # filter type. Retrieve the records first and filter them
+    # locally instead.
 
     records = query_records(
-        "Sighting",
-        filters=filters,
+        "Sighting"
     )
 
-    sightings: list[dict[str, Any]] = []
+    cutoff = (
+        datetime.now(timezone.utc).timestamp()
+        - (3 * 60 * 60)
+    )
+
+    sightings = []
 
     for record in records:
 
@@ -474,6 +375,21 @@ def fetch_sightings() -> list[dict[str, Any]]:
 
         if not record_id or not truck_id:
             continue
+
+        timestamp = _field(
+            record,
+            "timestamp",
+        )
+
+        timestamp_epoch = _timestamp_value(
+            timestamp
+        )
+
+        # If timestamp is present and parseable,
+        # enforce the 3-hour window locally.
+        if timestamp_epoch > 0:
+            if timestamp_epoch < cutoff:
+                continue
 
         sightings.append(
             {
@@ -513,10 +429,7 @@ def fetch_sightings() -> list[dict[str, Any]]:
                     "Likely",
                 ),
 
-                "timestamp": _field(
-                    record,
-                    "timestamp",
-                ),
+                "timestamp": timestamp,
 
                 "expires_at": _field(
                     record,
@@ -525,22 +438,15 @@ def fetch_sightings() -> list[dict[str, Any]]:
             }
         )
 
-    # Newest sightings first.
     sightings.sort(
         key=lambda sighting: _timestamp_value(
-            sighting.get(
-                "timestamp"
-            )
+            sighting.get("timestamp")
         ),
         reverse=True,
     )
 
     return sightings
 
-
-# ============================================================
-# SIGHTINGS FOR A SPECIFIC TRUCK
-# ============================================================
 
 def fetch_sightings_for_truck(
     truck_id: str,
@@ -562,7 +468,7 @@ def fetch_sightings_for_truck(
         filters=filters,
     )
 
-    sightings: list[dict[str, Any]] = []
+    sightings = []
 
     for record in records:
 
@@ -572,6 +478,11 @@ def fetch_sightings_for_truck(
 
         if not record_id:
             continue
+
+        timestamp = _field(
+            record,
+            "timestamp",
+        )
 
         sightings.append(
             {
@@ -614,10 +525,7 @@ def fetch_sightings_for_truck(
                     "Likely",
                 ),
 
-                "timestamp": _field(
-                    record,
-                    "timestamp",
-                ),
+                "timestamp": timestamp,
 
                 "expires_at": _field(
                     record,
@@ -626,12 +534,9 @@ def fetch_sightings_for_truck(
             }
         )
 
-    # Newest sightings first.
     sightings.sort(
         key=lambda sighting: _timestamp_value(
-            sighting.get(
-                "timestamp"
-            )
+            sighting.get("timestamp")
         ),
         reverse=True,
     )
