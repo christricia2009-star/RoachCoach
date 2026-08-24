@@ -58,8 +58,7 @@ def _get_private_key():
             "CLOUDKIT_SERVER_PRIVATE_KEY is not configured"
         )
 
-    # Vercel/environment variables can contain literal
-    # backslash-n characters instead of actual newlines.
+    # Vercel may store newline characters as literal \n.
     pem = PRIVATE_KEY.replace("\\n", "\n").strip()
 
     try:
@@ -72,7 +71,10 @@ def _get_private_key():
             "CLOUDKIT_SERVER_PRIVATE_KEY is not a valid PEM EC private key"
         ) from exc
 
-    if not isinstance(private_key, ec.EllipticCurvePrivateKey):
+    if not isinstance(
+        private_key,
+        ec.EllipticCurvePrivateKey,
+    ):
         raise CloudKitError(
             "CLOUDKIT_SERVER_PRIVATE_KEY is not an EC private key"
         )
@@ -81,21 +83,10 @@ def _get_private_key():
 
 
 # ============================================================
-# CLOUDKIT REQUEST PATH
+# CLOUDKIT ENDPOINT
 # ============================================================
 
 def _endpoint(operation: str) -> str:
-    """
-    CloudKit Web Services path.
-
-    Apple format:
-
-        /database/1/<container>/<environment>/<operation>
-
-    IMPORTANT:
-    The container identifier is used literally.
-    """
-
     return (
         f"/database/1/"
         f"{CONTAINER_ID}/"
@@ -106,7 +97,7 @@ def _endpoint(operation: str) -> str:
 
 
 # ============================================================
-# REQUEST SIGNING
+# CLOUDKIT SERVER-TO-SERVER SIGNATURE
 # ============================================================
 
 def _sign_request(
@@ -116,7 +107,6 @@ def _sign_request(
 
     private_key = _get_private_key()
 
-    # Apple requires ISO-8601 UTC time with NO milliseconds.
     request_date = (
         datetime.now(timezone.utc)
         .replace(microsecond=0)
@@ -124,17 +114,15 @@ def _sign_request(
         .replace("+00:00", "Z")
     )
 
-    # SHA-256 hash of the EXACT request body that will be sent.
     body_hash = hashlib.sha256(body).digest()
 
-    # Apple requires the SHA-256 body hash encoded as Base64.
     body_hash_base64 = base64.b64encode(
         body_hash
     ).decode("ascii")
 
-    # Apple's authentication string:
+    # Apple CloudKit authentication string:
     #
-    # [date]:[base64 body SHA256]:[CloudKit URL subpath]
+    # [date]:[base64 SHA256 body hash]:[web service URL subpath]
     #
     message = (
         f"{request_date}:"
@@ -142,11 +130,6 @@ def _sign_request(
         f"{path}"
     ).encode("utf-8")
 
-    # ECDSA using SHA-256.
-    #
-    # cryptography returns the normal DER encoded ECDSA
-    # signature. That DER signature is what we Base64 encode
-    # for X-Apple-CloudKit-Request-SignatureV1.
     signature_der = private_key.sign(
         message,
         ec.ECDSA(hashes.SHA256()),
@@ -175,12 +158,6 @@ def _request(
 
     path = _endpoint(operation)
 
-    # This exact byte sequence is:
-    #
-    # 1. Sent to Apple
-    # 2. SHA-256 hashed
-    # 3. Included in the authentication signature
-    #
     body = json.dumps(
         payload,
         separators=(",", ":"),
@@ -241,7 +218,7 @@ def _request(
 
 
 # ============================================================
-# CLOUDKIT FIELD HELPER
+# FIELD HELPER
 # ============================================================
 
 def _field(
@@ -249,7 +226,10 @@ def _field(
     name: str,
     default=None,
 ):
-    fields = record.get("fields", {})
+    fields = record.get(
+        "fields",
+        {},
+    )
 
     value = fields.get(name)
 
@@ -263,6 +243,38 @@ def _field(
 
 
 # ============================================================
+# VALUE HELPERS
+# ============================================================
+
+def _timestamp_value(
+    value: Any,
+) -> float:
+
+    if value is None:
+        return 0.0
+
+    if isinstance(value, (int, float)):
+        return float(value)
+
+    if isinstance(value, str):
+
+        try:
+            text = value.strip()
+
+            if text.endswith("Z"):
+                text = text[:-1] + "+00:00"
+
+            return datetime.fromisoformat(
+                text
+            ).timestamp()
+
+        except Exception:
+            return 0.0
+
+    return 0.0
+
+
+# ============================================================
 # QUERY RECORDS
 # ============================================================
 
@@ -270,7 +282,6 @@ def query_records(
     record_type: str,
     *,
     filters: list[dict[str, Any]] | None = None,
-    sort_by: list[dict[str, Any]] | None = None,
     limit: int = 200,
 ) -> list[dict[str, Any]]:
 
@@ -281,8 +292,15 @@ def query_records(
     if filters:
         query["filterBy"] = filters
 
-    if sort_by:
-        query["sortBy"] = sort_by
+    # IMPORTANT:
+    #
+    # There is deliberately NO sortBy here.
+    #
+    # CloudKit requires an appropriate index for fields used
+    # for sorting. Our schema currently does not have those
+    # fields configured as sortable.
+    #
+    # We sort the returned records in Python instead.
 
     payload: dict[str, Any] = {
         "resultsLimit": limit,
@@ -333,13 +351,7 @@ def query_records(
 def fetch_trucks() -> list[dict[str, Any]]:
 
     records = query_records(
-        "Truck",
-        sort_by=[
-            {
-                "fieldName": "name",
-                "ascending": True,
-            }
-        ],
+        "Truck"
     )
 
     trucks: list[dict[str, Any]] = []
@@ -396,6 +408,18 @@ def fetch_trucks() -> list[dict[str, Any]]:
             }
         )
 
+    # Sort locally instead of asking CloudKit to sort.
+    trucks.sort(
+        key=lambda truck: (
+            str(
+                truck.get(
+                    "name",
+                    "",
+                )
+            ).lower()
+        )
+    )
+
     return trucks
 
 
@@ -433,12 +457,6 @@ def fetch_sightings() -> list[dict[str, Any]]:
     records = query_records(
         "Sighting",
         filters=filters,
-        sort_by=[
-            {
-                "fieldName": "timestamp",
-                "ascending": False,
-            }
-        ],
     )
 
     sightings: list[dict[str, Any]] = []
@@ -507,11 +525,21 @@ def fetch_sightings() -> list[dict[str, Any]]:
             }
         )
 
+    # Newest sightings first.
+    sightings.sort(
+        key=lambda sighting: _timestamp_value(
+            sighting.get(
+                "timestamp"
+            )
+        ),
+        reverse=True,
+    )
+
     return sightings
 
 
 # ============================================================
-# SIGHTINGS FOR ONE TRUCK
+# SIGHTINGS FOR A SPECIFIC TRUCK
 # ============================================================
 
 def fetch_sightings_for_truck(
@@ -532,12 +560,6 @@ def fetch_sightings_for_truck(
     records = query_records(
         "Sighting",
         filters=filters,
-        sort_by=[
-            {
-                "fieldName": "timestamp",
-                "ascending": False,
-            }
-        ],
     )
 
     sightings: list[dict[str, Any]] = []
@@ -603,5 +625,15 @@ def fetch_sightings_for_truck(
                 ),
             }
         )
+
+    # Newest sightings first.
+    sightings.sort(
+        key=lambda sighting: _timestamp_value(
+            sighting.get(
+                "timestamp"
+            )
+        ),
+        reverse=True,
+    )
 
     return sightings
