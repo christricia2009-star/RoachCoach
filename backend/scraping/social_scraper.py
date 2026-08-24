@@ -1,282 +1,686 @@
 """
 Social scraping — Phase 1 data source #2.
 
-You mentioned partnerships are already in place. This file is where those
-credentials plug in once you have them. Two integration points below:
+IMPORTANT:
 
-  1. Instagram Graph API (INSTAGRAM_ACCESS_TOKEN in .env)
-     - Free testing on your OWN account(s): put your Instagram account in
-       "Instagram Tester" role in development mode — no App Review needed.
-     - Testing on OTHER trucks' accounts (i.e. the real product) requires
-       Advanced Access: Meta App Review + Business Verification. Budget
-       2-6 weeks for that process; it's free but not fast.
+Instagram Business Discovery is OPTIONAL.
 
-  2. X (Twitter) API (X_API_BEARER_TOKEN in .env)
-     - No free tier as of Feb 2026 — it's pay-per-use ($0.005/read,
-       $0.015/post created). Light testing volume costs single dollars,
-       not thousands, but budget for it.
+If Meta App Review / Business Verification has not been completed,
+RoachCoach continues operating without Instagram Business Discovery.
 
-  3. PARTNERSHIP_API_KEY / PARTNERSHIP_API_BASE_URL (.env)
-     - Generic slot for whatever direct data-partnership feed you've
-       already lined up (e.g. a truck association, a POS vendor, or a
-       regional food-truck network with its own API). Fill in once you
-       have the actual key + endpoint docs from that partner.
+Only official APIs or partnership-provided feeds are used.
 
-IMPORTANT: Only use official APIs or partnership-provided data feeds.
-Scraping platforms outside their official APIs / terms of service can
-violate ToS and, depending on jurisdiction, laws like the CFAA.
+We do NOT bypass Instagram access controls or use unauthorized scraping.
 """
 
 import os
+
 import requests
+
 from dataclasses import dataclass
+
 from typing import Optional
+
 import datetime
 
 
 @dataclass
 class RawSocialPost:
+
     truck_handle: str
+
     caption: str
+
     posted_at: datetime.datetime
+
     post_url: str
-    source: str  # "instagram" | "x" | "partnership"
+
+    source: str
+    # "instagram" | "x" | "facebook" | "partnership"
 
 
-# ---------- Instagram Graph API ----------
+# =========================================================================
+# INSTAGRAM GRAPH API
+# =========================================================================
 
-def fetch_recent_instagram_posts(ig_user_id: str) -> list[RawSocialPost]:
+def fetch_recent_instagram_posts(
+    ig_user_id: str,
+) -> list[RawSocialPost]:
     """
-    Requires INSTAGRAM_ACCESS_TOKEN in your environment. Works immediately
-    for your own tester-role account(s) in development mode; requires
-    Advanced Access (App Review + Business Verification) once you're
-    fetching posts from truck owners who aren't testers on your app.
+    Retrieves Instagram media for an Instagram account that the
+    configured token is authorized to access.
+
+    Requires:
+
+        INSTAGRAM_ACCESS_TOKEN
+
+    This is for accounts you are authorized to access / tester accounts.
     """
-    token = os.getenv("INSTAGRAM_ACCESS_TOKEN")
+
+    token = os.getenv(
+        "INSTAGRAM_ACCESS_TOKEN"
+    )
+
     if not token:
-        raise RuntimeError("INSTAGRAM_ACCESS_TOKEN not set in environment.")
 
-    url = f"https://graph.instagram.com/{ig_user_id}/media"
+        raise RuntimeError(
+            "INSTAGRAM_ACCESS_TOKEN not set in environment."
+        )
+
+    url = (
+        f"https://graph.instagram.com/"
+        f"{ig_user_id}/media"
+    )
+
     params = {
-        "fields": "caption,timestamp,permalink",
+
+        "fields": (
+            "caption,"
+            "timestamp,"
+            "permalink"
+        ),
+
         "access_token": token,
     }
-    response = requests.get(url, params=params, timeout=10)
+
+    response = requests.get(
+        url,
+        params=params,
+        timeout=10,
+    )
+
     response.raise_for_status()
-    data = response.json().get("data", [])
+
+    data = response.json().get(
+        "data",
+        [],
+    )
 
     return [
+
         RawSocialPost(
+
             truck_handle=ig_user_id,
-            caption=item.get("caption", ""),
-            posted_at=datetime.datetime.fromisoformat(item["timestamp"]),
-            post_url=item.get("permalink", ""),
+
+            caption=item.get(
+                "caption",
+                "",
+            ),
+
+            posted_at=(
+                datetime.datetime.fromisoformat(
+                    item["timestamp"]
+                )
+            ),
+
+            post_url=item.get(
+                "permalink",
+                "",
+            ),
+
             source="instagram",
         )
+
         for item in data
     ]
 
 
-def fetch_recent_instagram_posts_business_discovery(target_username: str) -> list[RawSocialPost]:
+# =========================================================================
+# INSTAGRAM BUSINESS DISCOVERY
+# =========================================================================
+
+def fetch_recent_instagram_posts_business_discovery(
+    target_username: str,
+) -> list[RawSocialPost]:
     """
-    Business Discovery — reads another PUBLIC Business/Creator account's
-    recent posts by USERNAME, without that account needing any role on
-    your app at all. This is the right function for trucks that haven't
-    connected to you — use fetch_recent_instagram_posts() above only for
-    accounts YOU personally manage as a Tester.
+    Retrieves recent public posts from another eligible Instagram
+    Business/Creator account through Meta Business Discovery.
 
-    Requires:
-      - INSTAGRAM_BUSINESS_ACCOUNT_ID: the numeric ID of YOUR OWN
-        Instagram Business/Creator account (the one making the query, not
-        the target truck). Get this once via Graph API Explorer after
-        converting your account to Business/Creator and connecting it to
-        your Meta app.
-      - INSTAGRAM_ACCESS_TOKEN: a valid token for that same account.
+    IMPORTANT:
 
-    Caveat worth knowing: Business Discovery is real and doesn't require
-    the target's cooperation, but multiple sources describe it as
-    "severely capped" per account per week — exact numbers vary across
-    (non-official) sources I found, so watch for 429/throttling responses
-    in practice rather than assuming a specific number holds.
+    This function is OPTIONAL.
+
+    If:
+
+        INSTAGRAM_BUSINESS_ACCOUNT_ID
+
+    or:
+
+        INSTAGRAM_ACCESS_TOKEN
+
+    is missing, this function returns an EMPTY LIST.
+
+    It does NOT throw an exception.
+
+    This is intentional because Meta App Review / Business Verification
+    may still be pending.
+
+    Required for Business Discovery:
+
+        INSTAGRAM_BUSINESS_ACCOUNT_ID
+        INSTAGRAM_ACCESS_TOKEN
+
+    INSTAGRAM_BUSINESS_ACCOUNT_ID is the ID of YOUR OWN authorized
+    Business/Creator account making the request.
+
+    It is NOT the target food truck's ID.
     """
-    business_account_id = os.getenv("INSTAGRAM_BUSINESS_ACCOUNT_ID")
-    token = os.getenv("INSTAGRAM_ACCESS_TOKEN")
-    if not business_account_id or not token:
-        raise RuntimeError(
-            "INSTAGRAM_BUSINESS_ACCOUNT_ID / INSTAGRAM_ACCESS_TOKEN not set. "
-            "These are YOUR OWN account's ID + token, used to query other "
-            "public accounts via Business Discovery — see function docstring."
-        )
 
-    url = f"https://graph.facebook.com/v22.0/{business_account_id}"
+    business_account_id = os.getenv(
+        "INSTAGRAM_BUSINESS_ACCOUNT_ID"
+    )
+
+    token = os.getenv(
+        "INSTAGRAM_ACCESS_TOKEN"
+    )
+
+    # ---------------------------------------------------------------
+    # CRITICAL FIX
+    #
+    # Instagram Business Discovery is optional.
+    #
+    # Do NOT fail the entire pipeline when Meta credentials are
+    # unavailable.
+    # ---------------------------------------------------------------
+
+    if (
+        not business_account_id
+        or not token
+    ):
+
+        return []
+
+    url = (
+        f"https://graph.facebook.com/"
+        f"v22.0/"
+        f"{business_account_id}"
+    )
+
     params = {
-        "fields": f"business_discovery.username({target_username}){{username,media{{caption,timestamp,permalink}}}}",
+
+        "fields": (
+            "business_discovery."
+            f"username({target_username})"
+            "{username,media"
+            "{caption,timestamp,permalink}}"
+        ),
+
         "access_token": token,
     }
-    response = requests.get(url, params=params, timeout=10)
+
+    response = requests.get(
+        url,
+        params=params,
+        timeout=10,
+    )
+
     response.raise_for_status()
+
     payload = response.json()
 
-    discovery = payload.get("business_discovery", {})
-    media_items = discovery.get("media", {}).get("data", [])
+    discovery = payload.get(
+        "business_discovery",
+        {},
+    )
+
+    media_items = (
+        discovery
+        .get(
+            "media",
+            {},
+        )
+        .get(
+            "data",
+            [],
+        )
+    )
 
     return [
+
         RawSocialPost(
+
             truck_handle=target_username,
-            caption=item.get("caption", ""),
-            posted_at=datetime.datetime.fromisoformat(item["timestamp"]),
-            post_url=item.get("permalink", ""),
+
+            caption=item.get(
+                "caption",
+                "",
+            ),
+
+            posted_at=(
+                datetime.datetime.fromisoformat(
+                    item["timestamp"]
+                )
+            ),
+
+            post_url=item.get(
+                "permalink",
+                "",
+            ),
+
             source="instagram",
         )
+
         for item in media_items
     ]
 
 
-# ---------- X (Twitter) API ----------
+# =========================================================================
+# X / TWITTER API
+# =========================================================================
 
-def fetch_recent_x_posts(username: str) -> list[RawSocialPost]:
+def fetch_recent_x_posts(
+    username: str,
+) -> list[RawSocialPost]:
     """
-    Requires X_API_BEARER_TOKEN in your environment. Pay-per-use as of
-    2026 — no free tier. Budget accordingly even for light testing volume.
+    Requires:
+
+        X_API_BEARER_TOKEN
     """
-    token = os.getenv("X_API_BEARER_TOKEN")
+
+    token = os.getenv(
+        "X_API_BEARER_TOKEN"
+    )
+
     if not token:
-        raise RuntimeError("X_API_BEARER_TOKEN not set in environment.")
 
-    headers = {"Authorization": f"Bearer {token}"}
+        raise RuntimeError(
+            "X_API_BEARER_TOKEN not set in environment."
+        )
+
+    headers = {
+        "Authorization":
+            f"Bearer {token}"
+    }
 
     user_lookup = requests.get(
-        f"https://api.x.com/2/users/by/username/{username}",
+
+        (
+            "https://api.x.com/2/users/"
+            f"by/username/{username}"
+        ),
+
         headers=headers,
+
         timeout=10,
     )
+
     user_lookup.raise_for_status()
-    user_id = user_lookup.json()["data"]["id"]
+
+    user_id = (
+        user_lookup
+        .json()["data"]["id"]
+    )
 
     tweets = requests.get(
-        f"https://api.x.com/2/users/{user_id}/tweets",
+
+        (
+            f"https://api.x.com/2/users/"
+            f"{user_id}/tweets"
+        ),
+
         headers=headers,
-        params={"tweet.fields": "created_at", "max_results": 10},
+
+        params={
+            "tweet.fields":
+                "created_at",
+            "max_results":
+                10,
+        },
+
         timeout=10,
     )
+
     tweets.raise_for_status()
-    data = tweets.json().get("data", [])
+
+    data = (
+        tweets
+        .json()
+        .get(
+            "data",
+            [],
+        )
+    )
 
     return [
+
         RawSocialPost(
+
             truck_handle=username,
-            caption=item.get("text", ""),
-            posted_at=datetime.datetime.fromisoformat(item["created_at"]),
-            post_url=f"https://x.com/{username}/status/{item['id']}",
+
+            caption=item.get(
+                "text",
+                "",
+            ),
+
+            posted_at=(
+                datetime.datetime.fromisoformat(
+                    item["created_at"]
+                )
+            ),
+
+            post_url=(
+                f"https://x.com/"
+                f"{username}/status/"
+                f"{item['id']}"
+            ),
+
             source="x",
         )
+
         for item in data
     ]
 
 
-# ---------- Facebook Pages API ----------
+# =========================================================================
+# FACEBOOK PAGES API
+# =========================================================================
 
-def fetch_recent_facebook_page_posts(page_id_or_username: str) -> list[RawSocialPost]:
+def fetch_recent_facebook_page_posts(
+    page_id_or_username: str,
+) -> list[RawSocialPost]:
     """
-    Reads a Facebook Page's public posts.
+    Reads Facebook Page posts.
 
-    IMPORTANT — read before using: this requires ONE of two things, and
-    "my personal account follows this page" is NOT one of them (that
-    capability doesn't exist in the API at all — Meta removed all
-    personal-feed/following-list access in 2018 and never brought it back,
-    for any app tier):
+    Requires:
 
-      1. FACEBOOK_PAGE_ACCESS_TOKEN is a token for a Page YOU (or someone
-         who added you as admin/editor) actually manage — free, instant,
-         no review. Only works for that specific page.
-      2. Your app has "Page Public Content Access" — reading OTHER
-         pages you don't manage requires this permission, which requires
-         Meta App Review + Business Verification (weeks, not instant).
+        FACEBOOK_PAGE_ACCESS_TOKEN
 
-    There's no per-post distinction in the API between these — the same
-    call either works or returns a permissions error depending on which
-    of the above is true for the token you're using.
+    The token must have appropriate authorization for the page/content
+    being requested.
     """
-    token = os.getenv("FACEBOOK_PAGE_ACCESS_TOKEN")
+
+    token = os.getenv(
+        "FACEBOOK_PAGE_ACCESS_TOKEN"
+    )
+
     if not token:
-        raise RuntimeError("FACEBOOK_PAGE_ACCESS_TOKEN not set in environment.")
 
-    url = f"https://graph.facebook.com/v25.0/{page_id_or_username}/feed"
+        raise RuntimeError(
+            "FACEBOOK_PAGE_ACCESS_TOKEN "
+            "not set in environment."
+        )
+
+    url = (
+        "https://graph.facebook.com/"
+        f"v25.0/"
+        f"{page_id_or_username}/feed"
+    )
+
     params = {
-        "fields": "message,created_time,permalink_url",
+
+        "fields": (
+            "message,"
+            "created_time,"
+            "permalink_url"
+        ),
+
         "access_token": token,
     }
-    response = requests.get(url, params=params, timeout=10)
+
+    response = requests.get(
+        url,
+        params=params,
+        timeout=10,
+    )
+
     response.raise_for_status()
-    data = response.json().get("data", [])
+
+    data = (
+        response
+        .json()
+        .get(
+            "data",
+            [],
+        )
+    )
 
     return [
+
         RawSocialPost(
+
             truck_handle=page_id_or_username,
-            caption=item.get("message", ""),
-            posted_at=datetime.datetime.fromisoformat(item["created_time"]),
-            post_url=item.get("permalink_url", ""),
+
+            caption=item.get(
+                "message",
+                "",
+            ),
+
+            posted_at=(
+                datetime.datetime.fromisoformat(
+                    item["created_time"]
+                )
+            ),
+
+            post_url=item.get(
+                "permalink_url",
+                "",
+            ),
+
             source="facebook",
         )
+
         for item in data
-        if item.get("message")  # skip posts with no text (photo-only, etc.)
+
+        if item.get("message")
     ]
 
 
-# ---------- Generic partnership feed ----------
+# =========================================================================
+# GENERIC PARTNERSHIP FEED
+# =========================================================================
 
 def fetch_partnership_feed() -> list[RawSocialPost]:
     """
-    Generic slot for a direct data-partnership API (e.g. a regional food
-    truck association or POS vendor with its own feed). Fill in the real
-    endpoint shape once you have partner API docs — this is a placeholder
-    request pattern, not a working integration for any specific partner.
+    Generic slot for a direct data-partnership API.
+
+    Requires:
+
+        PARTNERSHIP_API_KEY
+        PARTNERSHIP_API_BASE_URL
     """
-    api_key = os.getenv("PARTNERSHIP_API_KEY")
-    base_url = os.getenv("PARTNERSHIP_API_BASE_URL")
-    if not api_key or not base_url:
+
+    api_key = os.getenv(
+        "PARTNERSHIP_API_KEY"
+    )
+
+    base_url = os.getenv(
+        "PARTNERSHIP_API_BASE_URL"
+    )
+
+    if (
+        not api_key
+        or not base_url
+    ):
+
         raise RuntimeError(
-            "PARTNERSHIP_API_KEY / PARTNERSHIP_API_BASE_URL not set. "
-            "Fill these in once you have the partner's real credentials + endpoint."
+            "PARTNERSHIP_API_KEY / "
+            "PARTNERSHIP_API_BASE_URL "
+            "not set. "
+            "Fill these in once you have "
+            "the partner's real credentials "
+            "+ endpoint."
         )
 
     response = requests.get(
+
         f"{base_url}/locations",
-        headers={"Authorization": f"Bearer {api_key}"},
+
+        headers={
+            "Authorization":
+                f"Bearer {api_key}"
+        },
+
         timeout=10,
     )
+
     response.raise_for_status()
-    # Real shape depends entirely on the partner's API — adjust parsing
-    # once you have their actual response schema.
+
+    # The actual response structure depends
+    # on the partner API.
     return []
 
 
-def fetch_all_known_trucks(instagram_ids: list[str] = None, x_usernames: list[str] = None, instagram_business_discovery_usernames: list[str] = None, facebook_page_ids: list[str] = None) -> list[RawSocialPost]:
-    """Iterates over curated lists of truck handles across sources."""
+# =========================================================================
+# FETCH ALL SOCIAL SOURCES
+# =========================================================================
+
+def fetch_all_known_trucks(
+    instagram_ids: list[str] = None,
+
+    x_usernames: list[str] = None,
+
+    instagram_business_discovery_usernames: list[str] = None,
+
+    facebook_page_ids: list[str] = None,
+
+) -> list[RawSocialPost]:
+
+    """
+    Iterates over configured social sources.
+
+    IMPORTANT:
+
+    Every source is independently optional.
+
+    A failure in one source does NOT prevent the other sources from
+    running.
+    """
+
     all_posts: list[RawSocialPost] = []
 
-    for ig_id in (instagram_ids or []):
-        try:
-            all_posts.extend(fetch_recent_instagram_posts(ig_id))
-        except Exception as e:
-            print(f"Instagram fetch failed for {ig_id}: {e}")
+    # -----------------------------------------------------------------
+    # INSTAGRAM ACCOUNTS WE DIRECTLY CONTROL / ARE AUTHORIZED TO ACCESS
+    # -----------------------------------------------------------------
 
-    for username in (instagram_business_discovery_usernames or []):
-        try:
-            all_posts.extend(fetch_recent_instagram_posts_business_discovery(username))
-        except Exception as e:
-            print(f"Instagram Business Discovery fetch failed for @{username}: {e}")
+    for ig_id in (
+        instagram_ids or []
+    ):
 
-    for page_id in (facebook_page_ids or []):
         try:
-            all_posts.extend(fetch_recent_facebook_page_posts(page_id))
-        except Exception as e:
-            print(f"Facebook Page fetch failed for {page_id}: {e}")
 
-    for handle in (x_usernames or []):
-        try:
-            all_posts.extend(fetch_recent_x_posts(handle))
+            all_posts.extend(
+                fetch_recent_instagram_posts(
+                    ig_id
+                )
+            )
+
         except Exception as e:
-            print(f"X fetch failed for {handle}: {e}")
+
+            print(
+                f"Instagram fetch failed "
+                f"for {ig_id}: {e}"
+            )
+
+    # -----------------------------------------------------------------
+    # INSTAGRAM BUSINESS DISCOVERY
+    #
+    # THIS IS THE IMPORTANT FIX.
+    #
+    # If Meta credentials aren't available, skip the entire batch.
+    # Do not print one failure per truck.
+    # -----------------------------------------------------------------
+
+    business_account_id = os.getenv(
+        "INSTAGRAM_BUSINESS_ACCOUNT_ID"
+    )
+
+    instagram_token = os.getenv(
+        "INSTAGRAM_ACCESS_TOKEN"
+    )
+
+    if (
+        business_account_id
+        and instagram_token
+    ):
+
+        print(
+            "[instagram] "
+            "Business Discovery credentials "
+            "detected; attempting discovery."
+        )
+
+        for username in (
+            instagram_business_discovery_usernames
+            or []
+        ):
+
+            try:
+
+                posts = (
+                    fetch_recent_instagram_posts_business_discovery(
+                        username
+                    )
+                )
+
+                all_posts.extend(
+                    posts
+                )
+
+            except Exception as e:
+
+                # IMPORTANT:
+                # Even if Meta credentials exist but a particular
+                # account fails, do NOT kill the entire pipeline.
+                print(
+                    "[instagram] Business Discovery "
+                    f"failed for @{username}: {e}"
+                )
+
+    else:
+
+        if instagram_business_discovery_usernames:
+
+            print(
+                "[instagram] Business Discovery "
+                "unavailable — Meta credentials "
+                "not configured; continuing "
+                "without Instagram."
+            )
+
+    # -----------------------------------------------------------------
+    # FACEBOOK
+    # -----------------------------------------------------------------
+
+    for page_id in (
+        facebook_page_ids or []
+    ):
+
+        try:
+
+            all_posts.extend(
+                fetch_recent_facebook_page_posts(
+                    page_id
+                )
+            )
+
+        except Exception as e:
+
+            print(
+                f"Facebook Page fetch failed "
+                f"for {page_id}: {e}"
+            )
+
+    # -----------------------------------------------------------------
+    # X
+    # -----------------------------------------------------------------
+
+    for handle in (
+        x_usernames or []
+    ):
+
+        try:
+
+            all_posts.extend(
+                fetch_recent_x_posts(
+                    handle
+                )
+            )
+
+        except Exception as e:
+
+            print(
+                f"X fetch failed "
+                f"for {handle}: {e}"
+            )
 
     return all_posts
