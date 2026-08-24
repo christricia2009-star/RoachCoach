@@ -22,6 +22,9 @@
       "destination": "/api/index.py"
     },
     {
+      "source": "/admin/import_trucks",
+      "destination": "/api/admin.import_trucks"
+    },{
       "source": "/radar/observations",
       "destination": "/api/index.py"
     }
