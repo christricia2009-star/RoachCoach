@@ -25,8 +25,23 @@ sys.path.append(os.path.join(os.path.dirname(__file__), "phase3"))
 
 from apscheduler.schedulers.blocking import BlockingScheduler
 
-from backend import signal_fusion
-from backend.signal_fusion import RawDetection
+# scheduler.py gets run two different ways that put two different
+# directories on sys.path:
+#   - `python3 scheduler.py` (GitHub Actions workflow, or any VPS/cron
+#     setup) with cwd=backend/ — Python auto-adds backend/ itself to
+#     sys.path, so signal_fusion is importable directly, but there's no
+#     "backend" package visible (its own parent isn't on the path).
+#   - imported as part of the `backend` package (e.g. some future runner
+#     that does `from backend import scheduler` from the repo root) —
+#     here "backend" IS on the path, and the bare module name isn't
+#     necessarily unique/importable the same way.
+# Try both so this doesn't break depending on how/where it's invoked.
+try:
+    from backend import signal_fusion
+    from backend.signal_fusion import RawDetection
+except ModuleNotFoundError:
+    import signal_fusion
+    from signal_fusion import RawDetection
 
 
 # In-memory pool of recent detections across ALL sources.
@@ -271,7 +286,11 @@ def job_social_scraping():
     )
     from llm_extract import extract_location_from_caption
     from geocoding import geocode
-    from backend.signal_fusion import KNOWN_TRUCK_NAMES
+
+    # KNOWN_TRUCK_NAMES already imported at module level (see the
+    # try/except import block near the top of this file) as
+    # `signal_fusion.KNOWN_TRUCK_NAMES` — reuse that instead of a second,
+    # separately-resolved import here.
 
     # Curated account lists now live in social_scraper.py (single source
     # of truth shared with main.py's on-demand /api/radar/scan route) —
@@ -314,7 +333,7 @@ def job_social_scraping():
     # ------------------------------------------------------------------
 
     posts += fetch_web_search_results(
-        [name.title() for name in KNOWN_TRUCK_NAMES.keys()]
+        [name.title() for name in signal_fusion.KNOWN_TRUCK_NAMES.keys()]
     )
 
     # ------------------------------------------------------------------
