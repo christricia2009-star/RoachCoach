@@ -1,0 +1,55 @@
+name: Roach Coach Radar - Signal Pipeline
+
+on:
+  schedule:
+    - cron: "*/15 * * * *"
+  workflow_dispatch: {}
+
+jobs:
+  run-pipeline:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out repo
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install dependencies
+        run: |
+          cd Backend
+          pip install -r requirements.txt
+
+      - name: Reconstruct CloudKit private key from secret
+        run: |
+          echo "${{ secrets.CLOUDKIT_PRIVATE_KEY_B64 }}" | base64 --decode > /tmp/cloudkit_key.pem
+
+      - name: Run signal pipeline once
+        env:
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          XAI_API_KEY: ${{ secrets.XAI_API_KEY }}
+          OPENROUTER_API_KEY: ${{ secrets.OPENROUTER_API_KEY }}
+          LLM_STRATEGY: ${{ secrets.LLM_STRATEGY }}
+          LLM_PROVIDER: ${{ secrets.LLM_PROVIDER }}
+          CLOUDKIT_CONTAINER_ID: ${{ secrets.CLOUDKIT_CONTAINER_ID }}
+          CLOUDKIT_KEY_ID: ${{ secrets.CLOUDKIT_KEY_ID }}
+          CLOUDKIT_PRIVATE_KEY_PATH: /tmp/cloudkit_key.pem
+          CLOUDKIT_ENVIRONMENT: ${{ secrets.CLOUDKIT_ENVIRONMENT }}
+          HOME_BASE_LATITUDE: ${{ secrets.HOME_BASE_LATITUDE }}
+          HOME_BASE_LONGITUDE: ${{ secrets.HOME_BASE_LONGITUDE }}
+          TELECOM_API_KEY: ${{ secrets.TELECOM_API_KEY }}
+          TELECOM_API_BASE_URL: ${{ secrets.TELECOM_API_BASE_URL }}
+          UBER_PARTNER_CLIENT_ID: ${{ secrets.UBER_PARTNER_CLIENT_ID }}
+          UBER_PARTNER_CLIENT_SECRET: ${{ secrets.UBER_PARTNER_CLIENT_SECRET }}
+          UBER_PARTNER_API_BASE_URL: ${{ secrets.UBER_PARTNER_API_BASE_URL }}
+          DOORDASH_PARTNER_API_KEY: ${{ secrets.DOORDASH_PARTNER_API_KEY }}
+          DOORDASH_PARTNER_API_BASE_URL: ${{ secrets.DOORDASH_PARTNER_API_BASE_URL }}
+          INSTAGRAM_ACCESS_TOKEN: ${{ secrets.INSTAGRAM_ACCESS_TOKEN }}
+          INSTAGRAM_BUSINESS_ACCOUNT_ID: ${{ secrets.INSTAGRAM_BUSINESS_ACCOUNT_ID }}
+          FACEBOOK_PAGE_ACCESS_TOKEN: ${{ secrets.FACEBOOK_PAGE_ACCESS_TOKEN }}
+          X_API_BEARER_TOKEN: ${{ secrets.X_API_BEARER_TOKEN }}
+        run: |
+          cd Backend
+          python3 scheduler.py --once
