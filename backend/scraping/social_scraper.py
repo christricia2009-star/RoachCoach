@@ -507,6 +507,8 @@ TRUCK_LISTINGS: list[dict[str, str]] = [
         "x": "drewskis",
         "facebook": "drewskisfoodtrucks",
         "address": "5504 Dudley Blvd, Sacramento, CA",
+        "latitude": "38.666934",
+        "longitude": "-121.386515",
     },
     {
         "key": "buckhorn bbq",

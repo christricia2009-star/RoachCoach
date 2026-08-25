@@ -49,6 +49,8 @@ class ListingHit:
     source: str
     source_url: str = ""
     note: str = ""
+    latitude: Optional[float] = None
+    longitude: Optional[float] = None
 
 
 def _clean(text: str) -> str:
@@ -79,8 +81,11 @@ def search_duckduckgo(query: str, limit: int = 8) -> list[dict[str, str]]:
     except requests.RequestException as exc:
         print(f"[listings] duckduckgo failed: {exc}")
         return []
-    if response.status_code != 200:
+    if response.status_code not in (200, 202):
         print(f"[listings] duckduckgo HTTP {response.status_code}")
+        return []
+    if response.status_code == 202 and "result__a" not in response.text:
+        print("[listings] duckduckgo challenge page; skipping search results")
         return []
 
     body = response.text
@@ -134,6 +139,13 @@ def listings_for_truck(listing: dict[str, str]) -> list[ListingHit]:
     name = listing["search_name"]
     hits: list[ListingHit] = []
     known = (listing.get("address") or "").strip()
+    lat = lon = None
+    try:
+        if listing.get("latitude") and listing.get("longitude"):
+            lat = float(listing["latitude"])
+            lon = float(listing["longitude"])
+    except (TypeError, ValueError):
+        lat = lon = None
     if known:
         hits.append(
             ListingHit(
@@ -141,6 +153,8 @@ def listings_for_truck(listing: dict[str, str]) -> list[ListingHit]:
                 location_text=f"{name} {known}",
                 source="directory",
                 note=f"Listed address {known}",
+                latitude=lat,
+                longitude=lon,
             )
         )
 

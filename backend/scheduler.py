@@ -481,22 +481,31 @@ def job_public_listings():
     print(f"[listings] processing {len(hits)} hit(s)")
 
     for hit in hits:
-        geocoded = geocode(hit.location_text)
-        if not geocoded:
-            print(
-                f"[listings] could not geocode {hit.location_text!r} "
-                f"for {hit.truck_name}"
-            )
-            continue
+        if hit.latitude is not None and hit.longitude is not None:
+            latitude = hit.latitude
+            longitude = hit.longitude
+        else:
+            address = hit.location_text
+            if hit.truck_name and address.startswith(hit.truck_name):
+                address = address[len(hit.truck_name):].strip(" ,")
+            geocoded = geocode(address or hit.location_text)
+            if not geocoded:
+                print(
+                    f"[listings] could not geocode {hit.location_text!r} "
+                    f"for {hit.truck_name}"
+                )
+                continue
+            latitude = geocoded["latitude"]
+            longitude = geocoded["longitude"]
 
         detection = RawDetection(
             source="social",
-            latitude=geocoded["latitude"],
-            longitude=geocoded["longitude"],
+            latitude=latitude,
+            longitude=longitude,
             timestamp=datetime.datetime.now(datetime.timezone.utc),
             raw_confidence=0.7,
             text_hint=hit.location_text,
-            note=hit.note or f"{hit.source}: {geocoded['display_name']}",
+            note=hit.note or f"{hit.source}: {hit.location_text}",
         )
         _record_and_process(detection)
 
