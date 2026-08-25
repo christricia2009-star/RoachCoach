@@ -32,6 +32,11 @@ USER_AGENT = (
 
 DEFAULT_CITY_CONTEXT = "Sacramento, CA"
 
+# Greater Sacramento (includes Roseville, Yuba City, Davis, Folsom).
+# Reject Nominatim/Photon hits that snap to another state/country.
+REGION_LAT = (38.0, 39.8)
+REGION_LON = (-122.5, -120.4)
+
 _UNUSABLE = {
     "i", "a", "the", "yes", "no", "none", "unknown", "n/a", "here",
     "today", "tonight", "now", "open", "closed",
@@ -85,11 +90,11 @@ def _nominatim(query: str) -> dict | None:
     if not results:
         return None
     top = results[0]
-    return {
+    return _in_region({
         "latitude": float(top["lat"]),
         "longitude": float(top["lon"]),
         "display_name": top.get("display_name", query),
-    }
+    })
 
 
 def _photon(query: str) -> dict | None:
@@ -118,11 +123,25 @@ def _photon(query: str) -> dict | None:
         return None
     properties = features[0].get("properties") or {}
     label = properties.get("name") or query
-    return {
+    return _in_region({
         "latitude": float(coords[1]),
         "longitude": float(coords[0]),
         "display_name": str(properties.get("label") or label),
-    }
+    })
+
+
+def _in_region(result: dict | None) -> dict | None:
+    if not result:
+        return None
+    lat = result["latitude"]
+    lon = result["longitude"]
+    if not (REGION_LAT[0] <= lat <= REGION_LAT[1] and REGION_LON[0] <= lon <= REGION_LON[1]):
+        print(
+            f"[geocode] rejected out-of-area {result.get('display_name')!r} "
+            f"({lat:.4f}, {lon:.4f})"
+        )
+        return None
+    return result
 
 
 STREET_RE = re.compile(
@@ -165,11 +184,11 @@ def _nominatim_structured(
     if not results:
         return None
     top = results[0]
-    return {
+    return _in_region({
         "latitude": float(top["lat"]),
         "longitude": float(top["lon"]),
         "display_name": top.get("display_name", street),
-    }
+    })
 
 
 def geocode(location_text: str, city_context: str = None) -> dict | None:
