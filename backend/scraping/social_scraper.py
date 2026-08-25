@@ -363,7 +363,7 @@ def fetch_recent_instagram_posts_business_discovery(
         "fields": (
             "business_discovery.username("
             f"{username}"
-            "){username,media{caption,timestamp,permalink}}"
+            "){username,media.limit(8){caption,timestamp,permalink}}"
         ),
         "access_token": token,
     }

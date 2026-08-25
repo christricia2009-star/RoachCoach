@@ -20,7 +20,60 @@ Example output:
 """
 
 import json
+import os
+import re
+
 from llm_providers import complete
+
+_STREET_RE = re.compile(
+    r"\b\d{3,5}\s+[A-Za-z0-9.'\- ]{2,40}?\s"
+    r"(?:Blvd|Boulevard|St|Street|Ave|Avenue|Rd|Road|Way|Dr|Drive|"
+    r"Ln|Lane|Pkwy|Parkway|Ct|Court|Pl|Place)\b",
+    re.IGNORECASE,
+)
+_AT_RE = re.compile(
+    r"\b(?:at|@)\s+([A-Za-z0-9.'&/\- ]{3,50}?)(?:\s+(?:today|tonight|now)|[,.!?\n]|$)",
+    re.IGNORECASE,
+)
+
+
+def _llm_extract_enabled() -> bool:
+    flag = (os.getenv("USE_LLM_EXTRACT") or os.getenv("USE_OPENROUTER") or "").strip().lower()
+    if flag not in ("1", "true", "yes"):
+        return False
+    return bool(
+        (os.getenv("OPENROUTER_API_KEY") or "").strip()
+        or (os.getenv("ANTHROPIC_API_KEY") or "").strip()
+        or (os.getenv("XAI_API_KEY") or "").strip()
+    )
+
+
+def _regex_extract(caption: str) -> dict:
+    empty = {
+        "location_text": None,
+        "start_time": None,
+        "end_time": None,
+        "confidence": "none",
+    }
+    street = _STREET_RE.search(caption or "")
+    if street:
+        return {
+            "location_text": street.group(0).strip(),
+            "start_time": None,
+            "end_time": None,
+            "confidence": "high",
+        }
+    at = _AT_RE.search(caption or "")
+    if at:
+        place = at.group(1).strip(" ,.-")
+        if len(place) >= 4:
+            return {
+                "location_text": place,
+                "start_time": None,
+                "end_time": None,
+                "confidence": "medium",
+            }
+    return empty
 
 EXTRACTION_PROMPT = """You extract food truck location and time information \
 from social media captions. The caption may be casual, use abbreviations, \
@@ -54,6 +107,10 @@ def extract_location_from_caption(caption: str) -> dict:
     # Empty IG/FB posts have no location; skip the LLM call.
     if len(text) < 8:
         return empty
+
+    cheap = _regex_extract(text)
+    if not _llm_extract_enabled():
+        return cheap
 
     raw_text = complete(EXTRACTION_PROMPT.format(caption=caption), max_tokens=300) or ""
 

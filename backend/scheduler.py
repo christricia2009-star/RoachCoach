@@ -355,6 +355,26 @@ def job_social_scraping():
         f"[social] account fetch returned {len(posts)} post(s)"
     )
 
+    lookback_hours = float(os.getenv("SOCIAL_LOOKBACK_HOURS") or "12")
+    cutoff = datetime.datetime.now(datetime.timezone.utc) - datetime.timedelta(
+        hours=lookback_hours
+    )
+    recent_posts = []
+    skipped_old = 0
+    for post in posts:
+        posted = post.posted_at
+        if posted.tzinfo is None:
+            posted = posted.replace(tzinfo=datetime.timezone.utc)
+        if posted >= cutoff:
+            recent_posts.append(post)
+        else:
+            skipped_old += 1
+    print(
+        f"[social] keeping {len(recent_posts)} post(s) from the last "
+        f"{lookback_hours:g}h; skipped {skipped_old} older post(s)"
+    )
+    posts = recent_posts
+
     # ------------------------------------------------------------------
     # WEB SEARCH FALLBACK/SUPPLEMENT
     #
@@ -593,7 +613,13 @@ def run_all_once():
         + ((os.getenv("PER_TRUCK_WEB_SEARCH") or "off"))
         + " duckduckgo="
         + ("off" if (os.getenv("SKIP_DUCKDUCKGO") or "1") not in ("0", "false", "no") else "on")
-        + " — default is one OpenRouter JSON listing call + free directory pins"
+        + " openrouter="
+        + ((os.getenv("USE_OPENROUTER") or "off"))
+        + " llm_extract="
+        + ((os.getenv("USE_LLM_EXTRACT") or "off"))
+        + " lookback_h="
+        + ((os.getenv("SOCIAL_LOOKBACK_HOURS") or "12"))
+        + " — default is Instagram/Facebook Graph only"
     )
 
     failed = []

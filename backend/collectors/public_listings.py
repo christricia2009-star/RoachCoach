@@ -372,11 +372,15 @@ def collect_listings() -> list[ListingHit]:
         except Exception as exc:
             print(f"[listings] {listing.get('search_name')}: {exc}")
 
-    try:
-        for hit in openrouter_live_listings():
-            add(hit)
-    except Exception as exc:
-        print(f"[listings] openrouter live failed: {exc}")
+    use_openrouter = (os.getenv("USE_OPENROUTER") or "").strip().lower()
+    if use_openrouter in ("1", "true", "yes"):
+        try:
+            for hit in openrouter_live_listings():
+                add(hit)
+        except Exception as exc:
+            print(f"[listings] openrouter live failed: {exc}")
+    else:
+        print("[listings] skipped OpenRouter listing search (USE_OPENROUTER not set)")
 
     for hit in sacramento_today_hits() + sactomofo_event_hits():
         add(hit)
