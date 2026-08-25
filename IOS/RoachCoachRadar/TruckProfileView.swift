@@ -107,7 +107,8 @@ struct TruckProfileView: View {
 
                 Section("Recent Sightings") {
                     if recentSightings.isEmpty {
-                        Text("No recent sightings reported yet.")
+                        Text("Radar only lists pins the backend wrote to CloudKit. Opening Instagram shows their posts, but those captions are not imported until Instagram Graph API credentials are set.")
+                            .font(.footnote)
                             .foregroundStyle(.secondary)
                     } else {
                         ForEach(recentSightings.prefix(10)) { sighting in
