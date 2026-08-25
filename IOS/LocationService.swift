@@ -1,6 +1,17 @@
 import Foundation
 import CoreLocation
 import Combine
+import MapKit
+
+enum MapsLauncher {
+    static func directions(to coordinate: CLLocationCoordinate2D, name: String) {
+        let item = MKMapItem(placemark: MKPlacemark(coordinate: coordinate))
+        item.name = name
+        item.openInMaps(launchOptions: [
+            MKLaunchOptionsDirectionsModeKey: MKLaunchOptionsDirectionsModeDriving
+        ])
+    }
+}
 
 /// Wraps CLLocationManager so views can get the user's real device location
 /// (works in the Simulator too — Debug menu → Features → Location → choose

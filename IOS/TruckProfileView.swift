@@ -13,6 +13,10 @@ struct TruckProfileView: View {
         TruckSocialDirectory.links(for: truck)
     }
 
+    private var latestSighting: Sighting? {
+        recentSightings.first { !$0.isExpired } ?? recentSightings.first
+    }
+
     var body: some View {
         NavigationStack {
             List {
@@ -40,12 +44,37 @@ struct TruckProfileView: View {
                                 .font(.footnote)
                         }
 
-                        if let latest = recentSightings.first,
-                           let distanceText = locationService.formattedDistance(to: latest.coordinate),
-                           let eta = locationService.estimatedWalkingMinutes(to: latest.coordinate) {
-                            Label("\(distanceText) · ~\(eta) min walk", systemImage: "location.fill")
+                        if let latest = latestSighting {
+                            VStack(alignment: .leading, spacing: 4) {
+                                Label("Last seen \(latest.timestamp, style: .relative)", systemImage: "clock")
+                                    .font(.footnote)
+                                    .foregroundStyle(.secondary)
+                                if let distanceText = locationService.formattedDistance(to: latest.coordinate),
+                                   let eta = locationService.estimatedWalkingMinutes(to: latest.coordinate) {
+                                    Label("\(distanceText) · ~\(eta) min walk", systemImage: "location.fill")
+                                        .font(.footnote)
+                                        .foregroundStyle(.blue)
+                                }
+                            }
+                        } else {
+                            Text("No live pin yet — check Instagram or scan radar.")
                                 .font(.footnote)
-                                .foregroundStyle(.blue)
+                                .foregroundStyle(.secondary)
+                        }
+                    }
+                }
+
+                if let latest = latestSighting {
+                    Section {
+                        Button {
+                            MapsLauncher.directions(to: latest.coordinate, name: truck.name)
+                        } label: {
+                            Label("Get directions", systemImage: "arrow.triangle.turn.up.right.diamond.fill")
+                        }
+                        ShareLink(
+                            item: "\(truck.name) last seen near \(latest.latitude), \(latest.longitude)"
+                        ) {
+                            Label("Share this pin", systemImage: "square.and.arrow.up")
                         }
                     }
                 }

@@ -2,6 +2,7 @@ import SwiftUI
 
 struct FavoritesView: View {
     @State private var allTrucks: [Truck] = []
+    @State private var sightings: [Sighting] = []
     @StateObject private var favorites = FavoritesStore.shared
     @StateObject private var locationService = LocationService.shared
     private let api: APIServicing = CloudKitService.shared
@@ -20,12 +21,28 @@ struct FavoritesView: View {
                         NavigationLink { TruckProfileView(truck: truck) } label: {
                             HStack(spacing: 12) {
                                 Image(systemName: "heart.fill").foregroundStyle(.pink)
-                                VStack(alignment: .leading) {
+                                VStack(alignment: .leading, spacing: 3) {
                                     Text(truck.name).fontWeight(.semibold)
                                     Text(truck.cuisineType).font(.caption).foregroundStyle(.secondary)
+                                    if let latest = latestSighting(for: truck) {
+                                        Text("Last seen \(latest.timestamp, style: .relative)")
+                                            .font(.caption2)
+                                            .foregroundStyle(.secondary)
+                                    } else {
+                                        Text("No live pin yet")
+                                            .font(.caption2)
+                                            .foregroundStyle(.tertiary)
+                                    }
                                 }
                                 Spacer()
-                                Text("WATCHING").font(.caption2.bold().monospaced()).foregroundStyle(.green)
+                                if let latest = latestSighting(for: truck) {
+                                    Button {
+                                        MapsLauncher.directions(to: latest.coordinate, name: truck.name)
+                                    } label: {
+                                        Image(systemName: "arrow.triangle.turn.up.right.diamond.fill")
+                                    }
+                                    .buttonStyle(.borderless)
+                                }
                             }
                         }
                         .swipeActions(edge: .trailing) {
@@ -38,10 +55,20 @@ struct FavoritesView: View {
             .toolbar { ToolbarItem(placement: .topBarTrailing) { Text("\(favoriteTrucks.count) watched").font(.caption).foregroundStyle(.secondary) } }
             .task {
                 locationService.requestPermission()
-                allTrucks = (try? await api.fetchTrucks()) ?? []
+                async let loadedTrucks = api.fetchTrucks()
+                async let loadedSightings = api.fetchSightings()
+                allTrucks = (try? await loadedTrucks) ?? []
+                sightings = (try? await loadedSightings) ?? []
             }
         }
     }
 
     private var favoriteTrucks: [Truck] { allTrucks.filter { favorites.contains($0.id) } }
+
+    private func latestSighting(for truck: Truck) -> Sighting? {
+        sightings
+            .filter { $0.truckId == truck.id && !$0.isExpired }
+            .sorted { $0.timestamp > $1.timestamp }
+            .first
+    }
 }

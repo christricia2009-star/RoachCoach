@@ -12,40 +12,44 @@ struct RadarDetailsView: View {
     var body: some View {
         NavigationStack {
             List {
-                Section("Mission Status") {
-                    StatusRow(title: "Radar", value: "ONLINE", icon: "dot.radiowaves.left.and.right", tint: .green)
-                    StatusRow(title: "GPS", value: location == nil ? "SEARCHING" : "LOCKED", icon: "location.fill", tint: location == nil ? .orange : .green)
-                    StatusRow(title: "Active sightings", value: "\(stats.activeSightings)", icon: "mappin.and.ellipse", tint: .orange)
+                Section("Right now") {
+                    StatusRow(title: "GPS", value: location == nil ? "Waiting" : "On", icon: "location.fill", tint: location == nil ? .orange : .green)
+                    StatusRow(title: "Active pins", value: "\(stats.activeSightings)", icon: "mappin.and.ellipse", tint: .orange)
                     StatusRow(title: "Confirmed", value: "\(stats.confirmedSightings)", icon: "checkmark.seal.fill", tint: .green)
-                    StatusRow(title: "Hotspots", value: "\(stats.hotspots)", icon: "flame.fill", tint: .red)
                 }
-                Section("Threat Level") {
-                    ThreatGauge(score: stats.confidence)
-                }
-                Section("Nearest Contacts") {
-                    let nearest = sightings.compactMap { sighting -> (Sighting, Double)? in
+                Section("Closest trucks") {
+                    let nearest = sightings.filter { !$0.isExpired }.compactMap { sighting -> (Sighting, Double)? in
                         guard let location else { return nil }
                         let d = location.distance(from: CLLocation(latitude: sighting.latitude, longitude: sighting.longitude)) / 1609.34
                         return (sighting, d)
-                    }.sorted { $0.1 < $1.1 }.prefix(8)
-                    if nearest.isEmpty { Text("No GPS-based contacts yet.").foregroundStyle(.secondary) }
+                    }.sorted { $0.1 < $1.1 }.prefix(12)
+                    if nearest.isEmpty {
+                        Text("No live pins near you yet. Pull to refresh on Radar or tap Scan.")
+                            .foregroundStyle(.secondary)
+                    }
                     ForEach(Array(nearest), id: \.0.id) { item in
                         let truck = trucks.first(where: { $0.id == item.0.truckId })
+                        let name = truck?.name ?? item.0.note ?? "Listing"
                         HStack {
-                            Image(systemName: item.0.confidenceLevel == .confirmed ? "checkmark.seal.fill" : "mappin.circle.fill")
+                            Image(systemName: "mappin.circle.fill")
                                 .foregroundStyle(item.0.confidenceLevel == .confirmed ? .green : .orange)
-                            VStack(alignment: .leading) {
-                                Text(truck?.name ?? "Unknown Truck").fontWeight(.semibold)
-                                Text("\(item.1 < 0.1 ? "Very close" : String(format: "%.2f mi", item.1)) • \(item.0.timestamp, style: .relative)")
+                            VStack(alignment: .leading, spacing: 2) {
+                                Text(name).fontWeight(.semibold)
+                                Text("\(item.1 < 0.1 ? "Very close" : String(format: "%.1f mi", item.1)) · \(item.0.timestamp, style: .relative)")
                                     .font(.caption).foregroundStyle(.secondary)
                             }
                             Spacer()
-                            Text(item.0.confidenceLevel.rawValue).font(.caption2.bold())
+                            Button {
+                                MapsLauncher.directions(to: item.0.coordinate, name: name)
+                            } label: {
+                                Image(systemName: "arrow.triangle.turn.up.right.diamond.fill")
+                            }
+                            .buttonStyle(.borderless)
                         }
                     }
                 }
             }
-            .navigationTitle("Radar Command")
+            .navigationTitle("Nearby")
             .toolbar { ToolbarItem(placement: .confirmationAction) { Button("Done") { dismiss() } } }
         }
     }

@@ -126,10 +126,12 @@ struct TrucksListView: View {
                         .font(.subheadline)
                         .foregroundStyle(.secondary)
                     HStack(spacing: 10) {
-                        Label(String(format: "%.1f", truck.rating), systemImage: "star.fill")
-                            .foregroundStyle(.orange)
                         if let distance = distanceLabel(for: truck) {
                             Label(distance, systemImage: "location.fill")
+                                .foregroundStyle(.secondary)
+                        }
+                        if let seen = lastSeenLabel(for: truck) {
+                            Label(seen, systemImage: "clock")
                                 .foregroundStyle(.secondary)
                         }
                     }
@@ -183,6 +185,16 @@ struct TrucksListView: View {
         return truckSightings
             .compactMap { locationService.distance(to: $0.coordinate) }
             .min()
+    }
+
+    private func lastSeenLabel(for truck: Truck) -> String? {
+        guard let latest = sightings
+            .filter({ $0.truckId == truck.id && !$0.isExpired })
+            .max(by: { $0.timestamp < $1.timestamp })
+        else { return nil }
+        let formatter = RelativeDateTimeFormatter()
+        formatter.unitsStyle = .short
+        return formatter.localizedString(for: latest.timestamp, relativeTo: Date())
     }
 
     private func distanceLabel(for truck: Truck) -> String? {
