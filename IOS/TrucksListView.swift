@@ -125,6 +125,9 @@ struct TrucksListView: View {
                     Text(truck.cuisineType)
                         .font(.subheadline)
                         .foregroundStyle(.secondary)
+                    Text(TruckHoursDirectory.status(for: truck).badge)
+                        .font(.caption2.bold())
+                        .foregroundStyle(TruckHoursDirectory.status(for: truck).isOpen == true ? .green : .secondary)
                     HStack(spacing: 10) {
                         if let distance = distanceLabel(for: truck) {
                             Label(distance, systemImage: "location.fill")

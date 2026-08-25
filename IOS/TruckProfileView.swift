@@ -29,6 +29,20 @@ struct TruckProfileView: View {
                             .font(.subheadline)
                             .foregroundStyle(.secondary)
 
+                        let hours = TruckHoursDirectory.status(for: truck)
+                        HStack(spacing: 8) {
+                            Text(hours.badge)
+                                .font(.caption.bold())
+                                .padding(.horizontal, 8)
+                                .padding(.vertical, 3)
+                                .background((hours.isOpen == true ? Color.green : hours.isOpen == false ? Color.red : Color.orange).opacity(0.18))
+                                .foregroundStyle(hours.isOpen == true ? .green : hours.isOpen == false ? .red : .orange)
+                                .clipShape(Capsule())
+                            Text(hours.summary)
+                                .font(.caption)
+                                .foregroundStyle(.secondary)
+                        }
+
                         HStack(spacing: 16) {
                             Label("\(String(format: "%.1f", truck.rating))", systemImage: "star.fill")
                                 .foregroundStyle(.yellow)

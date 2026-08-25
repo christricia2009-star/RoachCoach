@@ -19,6 +19,7 @@ struct MapContentView: View {
     @State private var scanStatusMessage: String?
     @State private var scanErrorMessage: String?
     @State private var showScanError = false
+    @State private var showQuickCheckIn = false
     @AppStorage("radar.scanRadius") private var scanRadius = 10.0
     @AppStorage("radar.autoScan") private var autoScan = false
     @StateObject private var locationService = LocationService.shared
@@ -60,6 +61,20 @@ struct MapContentView: View {
 
     private var activeSightingCount: Int {
         allSightings.filter { !$0.isExpired }.count
+    }
+
+    private var closestFive: [Sighting] {
+        let live = filteredSightings
+        guard let location = locationService.currentLocation else {
+            return Array(live.prefix(5))
+        }
+        return Array(
+            live.sorted {
+                let a = location.distance(from: CLLocation(latitude: $0.latitude, longitude: $0.longitude))
+                let b = location.distance(from: CLLocation(latitude: $1.latitude, longitude: $1.longitude))
+                return a < b
+            }.prefix(5)
+        )
     }
     private var replayDate: Date { Date().addingTimeInterval(Double(timeMachineMinutes) * 60) }
 
@@ -127,14 +142,31 @@ struct MapContentView: View {
                             .lineLimit(2)
                     }
                     Spacer()
+                    if !closestFive.isEmpty {
+                        ScrollView(.horizontal, showsIndicators: false) {
+                            HStack(spacing: 8) {
+                                ForEach(closestFive) { sighting in
+                                    closestCard(sighting)
+                                }
+                            }
+                            .padding(.horizontal, 2)
+                        }
+                    }
                 }
                 .padding(.horizontal, 12)
                 .padding(.top, 8)
+                .padding(.bottom, 8)
 
                 VStack { Spacer(); HStack { Spacer(); VStack(spacing: 10) {
-                    Button { position = .userLocation(fallback: .automatic) } label: { Image(systemName: "location.fill").font(.title3).frame(width: 48,height:48).background(.regularMaterial,in:Circle()) }
-                    Button { showReportSheet = true } label: { Image(systemName: "plus.circle.fill").resizable().frame(width:58,height:58).foregroundStyle(.white,.orange).shadow(radius:5) }
-                }.padding(.trailing).padding(.bottom,100) } }
+                    Button { position = .userLocation(fallback: .automatic) } label: { Image(systemName: "location.fill").font(.title3).frame(width: 44,height:44).background(.regularMaterial,in:Circle()) }
+                    Button { showQuickCheckIn = true } label: {
+                        Image(systemName: "checkmark.circle.fill")
+                            .font(.title2)
+                            .frame(width: 44, height: 44)
+                            .foregroundStyle(.white)
+                            .background(.orange, in: Circle())
+                    }
+                }.padding(.trailing).padding(.bottom, 120) } }
 
                 if radarScanner.isScanning { VStack(spacing:8) { ProgressView(); Text("LIVE RADAR SCAN").font(.caption.bold()); Text("Evidence • cameras • sources • predictions").font(.caption2).foregroundStyle(.secondary) }.padding(14).background(.regularMaterial).clipShape(RoundedRectangle(cornerRadius:14)).shadow(radius:4).padding(.top,150) }
                 if isLoading { ProgressView("Loading radar…").padding().background(.regularMaterial).clipShape(RoundedRectangle(cornerRadius:12)) }
@@ -197,6 +229,19 @@ struct MapContentView: View {
                 }
             }
             .sheet(isPresented: $showReportSheet) { ReportSightingView(trucks:trucks) { newSighting in Task { try? await api.submitSighting(newSighting); NotificationService.shared.scheduleTruckSpottedNotification(truckName:truckName(for:newSighting),note:"A fresh radar report just landed.",delaySeconds:1); await loadData() } } }
+            .sheet(isPresented: $showQuickCheckIn) {
+                QuickCheckInView(trucks: trucks) { newSighting in
+                    Task {
+                        try? await api.submitSighting(newSighting)
+                        NotificationService.shared.scheduleTruckSpottedNotification(
+                            truckName: truckName(for: newSighting),
+                            note: "Someone just checked in.",
+                            delaySeconds: 1
+                        )
+                        await loadData()
+                    }
+                }
+            }
             .sheet(isPresented: $showRadarDetails) { RadarDetailsView(trucks:trucks,sightings:sightings,location:locationService.currentLocation) }
             .sheet(isPresented: $showHot) { NavigationStack { WhatIsHotView(observations: radarObservations()) } }
             .alert("Radar Scan Failed", isPresented: $showScanError, presenting: scanErrorMessage) { _ in
@@ -237,7 +282,50 @@ struct MapContentView: View {
         }
         await loadData()
     }
-    private func loadData() async { isLoading=true; defer{isLoading=false;lastUpdated=Date()}; do { async let a=api.fetchTrucks(); async let b=api.fetchSightings(); trucks=try await a; sightings=try await b } catch { print("Radar load failed: \(error)") } }
+    private func loadData() async {
+        isLoading = true
+        defer { isLoading = false; lastUpdated = Date() }
+        do {
+            async let a = api.fetchTrucks()
+            async let b = api.fetchSightings()
+            trucks = try await a
+            sightings = try await b
+            NotificationService.shared.notifyNewFavoriteSightings(sightings: allSightings, trucks: trucks)
+        } catch {
+            print("Radar load failed: \(error)")
+        }
+    }
+
+    private func closestCard(_ sighting: Sighting) -> some View {
+        let name = truckName(for: sighting)
+        let miles = locationService.currentLocation.map {
+            $0.distance(from: CLLocation(latitude: sighting.latitude, longitude: sighting.longitude)) / 1609.34
+        }
+        return Button {
+            selectedSighting = sighting
+        } label: {
+            VStack(alignment: .leading, spacing: 2) {
+                Text(name)
+                    .font(.caption.bold())
+                    .lineLimit(1)
+                    .foregroundStyle(.primary)
+                Text(miles.map { $0 < 0.1 ? "Very close" : String(format: "%.1f mi", $0) } ?? sighting.timestamp.formatted(date: .omitted, time: .shortened))
+                    .font(.caption2)
+                    .foregroundStyle(.secondary)
+            }
+            .padding(.horizontal, 10)
+            .padding(.vertical, 8)
+            .frame(width: 140, alignment: .leading)
+            .background(.regularMaterial)
+            .clipShape(RoundedRectangle(cornerRadius: 12))
+        }
+        .buttonStyle(.plain)
+        .contextMenu {
+            Button("Get directions") {
+                MapsLauncher.directions(to: sighting.coordinate, name: name)
+            }
+        }
+    }
 }
 
 /// Replaces the old "RADAR ONLINE / 0 / 0 / 0 / 0%" panel as the first thing

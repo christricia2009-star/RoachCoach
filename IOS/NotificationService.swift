@@ -41,4 +41,37 @@ final class NotificationService {
             }
         }
     }
+
+    /// Notify when a favorited truck gets a new pin. First snapshot only
+    /// records IDs so launching the app does not spam old sightings.
+    func notifyNewFavoriteSightings(sightings: [Sighting], trucks: [Truck]) {
+        let favoriteIDs = FavoritesStore.shared.ids
+        guard !favoriteIDs.isEmpty else { return }
+
+        let key = "radar.notifiedSightingIDs"
+        var seen = Set(UserDefaults.standard.stringArray(forKey: key) ?? [])
+        let relevant = sightings.filter { favoriteIDs.contains($0.truckId) && !$0.isExpired }
+        if seen.isEmpty {
+            UserDefaults.standard.set(relevant.map(\.id.uuidString), forKey: key)
+            return
+        }
+
+        for sighting in relevant {
+            let id = sighting.id.uuidString
+            guard !seen.contains(id) else { continue }
+            seen.insert(id)
+            let name = trucks.first(where: { $0.id == sighting.truckId })?.name ?? "A favorite truck"
+            scheduleTruckSpottedNotification(
+                truckName: name,
+                note: sighting.note ?? "A new pin just landed on your radar.",
+                delaySeconds: 1
+            )
+            GeofenceRadarService.shared.watch(
+                id: sighting.truckId,
+                coordinate: sighting.coordinate,
+                name: name
+            )
+        }
+        UserDefaults.standard.set(Array(seen), forKey: key)
+    }
 }

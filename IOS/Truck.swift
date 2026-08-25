@@ -196,3 +196,46 @@ enum TruckSocialDirectory {
         return URL(string: "https://www.instagram.com/\(raw)/")
     }
 }
+
+struct TruckHoursStatus {
+    let summary: String
+    let isOpen: Bool?
+
+    var badge: String {
+        switch isOpen {
+        case true: return "Open now"
+        case false: return "Closed now"
+        case nil: return "Hours on social"
+        }
+    }
+}
+
+enum TruckHoursDirectory {
+    private struct Spec {
+        let match: String
+        let weekdayStart: Int
+        let weekdayEnd: Int
+        let openMinutes: Int
+        let closeMinutes: Int
+        let closedWeekdays: Set<Int>
+        let summary: String
+    }
+
+    private static let specs: [Spec] = [
+        .init(match: "drewski", weekdayStart: 2, weekdayEnd: 6, openMinutes: 10 * 60 + 30, closeMinutes: 15 * 60, closedWeekdays: [1, 7], summary: "Mon–Fri 10:30 AM–3:00 PM")
+    ]
+
+    static func status(for truck: Truck, now: Date = Date()) -> TruckHoursStatus {
+        let calendar = Calendar.current
+        let weekday = calendar.component(.weekday, from: now)
+        let minutes = calendar.component(.hour, from: now) * 60 + calendar.component(.minute, from: now)
+        if let spec = specs.first(where: { truck.name.localizedCaseInsensitiveContains($0.match) }) {
+            if spec.closedWeekdays.contains(weekday) {
+                return TruckHoursStatus(summary: spec.summary, isOpen: false)
+            }
+            let open = minutes >= spec.openMinutes && minutes < spec.closeMinutes
+            return TruckHoursStatus(summary: spec.summary, isOpen: open)
+        }
+        return TruckHoursStatus(summary: "Follow on Instagram for today’s hours", isOpen: nil)
+    }
+}

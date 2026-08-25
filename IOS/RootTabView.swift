@@ -36,6 +36,7 @@ struct RootTabView: View {
             .tabItem { Label("More", systemImage: "ellipsis.circle") }
         }
         .task {
+            NotificationService.shared.requestPermission()
             await CloudKitService.shared.installRadarSubscription()
             GeofenceRadarService.shared.requestPermission()
         }

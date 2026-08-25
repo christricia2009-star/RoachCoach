@@ -144,7 +144,10 @@ def listings_for_truck(listing: dict[str, str]) -> list[ListingHit]:
             )
         )
 
-    query = f"{name} Sacramento food truck location address"
+    query = (
+        f"{name} Sacramento food truck "
+        f"instagram OR twitter OR facebook OR yelp location today"
+    )
     print(f"[listings] duckduckgo: {query}")
     for result in search_duckduckgo(query):
         blob = f"{result['title']} {result['snippet']} {result['url']}"
