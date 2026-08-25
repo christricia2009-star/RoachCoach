@@ -37,9 +37,10 @@ jobs:
           LLM_PROVIDER: ${{ secrets.LLM_PROVIDER }}
 
           CLOUDKIT_CONTAINER_ID: ${{ secrets.CLOUDKIT_CONTAINER_ID }}
-          CLOUDKIT_KEY_ID: ${{ secrets.CLOUDKIT_KEY_ID }}
-          CLOUDKIT_PRIVATE_KEY_PATH: /tmp/cloudkit_key.pem
           CLOUDKIT_ENVIRONMENT: ${{ secrets.CLOUDKIT_ENVIRONMENT }}
+          CLOUDKIT_SERVER_KEY_ID: ${{ secrets.CLOUDKIT_SERVER_KEY_ID }}
+          CLOUDKIT_SERVER_PRIVATE_KEY: ${{ secrets.CLOUDKIT_SERVER_PRIVATE_KEY }}
+
 
           HOME_BASE_LATITUDE: ${{ secrets.HOME_BASE_LATITUDE }}
           HOME_BASE_LONGITUDE: ${{ secrets.HOME_BASE_LONGITUDE }}
