@@ -120,11 +120,6 @@ def _message_text(response) -> str:
         content = "\n".join(parts)
     if content:
         return str(content).strip()
-
-    for attr in ("refusal", "reasoning"):
-        extra = getattr(message, attr, None)
-        if extra:
-            return str(extra).strip()
     return ""
 
 
@@ -278,7 +273,14 @@ def web_search_complete(prompt: str, max_tokens: int = 350, max_results: int = 3
         extra_body={
             "plugins": [
                 {"id": "web", "max_results": max_results}
-            ]
+            ],
+            # Luna was returning chain-of-thought ("**Searching for the
+            # current date**") as the caption. Exclude reasoning tokens
+            # so only the final FOUND/NOTHING_FOUND line is used.
+            "reasoning": {
+                "effort": "low",
+                "exclude": True,
+            },
         },
     )
     return _message_text(response)

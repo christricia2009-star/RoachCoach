@@ -547,20 +547,49 @@ def search_web_for_truck_location(truck_name: str) -> Optional[RawSocialPost]:
     compact = " ".join(answer.split())
     print(f"[web_search] {truck_name}: {compact[:180]}")
 
-    upper = compact.upper()
-    if upper.startswith("NOTHING_FOUND") or upper.strip() == "NOTHING FOUND":
+    location = _parse_found_location(answer)
+    if not location:
+        print(f"[web_search] {truck_name}: no FOUND line (ignored thinking/trace)")
         return None
-
-    if upper.startswith("FOUND:"):
-        compact = compact.split(":", 1)[1].strip() or compact
 
     return RawSocialPost(
         truck_handle=truck_name,
-        caption=compact,
+        caption=location,
         posted_at=datetime.datetime.now(datetime.timezone.utc),
         post_url="",
         source="web_search",
     )
+
+
+def _parse_found_location(answer: str) -> Optional[str]:
+    """Accept only a FOUND: place. Drop Luna thinking traces."""
+    thinking = (
+        "searching for",
+        "i need to search",
+        "i wonder if",
+        "according to the developer",
+        "current system date",
+        "check platforms",
+    )
+    found: Optional[str] = None
+    for raw in answer.replace("**", "").splitlines():
+        line = raw.strip()
+        if not line:
+            continue
+        upper = line.upper()
+        if upper.startswith("NOTHING_FOUND") or upper == "NOTHING FOUND":
+            return None
+        if upper.startswith("FOUND:"):
+            found = line.split(":", 1)[1].strip()
+            break
+    if not found:
+        return None
+    lower = found.lower()
+    if any(marker in lower for marker in thinking):
+        return None
+    if len(found) < 4:
+        return None
+    return found
 
 
 def fetch_web_search_results(
