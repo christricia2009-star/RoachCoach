@@ -29,12 +29,15 @@ from datetime import datetime, timedelta, timezone
 from typing import Optional
 
 from fastapi import FastAPI, HTTPException, Request
-from pydantic import BaseModel
+from pydantic import BaseModel, ConfigDict, Field
 
 from backend import signal_fusion
 from backend.signal_fusion import RawDetection
+from backend import error_tracking
 
 import cloudkit_bridge
+
+error_tracking.init()
 
 
 # ============================================================
@@ -90,24 +93,43 @@ class TruckOut(BaseModel):
     image_url: Optional[str] = None
 
 
+# Both SightingIn/SightingOut previously used bare snake_case field
+# names with no alias. That's what Sighting.swift's submitSighting()
+# POSTs against and what fetchSightings()/fetchSightings(forTruck:)
+# decode against — Sighting.swift is camelCase (truckId, photoURL,
+# confidenceLevel, expiresAt) with no CodingKeys, so every POST
+# /api/sightings 422'd on a missing truck_id, and every GET
+# /api/sightings response failed to decode into [Sighting] on a
+# missing truckId. RadarSightingOut (below) already emits camelCase
+# and matches Sighting.swift fine — these two aliases just bring the
+# plain CRUD endpoints in line with that same convention instead of
+# inventing a third one. Internal code keeps using the snake_case
+# attribute names (sighting.truck_id, etc.) via populate_by_name;
+# only the wire format changes.
 class SightingIn(BaseModel):
-    truck_id: str
+    model_config = ConfigDict(populate_by_name=True)
+
+    truck_id: str = Field(alias="truckId")
     latitude: float
     longitude: float
-    reported_by_user_id: Optional[str] = None
-    photo_url: Optional[str] = None
+    reported_by_user_id: Optional[str] = Field(
+        default=None, alias="reportedByUserId"
+    )
+    photo_url: Optional[str] = Field(default=None, alias="photoURL")
     note: Optional[str] = None
 
 
 class SightingOut(BaseModel):
+    model_config = ConfigDict(populate_by_name=True)
+
     id: str
-    truck_id: str
+    truck_id: str = Field(alias="truckId")
     latitude: float
     longitude: float
     note: Optional[str] = None
-    confidence_level: str
+    confidence_level: str = Field(alias="confidenceLevel")
     timestamp: datetime
-    expires_at: datetime
+    expires_at: datetime = Field(alias="expiresAt")
 
 
 # ============================================================
@@ -401,9 +423,9 @@ def _vision_check_with_strategy(
 
             except Exception as e:
 
-                print(
+                error_tracking.report(
                     f"[vision fallback] {provider} failed "
-                    f"for {cam.location_name}: {e}"
+                    f"for {cam.location_name}"
                 )
 
                 last_error = e
@@ -504,10 +526,7 @@ def get_trucks():
 
     except Exception as e:
 
-        print(
-            "get_trucks failed:\n"
-            + traceback.format_exc()
-        )
+        error_tracking.report("get_trucks failed")
 
         raise HTTPException(
             status_code=500,
@@ -591,10 +610,44 @@ def _record_to_sighting(
 
 
 def _get_sighting_records() -> list[dict]:
+    """
+    Previously called cloudkit_bridge.query_records("Sighting") with no
+    filter, no sort, and the default results_limit (100, capped at
+    200) — a single unsorted page. That silently drops real sightings
+    once the table passes ~100 records, since "first 100 in whatever
+    order CloudKit returns them" has no guaranteed relationship to
+    "most recent 100". Fixed by pushing an expiresAt cutoff into the
+    query (mirrors the client-side `if expires_at <= now: continue`
+    check every caller of this already does) and sorting newest-first,
+    via query_all_records so it still pages if there's a legitimate
+    backlog — bounded by max_records as a safety cap.
+    """
 
-    # query_records() returns a LIST.
-    result = cloudkit_bridge.query_records(
-        "Sighting"
+    now_iso = datetime.now(timezone.utc).isoformat()
+
+    filters = [
+        {
+            "fieldName": "expiresAt",
+            "comparator": "GREATER_THAN",
+            "fieldValue": {
+                "value": now_iso,
+                "type": "STRING",
+            },
+        }
+    ]
+
+    sort_by = [
+        {
+            "fieldName": "timestamp",
+            "ascending": False,
+        }
+    ]
+
+    result = cloudkit_bridge.query_all_records(
+        "Sighting",
+        filters=filters,
+        sort_by=sort_by,
+        max_records=500,
     )
 
     return _cloudkit_records(result)
@@ -650,10 +703,7 @@ def get_truck_sightings(
 
     except Exception as e:
 
-        print(
-            "get_truck_sightings failed:\n"
-            + traceback.format_exc()
-        )
+        error_tracking.report("get_truck_sightings failed")
 
         raise HTTPException(
             status_code=500,
@@ -699,10 +749,7 @@ def get_active_sightings():
 
     except Exception as e:
 
-        print(
-            "get_active_sightings failed:\n"
-            + traceback.format_exc()
-        )
+        error_tracking.report("get_active_sightings failed")
 
         raise HTTPException(
             status_code=500,
@@ -866,10 +913,7 @@ def create_sighting(
 
     except Exception as e:
 
-        print(
-            "create_sighting failed:\n"
-            + traceback.format_exc()
-        )
+        error_tracking.report("create_sighting failed")
 
         raise HTTPException(
             status_code=500,
@@ -1126,10 +1170,7 @@ def _run_telecom_source(
 
     except Exception as e:
 
-        print(
-            "telecom source failed:\n"
-            + traceback.format_exc()
-        )
+        error_tracking.report("telecom source failed")
 
         return RadarSourceOut(
             id="telecom",
@@ -1297,10 +1338,7 @@ def _run_delivery_source(
 
     except Exception as e:
 
-        print(
-            "delivery source failed:\n"
-            + traceback.format_exc()
-        )
+        error_tracking.report("delivery source failed")
 
         return RadarSourceOut(
             id="delivery",
@@ -1416,9 +1454,9 @@ def _run_social_source(
                     post.caption
                 )
             except Exception as e:
-                print(
+                error_tracking.report(
                     f"[social] llm_extract failed for "
-                    f"{post.truck_handle}: {e}"
+                    f"{post.truck_handle}"
                 )
                 continue
 
@@ -1514,10 +1552,7 @@ def _run_social_source(
 
     except Exception as e:
 
-        print(
-            "social source failed:\n"
-            + traceback.format_exc()
-        )
+        error_tracking.report("social source failed")
 
         return RadarSourceOut(
             id="social",
@@ -1720,12 +1755,11 @@ def _cached_radar_scan(
     cutoff = now - timedelta(hours=UNMATCHED_DETECTION_WINDOW_HOURS)
 
     try:
-        unmatched_records = cloudkit_bridge.get_unmatched_detections()
-    except Exception:
-        print(
-            "get_unmatched_detections failed:\n"
-            + traceback.format_exc()
+        unmatched_records = cloudkit_bridge.get_unmatched_detections(
+            window_hours=UNMATCHED_DETECTION_WINDOW_HOURS
         )
+    except Exception:
+        error_tracking.report("get_unmatched_detections failed")
         unmatched_records = []
 
     for record in unmatched_records:
@@ -1822,10 +1856,7 @@ def radar_scan(
 
         except Exception as e:
 
-            print(
-                "cached radar scan failed:\n"
-                + traceback.format_exc()
-            )
+            error_tracking.report("cached radar scan failed")
 
             now = datetime.now(timezone.utc)
 
@@ -2000,9 +2031,9 @@ def radar_scan(
 
                     except Exception as e:
 
-                        print(
+                        error_tracking.report(
                             f"camera check failed for "
-                            f"{cam.location_name}: {e}"
+                            f"{cam.location_name}"
                         )
 
                         continue
@@ -2104,10 +2135,7 @@ def radar_scan(
 
             except Exception as e:
 
-                print(
-                    "camera_vision source failed:\n"
-                    + traceback.format_exc()
-                )
+                error_tracking.report("camera_vision source failed")
 
                 sources.append(
                     RadarSourceOut(
@@ -2212,10 +2240,7 @@ def radar_scan(
 
             except Exception as e:
 
-                print(
-                    "municipal source failed:\n"
-                    + traceback.format_exc()
-                )
+                error_tracking.report("municipal source failed")
 
                 sources.append(
                     RadarSourceOut(
@@ -2300,10 +2325,7 @@ def radar_scan(
 
                 except Exception:
 
-                    print(
-                        "signal_fusion failed:\n"
-                        + traceback.format_exc()
-                    )
+                    error_tracking.report("signal_fusion failed")
 
                     errored += 1
 
