@@ -305,13 +305,12 @@ def job_social_scraping():
     from social_scraper import (
         fetch_all_known_trucks,
         fetch_web_search_results,
-        native_social_covered_keys,
+        listing_keys_for_handle,
         load_live_truck_catalog,
         register_trucks_for_fusion,
         all_instagram_discovery_usernames,
         all_facebook_page_ids,
         X_USERNAMES,
-        TRUCK_LISTINGS,
     )
     from llm_extract import extract_location_from_caption
     from geocoding import geocode, usable_location_text
@@ -376,46 +375,17 @@ def job_social_scraping():
     posts = recent_posts
 
     # ------------------------------------------------------------------
-    # WEB SEARCH FALLBACK/SUPPLEMENT
-    #
-    # Runs an OpenRouter web-search-grounded lookup for every truck we
-    # already know by name (same KNOWN_TRUCK_NAMES list signal_fusion.py
-    # uses to match captions), regardless of whether that truck has a
-    # monitored social account. Skips cleanly (empty list) if
-    # OPENROUTER_API_KEY isn't set — see llm_providers.web_search_complete.
-    # ------------------------------------------------------------------
-
-    per_truck = (os.getenv("PER_TRUCK_WEB_SEARCH") or "").strip().lower()
-    if per_truck in ("1", "true", "yes"):
-        covered = native_social_covered_keys(posts)
-        missing = [
-            item["search_name"]
-            for item in TRUCK_LISTINGS
-            if item["key"] not in covered
-        ]
-        if missing:
-            web_posts = fetch_web_search_results(missing)
-            print(
-                f"[social] web_search for {len(missing)} truck(s) "
-                f"without IG/FB returned {len(web_posts)} result(s)"
-            )
-            posts += web_posts
-        else:
-            print(
-                "[social] skipped web search — Instagram/Facebook "
-                "already covered every known truck."
-            )
-    else:
-        print(
-            "[social] skipped per-truck OpenRouter web-search "
-            "(PER_TRUCK_WEB_SEARCH not set). Instagram/Facebook "
-            "are the primary sources; public_listings does one "
-            "cheaper JSON search for the rest."
-        )
-
-    # ------------------------------------------------------------------
     # PROCESS POSTS
     # ------------------------------------------------------------------
+
+    located_handles: set[str] = set()
+
+    def _mark_located(handle: str) -> None:
+        key = (handle or "").lower().lstrip("@").strip()
+        if key:
+            located_handles.add(key)
+        for listing_key in listing_keys_for_handle(handle):
+            located_handles.add(listing_key)
 
     for post in posts:
 
@@ -531,6 +501,78 @@ def job_social_scraping():
         _record_and_process(
             detection
         )
+        _mark_located(post.truck_handle)
+
+    # OpenRouter only for trucks that posted on IG/FB but had no address.
+    if (os.getenv("OPENROUTER_API_KEY") or "").strip():
+        missing_names: list[str] = []
+        seen_names: set[str] = set()
+        for post in posts:
+            handle = (post.truck_handle or "").lower().lstrip("@").strip()
+            aliases = {handle, *listing_keys_for_handle(handle)}
+            if aliases & located_handles:
+                continue
+            name = post.truck_handle
+            for item in catalog:
+                catalog_aliases = {
+                    (item.get("key") or ""),
+                    (item.get("search_name") or "").lower(),
+                    *[(h or "").lower() for h in (item.get("instagram_all") or [])],
+                }
+                if handle in catalog_aliases:
+                    name = item.get("search_name") or name
+                    break
+            if name.lower() not in seen_names:
+                seen_names.add(name.lower())
+                missing_names.append(name)
+        if missing_names:
+            print(
+                f"[social] OpenRouter fallback for {len(missing_names)} "
+                "truck(s) whose IG/FB posts had no address"
+            )
+            try:
+                web_posts = fetch_web_search_results(missing_names)
+            except Exception:
+                error_tracking.report("[social] OpenRouter fallback failed")
+                web_posts = []
+            for post in web_posts:
+                if post.source == "web_search" and post.caption:
+                    extracted = {
+                        "confidence": "medium",
+                        "location_text": usable_location_text(post.caption),
+                    }
+                    location_text = extracted.get("location_text")
+                    try:
+                        geocoded = geocode(location_text) if location_text else None
+                    except Exception:
+                        geocoded = None
+                    if not geocoded:
+                        print(
+                            f"[social] OpenRouter fallback could not "
+                            f"geocode {post.truck_handle}: {location_text!r}"
+                        )
+                        continue
+                    detection = RawDetection(
+                        source="social",
+                        latitude=geocoded["latitude"],
+                        longitude=geocoded["longitude"],
+                        timestamp=datetime.datetime.now(datetime.timezone.utc),
+                        raw_confidence=0.4,
+                        text_hint=f"{post.truck_handle} {post.caption}",
+                        note=(
+                            f"OpenRouter fallback: "
+                            f"{geocoded.get('display_name', location_text)}"
+                        ),
+                    )
+                    _record_and_process(detection)
+                    _mark_located(post.truck_handle)
+        else:
+            print(
+                "[social] no OpenRouter fallback needed — IG/FB "
+                "already located every recent poster"
+            )
+    else:
+        print("[social] OPENROUTER_API_KEY not set; no caption/search fallback")
 
 
 def job_public_listings():

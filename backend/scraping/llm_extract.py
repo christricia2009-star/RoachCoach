@@ -38,9 +38,7 @@ _AT_RE = re.compile(
 
 
 def _llm_extract_enabled() -> bool:
-    flag = (os.getenv("USE_LLM_EXTRACT") or os.getenv("USE_OPENROUTER") or "").strip().lower()
-    if flag not in ("1", "true", "yes"):
-        return False
+    """OpenRouter (or another LLM key) is used only when regex finds no address."""
     return bool(
         (os.getenv("OPENROUTER_API_KEY") or "").strip()
         or (os.getenv("ANTHROPIC_API_KEY") or "").strip()
@@ -109,7 +107,7 @@ def extract_location_from_caption(caption: str) -> dict:
         return empty
 
     cheap = _regex_extract(text)
-    if not _llm_extract_enabled():
+    if cheap.get("confidence") in ("high", "medium") or not _llm_extract_enabled():
         return cheap
 
     raw_text = complete(EXTRACTION_PROMPT.format(caption=caption), max_tokens=300) or ""
@@ -125,14 +123,12 @@ def extract_location_from_caption(caption: str) -> dict:
         }
 
     try:
-        return json.loads(cleaned)
+        parsed = json.loads(cleaned)
+        if parsed.get("confidence") in ("high", "medium") and parsed.get("location_text"):
+            return parsed
     except json.JSONDecodeError:
-        return {
-            "location_text": None,
-            "start_time": None,
-            "end_time": None,
-            "confidence": "none",
-        }
+        pass
+    return cheap
 
 
 if __name__ == "__main__":

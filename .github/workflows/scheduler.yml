@@ -2,8 +2,8 @@ name: Roach Coach Radar - Signal Pipeline
 
 on:
   schedule:
-    # Instagram/Facebook Graph is not billed per call. Paid OpenRouter
-    # vision/search stays off unless USE_OPENROUTER=true.
+    # Instagram/Facebook Graph is the primary source. OpenRouter is only
+    # used when a recent IG/FB caption has no parseable address.
     - cron: "*/15 * * * *"
   workflow_dispatch: {}
 
@@ -31,12 +31,9 @@ jobs:
 
       - name: Run signal pipeline once
         env:
-          # Paid LLM/search is injected only when USE_OPENROUTER=true.
-          USE_OPENROUTER: ${{ secrets.USE_OPENROUTER }}
-          USE_LLM_EXTRACT: ${{ secrets.USE_LLM_EXTRACT }}
+          OPENROUTER_API_KEY: ${{ secrets.OPENROUTER_API_KEY }}
           ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
           XAI_API_KEY: ${{ secrets.XAI_API_KEY }}
-          OPENROUTER_API_KEY: ${{ secrets.OPENROUTER_API_KEY }}
 
           LLM_STRATEGY: ${{ secrets.LLM_STRATEGY }}
           LLM_PROVIDER: ${{ secrets.LLM_PROVIDER }}
@@ -76,12 +73,7 @@ jobs:
 
         run: |
           cd backend
-          if [ "${USE_OPENROUTER}" != "true" ]; then
-            unset OPENROUTER_API_KEY ANTHROPIC_API_KEY XAI_API_KEY
-            echo "[cost] OpenRouter/LLM/XAI disabled — Instagram/Facebook only"
-          else
-            export LLM_PROVIDER="${LLM_PROVIDER:-openrouter}"
-            export LLM_STRATEGY="${LLM_STRATEGY:-single}"
-            export LLM_MODEL="${LLM_MODEL:-openai/gpt-5.6-luna}"
-          fi
+          export LLM_PROVIDER="${LLM_PROVIDER:-openrouter}"
+          export LLM_STRATEGY="${LLM_STRATEGY:-single}"
+          export LLM_MODEL="${LLM_MODEL:-openai/gpt-5.6-luna}"
           python3 scheduler.py --once
