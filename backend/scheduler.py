@@ -40,9 +40,15 @@ from apscheduler.schedulers.blocking import BlockingScheduler
 try:
     from backend import signal_fusion
     from backend.signal_fusion import RawDetection
+    from backend import error_tracking
+    from backend import cloudkit_bridge
 except ModuleNotFoundError:
     import signal_fusion
     from signal_fusion import RawDetection
+    import error_tracking
+    import cloudkit_bridge
+
+error_tracking.init()
 
 
 # In-memory pool of recent detections across ALL sources.
@@ -416,6 +422,28 @@ def job_social_scraping():
         )
 
 
+def job_prune_unmatched_detections():
+    """
+    Deletes expired UnmatchedDetection records from CloudKit.
+
+    Previously nothing did this: expiresAt was written on every
+    detection (see signal_fusion.py) and filtered out client-side on
+    read, but the CloudKit table itself only ever grew, since nothing
+    ever called delete. Every read (get_unmatched_detections, used on
+    every /api/radar/scan) was paying to pull that ever-growing pile
+    over the network before discarding almost all of it. Piggybacks on
+    the same scheduler that already writes to this table every 5-30
+    minutes.
+    """
+
+    deleted = cloudkit_bridge.prune_expired_unmatched_detections()
+
+    print(
+        f"[prune_unmatched_detections] deleted {deleted} "
+        "expired record(s)"
+    )
+
+
 def run_all_once():
     """
     Runs every configured job once immediately.
@@ -434,11 +462,9 @@ def run_all_once():
 
         except Exception:
 
-            print(
-                f"[{name}] failed:"
+            error_tracking.report(
+                f"[{name}] failed"
             )
-
-            traceback.print_exc()
 
 
 # ----------------------------------------------------------------------
@@ -465,6 +491,11 @@ JOBS = [
     (
         "social_scraping",
         job_social_scraping,
+    ),
+
+    (
+        "prune_unmatched_detections",
+        job_prune_unmatched_detections,
     ),
 ]
 
@@ -512,6 +543,16 @@ if __name__ == "__main__":
             "interval",
             minutes=30,
             id="social_scraping",
+        )
+
+        # expiresAt is set 3 hours out (signal_fusion.py) — pruning
+        # hourly keeps the table from ever accumulating more than
+        # ~1 batch cycle worth of dead records.
+        scheduler.add_job(
+            job_prune_unmatched_detections,
+            "interval",
+            hours=1,
+            id="prune_unmatched_detections",
         )
 
         print(
