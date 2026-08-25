@@ -18,7 +18,7 @@ import os
 import json
 import base64
 import hashlib
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from typing import Any, Optional
 
 import requests
@@ -332,6 +332,7 @@ def query_records(
     record_type: str,
     filters: Optional[list[dict[str, Any]]] = None,
     results_limit: int = 100,
+    sort_by: Optional[list[dict[str, Any]]] = None,
 ) -> list[dict[str, Any]]:
 
     if not record_type:
@@ -342,11 +343,16 @@ def query_records(
     if filters is None:
         filters = []
 
+    query: dict[str, Any] = {
+        "recordType": record_type,
+        "filterBy": filters,
+    }
+
+    if sort_by:
+        query["sortBy"] = sort_by
+
     body = {
-        "query": {
-            "recordType": record_type,
-            "filterBy": filters,
-        },
+        "query": query,
         "resultsLimit": min(
             max(results_limit, 1),
             200,
@@ -366,12 +372,24 @@ def query_records(
 
 # ============================================================
 # QUERY ALL RECORDS
+#
+# IMPORTANT: this paginates until CloudKit stops returning a
+# continuationMarker — i.e. until it has walked the ENTIRE result set
+# matching `filters`. With no filters (the old default everywhere this
+# was called for Sighting/UnmatchedDetection) that means the entire
+# table, every call, forever growing. Always pass a real `filters` list
+# that bounds the result set (a recency/expiry cutoff at minimum), and
+# treat `max_records` as a hard safety valve, not the primary control —
+# a safety valve alone still pays for a full unbounded scan up to that
+# cap on every call.
 # ============================================================
 
 def query_all_records(
     record_type: str,
     filters: Optional[list[dict[str, Any]]] = None,
     batch_size: int = 200,
+    sort_by: Optional[list[dict[str, Any]]] = None,
+    max_records: Optional[int] = 2000,
 ) -> list[dict[str, Any]]:
 
     if filters is None:
@@ -395,11 +413,16 @@ def query_all_records(
 
         else:
 
+            query: dict[str, Any] = {
+                "recordType": record_type,
+                "filterBy": filters,
+            }
+
+            if sort_by:
+                query["sortBy"] = sort_by
+
             body = {
-                "query": {
-                    "recordType": record_type,
-                    "filterBy": filters,
-                },
+                "query": query,
                 "resultsLimit": min(
                     max(batch_size, 1),
                     200,
@@ -417,6 +440,13 @@ def query_all_records(
         )
 
         all_records.extend(records)
+
+        if (
+            max_records is not None
+            and len(all_records) >= max_records
+        ):
+            all_records = all_records[:max_records]
+            break
 
         cursor = result.get(
             "continuationMarker"
@@ -720,11 +750,124 @@ def save_sighting(
 # note (String), status (String), resolvedTruckId (String, optional).
 # ============================================================
 
-def get_unmatched_detections() -> list[dict[str, Any]]:
+def get_unmatched_detections(
+    window_hours: float = 6.0,
+) -> list[dict[str, Any]]:
+    """
+    Returns UnmatchedDetection records from roughly the last
+    `window_hours`, newest first.
+
+    Previously this called query_all_records("UnmatchedDetection") with
+    NO filter — an unbounded, full-table pagination on the
+    highest-write-volume table in the app (scheduler.py writes a fresh
+    batch every 5-30 minutes), on every single radar scan, forever. That
+    is fixed here by pushing a recency cutoff into the CloudKit query
+    itself via filterBy, so a normal call only ever pages through
+    records that are actually still relevant.
+
+    `timestamp` is written as `datetime.isoformat()` (see
+    signal_fusion.py / main.py) — an ISO-8601 string, not a native
+    CloudKit DATE field — so CloudKit infers a String field and a
+    GREATER_THAN_OR_EQUALS comparator does plain lexicographic string
+    comparison. That still gives correct chronological ordering here
+    because all writers use the same UTC "+00:00"-offset format, so
+    string order matches time order (the only wrinkle is
+    datetime.isoformat() drops the microseconds component when it's
+    exactly zero, which can occasionally misorder two records within
+    the same second — irrelevant at a multi-hour window).
+
+    `max_records` stays as a hard safety cap (see query_all_records) so
+    a future bug in the cutoff filter can't silently regress this back
+    into an unbounded scan.
+    """
+
+    cutoff_iso = (
+        datetime.now(timezone.utc)
+        - timedelta(hours=window_hours)
+    ).isoformat()
+
+    filters = [
+        {
+            "fieldName": "timestamp",
+            "comparator": "GREATER_THAN_OR_EQUALS",
+            "fieldValue": {
+                "value": cutoff_iso,
+                "type": "STRING",
+            },
+        }
+    ]
+
+    sort_by = [
+        {
+            "fieldName": "timestamp",
+            "ascending": False,
+        }
+    ]
 
     return query_all_records(
-        "UnmatchedDetection"
+        "UnmatchedDetection",
+        filters=filters,
+        sort_by=sort_by,
+        max_records=1000,
     )
+
+
+def prune_expired_unmatched_detections(
+    batch_size: int = 200,
+) -> int:
+    """
+    Deletes UnmatchedDetection records whose expiresAt has already
+    passed. Nothing previously called this — expiresAt was written
+    (signal_fusion.py) and read/filtered client-side (main.py) but the
+    CloudKit table itself never shrank, so every call anywhere that
+    scanned it (see get_unmatched_detections above) was paying to pull
+    an ever-growing pile of dead records over the network before
+    discarding almost all of them locally.
+
+    Meant to be run periodically (see scheduler.py's cron job) rather
+    than on the request path. Returns the number of records deleted.
+    """
+
+    now_iso = datetime.now(timezone.utc).isoformat()
+
+    filters = [
+        {
+            "fieldName": "expiresAt",
+            "comparator": "LESS_THAN",
+            "fieldValue": {
+                "value": now_iso,
+                "type": "STRING",
+            },
+        }
+    ]
+
+    expired = query_all_records(
+        "UnmatchedDetection",
+        filters=filters,
+        batch_size=batch_size,
+        max_records=None,
+    )
+
+    record_names = [
+        record.get("recordName")
+        for record in expired
+        if record.get("recordName")
+    ]
+
+    deleted = 0
+
+    for i in range(0, len(record_names), batch_size):
+
+        chunk = record_names[i:i + batch_size]
+
+        delete_records(
+            "UnmatchedDetection",
+            chunk,
+        )
+
+        deleted += len(chunk)
+
+    return deleted
 
 
 def save_unmatched_detection(
