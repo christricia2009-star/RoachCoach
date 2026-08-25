@@ -750,6 +750,33 @@ def save_sighting(
 # note (String), status (String), resolvedTruckId (String, optional).
 # ============================================================
 
+def _as_datetime(value: Any) -> Optional[datetime]:
+    """Parse a CloudKit String ISO timestamp or TIMESTAMP millis."""
+    if value is None:
+        return None
+    if isinstance(value, datetime):
+        if value.tzinfo is None:
+            return value.replace(tzinfo=timezone.utc)
+        return value
+    if isinstance(value, (int, float)):
+        seconds = float(value)
+        if seconds > 10_000_000_000:
+            seconds = seconds / 1000.0
+        return datetime.fromtimestamp(seconds, tz=timezone.utc)
+    text = str(value).strip()
+    if not text:
+        return None
+    if text.endswith("Z"):
+        text = text[:-1] + "+00:00"
+    try:
+        parsed = datetime.fromisoformat(text)
+    except ValueError:
+        return None
+    if parsed.tzinfo is None:
+        parsed = parsed.replace(tzinfo=timezone.utc)
+    return parsed
+
+
 def get_unmatched_detections(
     window_hours: float = 6.0,
 ) -> list[dict[str, Any]]:
@@ -757,96 +784,18 @@ def get_unmatched_detections(
     Returns UnmatchedDetection records from roughly the last
     `window_hours`, newest first.
 
-    Previously this called query_all_records("UnmatchedDetection") with
-    NO filter — an unbounded, full-table pagination on the
-    highest-write-volume table in the app (scheduler.py writes a fresh
-    batch every 5-30 minutes), on every single radar scan, forever. That
-    is fixed here by pushing a recency cutoff into the CloudKit query
-    itself via filterBy, so a normal call only ever pages through
-    records that are actually still relevant.
-
-    `timestamp` is written as `datetime.isoformat()` (see
-    signal_fusion.py / main.py) — an ISO-8601 string, not a native
-    CloudKit DATE field — so CloudKit infers a String field and a
-    GREATER_THAN_OR_EQUALS comparator does plain lexicographic string
-    comparison. That still gives correct chronological ordering here
-    because all writers use the same UTC "+00:00"-offset format, so
-    string order matches time order (the only wrinkle is
-    datetime.isoformat() drops the microseconds component when it's
-    exactly zero, which can occasionally misorder two records within
-    the same second — irrelevant at a multi-hour window).
-
-    `max_records` stays as a hard safety cap (see query_all_records) so
-    a future bug in the cutoff filter can't silently regress this back
-    into an unbounded scan.
+    CloudKit STRING fields cannot use LESS_THAN / GREATER_THAN filters
+    (HTTP 400). timestamp and expiresAt were created as String, so the
+    recency cutoff is applied in Python after a bounded fetch.
     """
 
-    cutoff_iso = (
-        datetime.now(timezone.utc)
-        - timedelta(hours=window_hours)
-    ).isoformat()
-
-    filters = [
-        {
-            "fieldName": "timestamp",
-            "comparator": "GREATER_THAN_OR_EQUALS",
-            "fieldValue": {
-                "value": cutoff_iso,
-                "type": "STRING",
-            },
-        }
-    ]
-
-    sort_by = [
-        {
-            "fieldName": "timestamp",
-            "ascending": False,
-        }
-    ]
-
-    return query_all_records(
-        "UnmatchedDetection",
-        filters=filters,
-        sort_by=sort_by,
-        max_records=1000,
-    )
-
-
-def prune_expired_unmatched_detections(
-    batch_size: int = 200,
-) -> int:
-    """
-    Deletes UnmatchedDetection records whose expiresAt has already
-    passed. Nothing previously called this — expiresAt was written
-    (signal_fusion.py) and read/filtered client-side (main.py) but the
-    CloudKit table itself never shrank, so every call anywhere that
-    scanned it (see get_unmatched_detections above) was paying to pull
-    an ever-growing pile of dead records over the network before
-    discarding almost all of them locally.
-
-    Meant to be run periodically (see scheduler.py's cron job) rather
-    than on the request path. Returns the number of records deleted.
-    """
-
-    now_iso = datetime.now(timezone.utc).isoformat()
-
-    filters = [
-        {
-            "fieldName": "expiresAt",
-            "comparator": "LESS_THAN",
-            "fieldValue": {
-                "value": now_iso,
-                "type": "STRING",
-            },
-        }
-    ]
+    cutoff = datetime.now(timezone.utc) - timedelta(hours=window_hours)
 
     try:
-        expired = query_all_records(
+        records = query_all_records(
             "UnmatchedDetection",
-            filters=filters,
-            batch_size=batch_size,
-            max_records=None,
+            filters=[],
+            max_records=1000,
         )
     except RuntimeError as exc:
         message = str(exc)
@@ -854,28 +803,72 @@ def prune_expired_unmatched_detections(
             "NOT_FOUND" in message or "Missing record type" in message
         ):
             print(
-                "[cloudkit] UnmatchedDetection record type is missing "
-                "in this CloudKit environment. Create it in CloudKit "
-                "Dashboard (production) with fields: source (String), "
-                "latitude (Double), longitude (Double), timestamp "
-                "(String), expiresAt (String), rawConfidence (Double), "
-                "reason (String), textHint (String), note (String), "
-                "status (String), resolvedTruckId (String). Skipping prune."
+                "[cloudkit] UnmatchedDetection record type is missing; "
+                "returning no unmatched detections."
             )
-            return 0
+            return []
         raise
 
-    record_names = [
-        record.get("recordName")
-        for record in expired
-        if record.get("recordName")
-    ]
+    recent: list[dict[str, Any]] = []
+    for record in records:
+        timestamp = _as_datetime(record_field(record, "timestamp"))
+        if timestamp is None or timestamp < cutoff:
+            continue
+        recent.append(record)
+
+    recent.sort(
+        key=lambda record: _as_datetime(
+            record_field(record, "timestamp")
+        ) or datetime.fromtimestamp(0, tz=timezone.utc),
+        reverse=True,
+    )
+    return recent
+
+
+def prune_expired_unmatched_detections(
+    batch_size: int = 200,
+) -> int:
+    """
+    Deletes UnmatchedDetection records whose expiresAt has already
+    passed. CloudKit STRING fields reject LESS_THAN, so expiry is
+    evaluated in Python after a bounded fetch.
+    """
+
+    try:
+        records = query_all_records(
+            "UnmatchedDetection",
+            filters=[],
+            batch_size=batch_size,
+            max_records=2000,
+        )
+    except RuntimeError as exc:
+        message = str(exc)
+        print(
+            f"[cloudkit] prune_unmatched_detections skipped: {message}"
+        )
+        return 0
+
+    now = datetime.now(timezone.utc)
+    expired_names: list[str] = []
+
+    for record in records:
+        record_name = record.get("recordName")
+        if not record_name:
+            continue
+        expires_at = _as_datetime(record_field(record, "expiresAt"))
+        if expires_at is None:
+            timestamp = _as_datetime(record_field(record, "timestamp"))
+            if timestamp is not None:
+                expires_at = timestamp + timedelta(hours=3)
+        if expires_at is None or expires_at > now:
+            continue
+        expired_names.append(record_name)
 
     deleted = 0
 
-    for i in range(0, len(record_names), batch_size):
+    for i in range(0, len(expired_names), batch_size):
 
-        chunk = record_names[i:i + batch_size]
+        chunk = expired_names[i:i + batch_size]
 
         delete_records(
             "UnmatchedDetection",

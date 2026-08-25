@@ -10,6 +10,8 @@ UnmatchedDetection.latitude = Double
 UnmatchedDetection.longitude = Double
 UnmatchedDetection.timestamp = String
 UnmatchedDetection.expiresAt = String
+# Keep these as String. CloudKit STRING fields cannot use LESS_THAN /
+# GREATER_THAN filters — the backend prunes and windows in Python.
 UnmatchedDetection.rawConfidence = Double
 UnmatchedDetection.reason = String
 UnmatchedDetection.textHint = String
