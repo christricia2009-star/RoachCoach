@@ -2,7 +2,9 @@ name: Roach Coach Radar - Signal Pipeline
 
 on:
   schedule:
-    - cron: "*/15 * * * *"
+    # Every 2 hours, not every 15 minutes. Camera vision + 14 web
+    # searches at */15 was ~$1/run and ~$96/day.
+    - cron: "0 */2 * * *"
   workflow_dispatch: {}
 
 jobs:
@@ -61,6 +63,11 @@ jobs:
           INSTAGRAM_BUSINESS_ACCOUNT_ID: ${{ secrets.INSTAGRAM_BUSINESS_ACCOUNT_ID }}
           FACEBOOK_PAGE_ACCESS_TOKEN: ${{ secrets.FACEBOOK_PAGE_ACCESS_TOKEN }}
           X_API_BEARER_TOKEN: ${{ secrets.X_API_BEARER_TOKEN }}
+
+          # Cost controls (empty = cheapest). Set secret to "true" to enable.
+          RUN_CAMERA_VISION: ${{ secrets.RUN_CAMERA_VISION }}
+          PER_TRUCK_WEB_SEARCH: ${{ secrets.PER_TRUCK_WEB_SEARCH }}
+          SKIP_DUCKDUCKGO: "1"
 
         run: |
           cd backend

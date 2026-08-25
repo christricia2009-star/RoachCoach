@@ -103,6 +103,14 @@ def job_california_cameras():
     likely food-truck activity.
     """
 
+    enabled = (os.getenv("RUN_CAMERA_VISION") or "").strip().lower()
+    if enabled not in ("1", "true", "yes"):
+        print(
+            "[cameras] skipped — 9 vision calls per run are expensive. "
+            "Set RUN_CAMERA_VISION=true to enable."
+        )
+        return
+
     from traffic_camera_vision import scan_california_area
 
     # `os.getenv(name, default)`'s default only kicks in when the
@@ -342,11 +350,19 @@ def job_social_scraping():
     # OPENROUTER_API_KEY isn't set — see llm_providers.web_search_complete.
     # ------------------------------------------------------------------
 
-    web_posts = fetch_web_search_results()
-    print(
-        f"[social] web_search returned {len(web_posts)} result(s)"
-    )
-    posts += web_posts
+    per_truck = (os.getenv("PER_TRUCK_WEB_SEARCH") or "").strip().lower()
+    if per_truck in ("1", "true", "yes"):
+        web_posts = fetch_web_search_results()
+        print(
+            f"[social] web_search returned {len(web_posts)} result(s)"
+        )
+        posts += web_posts
+    else:
+        print(
+            "[social] skipped 14 OpenRouter web-search calls "
+            "(PER_TRUCK_WEB_SEARCH not set). "
+            "public_listings does one cheaper JSON search instead."
+        )
 
     # ------------------------------------------------------------------
     # PROCESS POSTS
@@ -540,6 +556,16 @@ def run_all_once():
     Exits non-zero if any job raised, so a green Actions check
     actually means the pipeline finished without a crash.
     """
+
+    print(
+        "[cost] cameras="
+        + ((os.getenv("RUN_CAMERA_VISION") or "off"))
+        + " per_truck_web_search="
+        + ((os.getenv("PER_TRUCK_WEB_SEARCH") or "off"))
+        + " duckduckgo="
+        + ("off" if (os.getenv("SKIP_DUCKDUCKGO") or "1") not in ("0", "false", "no") else "on")
+        + " — default is one OpenRouter JSON listing call + free directory pins"
+    )
 
     failed = []
 

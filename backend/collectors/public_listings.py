@@ -14,6 +14,7 @@ social_scraper.py and run when tokens exist.
 from __future__ import annotations
 
 import html
+import os
 import re
 from dataclasses import dataclass
 from typing import Optional
@@ -72,6 +73,9 @@ def _addresses_in(text: str) -> list[str]:
 
 
 def search_duckduckgo(query: str, limit: int = 8) -> list[dict[str, str]]:
+    skip = (os.getenv("SKIP_DUCKDUCKGO") or "1").strip().lower()
+    if skip not in ("0", "false", "no"):
+        return []
     try:
         response = SESSION.post(
             "https://html.duckduckgo.com/html/",
@@ -281,7 +285,7 @@ def openrouter_live_listings() -> list[ListingHit]:
         "Trucks:\n" + "\n".join(f"- {name}" for name in names)
     )
     try:
-        raw = web_search_complete(prompt, max_tokens=1200, max_results=8)
+        raw = web_search_complete(prompt, max_tokens=700, max_results=3)
     except Exception as exc:
         print(f"[listings] openrouter search failed: {exc}")
         return []
