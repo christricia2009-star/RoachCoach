@@ -20,6 +20,14 @@ import time
 import datetime
 import traceback
 
+try:
+    from dotenv import load_dotenv
+
+    load_dotenv(os.path.join(os.path.dirname(os.path.abspath(__file__)), ".env"))
+    load_dotenv()
+except ImportError:
+    pass
+
 sys.path.append(os.path.join(os.path.dirname(__file__), "scraping"))
 sys.path.append(os.path.join(os.path.dirname(__file__), "collectors"))
 sys.path.append(os.path.join(os.path.dirname(__file__), "phase3"))
@@ -297,9 +305,13 @@ def job_social_scraping():
     from social_scraper import (
         fetch_all_known_trucks,
         fetch_web_search_results,
-        INSTAGRAM_BUSINESS_DISCOVERY_USERNAMES,
-        FACEBOOK_PAGE_IDS,
+        native_social_covered_keys,
+        load_live_truck_catalog,
+        register_trucks_for_fusion,
+        all_instagram_discovery_usernames,
+        all_facebook_page_ids,
         X_USERNAMES,
+        TRUCK_LISTINGS,
     )
     from llm_extract import extract_location_from_caption
     from geocoding import geocode, usable_location_text
@@ -309,13 +321,18 @@ def job_social_scraping():
     # `signal_fusion.KNOWN_TRUCK_NAMES` — reuse that instead of a second,
     # separately-resolved import here.
 
-    # Curated account lists now live in social_scraper.py (single source
-    # of truth shared with main.py's on-demand /api/radar/scan route) —
-    # see INSTAGRAM_BUSINESS_DISCOVERY_USERNAMES / FACEBOOK_PAGE_IDS there.
+    catalog = load_live_truck_catalog(refresh=True)
+    register_trucks_for_fusion(catalog)
+    ig_handles = all_instagram_discovery_usernames(catalog)
+    fb_pages = all_facebook_page_ids(catalog)
+    print(
+        f"[social] discovering {len(ig_handles)} Instagram handle(s) "
+        f"and {len(fb_pages)} Facebook page(s) across "
+        f"{len(catalog)} known truck(s)"
+    )
 
-    # Accounts YOU personally manage as Instagram testers.
-    #
-    # Leave empty unless you have actual Instagram account IDs.
+    # Own Instagram professional account is auto-resolved from
+    # INSTAGRAM_ACCESS_TOKEN via GET /me. Extra tester IDs can go here.
     instagram_ids: list[str] = []
 
     x_usernames: list[str] = list(X_USERNAMES)
@@ -329,11 +346,9 @@ def job_social_scraping():
 
         x_usernames=x_usernames,
 
-        instagram_business_discovery_usernames=(
-            INSTAGRAM_BUSINESS_DISCOVERY_USERNAMES
-        ),
+        instagram_business_discovery_usernames=ig_handles,
 
-        facebook_page_ids=FACEBOOK_PAGE_IDS,
+        facebook_page_ids=fb_pages,
     )
 
     print(
@@ -352,16 +367,30 @@ def job_social_scraping():
 
     per_truck = (os.getenv("PER_TRUCK_WEB_SEARCH") or "").strip().lower()
     if per_truck in ("1", "true", "yes"):
-        web_posts = fetch_web_search_results()
-        print(
-            f"[social] web_search returned {len(web_posts)} result(s)"
-        )
-        posts += web_posts
+        covered = native_social_covered_keys(posts)
+        missing = [
+            item["search_name"]
+            for item in TRUCK_LISTINGS
+            if item["key"] not in covered
+        ]
+        if missing:
+            web_posts = fetch_web_search_results(missing)
+            print(
+                f"[social] web_search for {len(missing)} truck(s) "
+                f"without IG/FB returned {len(web_posts)} result(s)"
+            )
+            posts += web_posts
+        else:
+            print(
+                "[social] skipped web search — Instagram/Facebook "
+                "already covered every known truck."
+            )
     else:
         print(
-            "[social] skipped 14 OpenRouter web-search calls "
-            "(PER_TRUCK_WEB_SEARCH not set). "
-            "public_listings does one cheaper JSON search instead."
+            "[social] skipped per-truck OpenRouter web-search "
+            "(PER_TRUCK_WEB_SEARCH not set). Instagram/Facebook "
+            "are the primary sources; public_listings does one "
+            "cheaper JSON search for the rest."
         )
 
     # ------------------------------------------------------------------
@@ -469,7 +498,7 @@ def job_social_scraping():
                 0.4,
             ),
 
-            text_hint=post.caption,
+            text_hint=f"{post.truck_handle} {post.caption}",
 
             note=(
                 f"Posted: "

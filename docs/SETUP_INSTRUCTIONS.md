@@ -165,15 +165,25 @@ code are in `iOS/RoachCoachRadar/CloudKit/CloudKitService.swift`.
 `Backend/scraping/social_scraper.py` has real, functional request code for
 Instagram and X, plus a generic slot for any direct partnership feed.
 
-- **Instagram Graph API — testing on your own account is free, today, no
-  App Review**: in your Meta app dashboard, add your own Instagram account
-  in the "Instagram Tester" role while the app is in development mode.
-  This is a *Meta* requirement — it applies the same whether you ever
-  submit to the App Store or stay in TestFlight forever, since it's Meta's
-  API, not Apple's. Fetching from OTHER people's accounts (i.e. other
-  family members' truck-following accounts, if you expand later) requires
-  Advanced Access: Meta App Review + Business Verification, typically 2-6
-  weeks — not needed yet for a family app testing on your own account.
+- **Instagram Login token (IGA…) — your own account only, free today**:
+  the token from "API setup with Instagram business login" can read
+  `@cybertruck916` (or whichever account generated it). It **cannot**
+  list `@drewskis`, `@sactomofo`, or any other truck. Meta does not
+  expose Business Discovery on Instagram Login tokens.
+- **To list other trucks' Instagram posts** you need a **different
+  token type**: Instagram API with **Facebook Login**. Connect the
+  professional IG account to a Facebook Page, generate an `EAA…` user
+  token with `instagram_basic`, `instagram_manage_insights`, and
+  `pages_read_engagement`, store it as `FACEBOOK_USER_ACCESS_TOKEN`,
+  then submit Meta App Review for Advanced Access (Business
+  Verification, typically 2–6 weeks). Until that is approved, Meta
+  only allows accounts that have a Tester role on your app. Adding
+  `@drewskis` as a tester requires that truck's owner to accept —
+  not practical, so App Review is the real path.
+- **Facebook business pages** use the same `EAA…` token. Reading
+  pages you do not manage also needs the **Page Public Content Access**
+  feature in App Review. The Instagram-only app secret cannot call
+  `graph.facebook.com`.
 - **X (Twitter) API**: no free tier as of Feb 2026 — pay-per-use
   ($0.005/read, $0.015/post created, no monthly minimum). This is billed
   through your own X developer account at developer.x.com — note that a

@@ -18,7 +18,10 @@ Use Vercel's Environment Variables UI for production secrets.
 | OPENROUTER_API_KEY | OpenRouter server-side key |
 | XAI_API_KEY | xAI/Grok key |
 | ANTHROPIC_API_KEY | Anthropic key |
-| INSTAGRAM_ACCESS_TOKEN | Authorized Meta/Instagram token |
+| INSTAGRAM_ACCESS_TOKEN | Authorized Meta/Instagram token (IGA… Instagram Login or EAA… Facebook Login) |
+| INSTAGRAM_BUSINESS_ACCOUNT_ID | Numeric IG user id of the authorized professional account (`GET /me?fields=user_id`) |
+| FACEBOOK_USER_ACCESS_TOKEN | Facebook Login EAA… token for Business Discovery and Page reads |
+| FACEBOOK_PAGE_ACCESS_TOKEN | Optional Page token if you manage the Page |
 | X_API_BEARER_TOKEN | Authorized X API bearer token |
 | PARTNERSHIP_API_KEY | Authorized partner integration |
 | TELECOM_API_KEY | Authorized telecom integration |

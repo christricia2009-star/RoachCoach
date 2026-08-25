@@ -23,6 +23,14 @@ BACKEND_DIR = os.path.dirname(os.path.abspath(__file__))
 if BACKEND_DIR not in sys.path:
     sys.path.insert(0, BACKEND_DIR)
 
+try:
+    from dotenv import load_dotenv
+
+    load_dotenv(os.path.join(BACKEND_DIR, ".env"))
+    load_dotenv()
+except ImportError:
+    pass
+
 import uuid
 import traceback
 from datetime import datetime, timedelta, timezone
@@ -52,10 +60,32 @@ def vision_diagnostics():
         "openrouter_configured": bool(os.getenv("OPENROUTER_API_KEY")),
         "xai_configured": bool(os.getenv("XAI_API_KEY")),
         "x_bearer_configured": bool(os.getenv("X_API_BEARER_TOKEN")),
+        "instagram_configured": bool(os.getenv("INSTAGRAM_ACCESS_TOKEN")),
         "llm_strategy": os.getenv("LLM_STRATEGY") or "(empty)",
         "llm_provider": os.getenv("LLM_PROVIDER") or "(empty)",
         "llm_model": os.getenv("LLM_MODEL") or "(empty)",
     }
+
+
+@app.get("/api/diagnostics/instagram")
+def instagram_diagnostics():
+    """
+    Live Instagram Graph check. Returns account + recent posts.
+    Never includes the access token.
+    """
+    from social_scraper import diagnose_instagram
+
+    return diagnose_instagram()
+
+
+@app.get("/api/diagnostics/facebook")
+def facebook_diagnostics():
+    """
+    Live Facebook Page check. Never includes the access token.
+    """
+    from social_scraper import diagnose_facebook
+
+    return diagnose_facebook()
 
 
 # ============================================================
@@ -1413,8 +1443,13 @@ def _run_social_source(
         from social_scraper import (
             fetch_all_known_trucks,
             fetch_web_search_results,
-            INSTAGRAM_BUSINESS_DISCOVERY_USERNAMES,
-            FACEBOOK_PAGE_IDS,
+            native_social_covered_keys,
+            load_live_truck_catalog,
+            register_trucks_for_fusion,
+            all_instagram_discovery_usernames,
+            all_facebook_page_ids,
+            X_USERNAMES,
+            TRUCK_LISTINGS,
         )
 
         from llm_extract import extract_location_from_caption
@@ -1422,13 +1457,21 @@ def _run_social_source(
         from geocoding import geocode
 
         instagram_configured = bool(
-            os.getenv("INSTAGRAM_BUSINESS_ACCOUNT_ID")
-            and os.getenv("INSTAGRAM_ACCESS_TOKEN")
+            os.getenv("INSTAGRAM_ACCESS_TOKEN")
+            or os.getenv("FACEBOOK_USER_ACCESS_TOKEN")
         )
 
         facebook_configured = bool(
-            os.getenv("FACEBOOK_PAGE_ACCESS_TOKEN")
+            (
+                os.getenv("FACEBOOK_USER_ACCESS_TOKEN")
+                or os.getenv("FACEBOOK_PAGE_ACCESS_TOKEN")
+            )
             and FACEBOOK_PAGE_IDS
+        )
+
+        x_configured = bool(
+            os.getenv("X_API_BEARER_TOKEN")
+            and X_USERNAMES
         )
 
         web_search_configured = bool(
@@ -1438,6 +1481,7 @@ def _run_social_source(
         if (
             not instagram_configured
             and not facebook_configured
+            and not x_configured
             and not web_search_configured
         ):
 
@@ -1447,35 +1491,52 @@ def _run_social_source(
                 status="skipped",
                 detail=(
                     "Social collector is installed, but none of "
-                    "Instagram Business Discovery "
-                    "(INSTAGRAM_BUSINESS_ACCOUNT_ID + "
-                    "INSTAGRAM_ACCESS_TOKEN), a Facebook Page "
-                    "(FACEBOOK_PAGE_ACCESS_TOKEN + at least one "
-                    "configured page ID), or web search "
+                    "Instagram (INSTAGRAM_ACCESS_TOKEN), a Facebook Page "
+                    "(FACEBOOK_USER_ACCESS_TOKEN or "
+                    "FACEBOOK_PAGE_ACCESS_TOKEN + at least one "
+                    "configured page ID), X "
+                    "(X_API_BEARER_TOKEN), or web search "
                     "(OPENROUTER_API_KEY) are configured."
                 ),
             )
 
+        catalog = load_live_truck_catalog(refresh=True)
+        register_trucks_for_fusion(catalog)
+
         posts = fetch_all_known_trucks(
             instagram_business_discovery_usernames=(
-                INSTAGRAM_BUSINESS_DISCOVERY_USERNAMES
+                all_instagram_discovery_usernames(catalog)
                 if instagram_configured
                 else []
             ),
             facebook_page_ids=(
-                FACEBOOK_PAGE_IDS
+                all_facebook_page_ids(catalog)
                 if facebook_configured
+                else []
+            ),
+            x_usernames=(
+                list(X_USERNAMES)
+                if x_configured
                 else []
             ),
         )
 
-        if web_search_configured:
-
-            posts += fetch_web_search_results(
-                [
-                    name.title()
-                    for name in signal_fusion.KNOWN_TRUCK_NAMES.keys()
-                ]
+        per_truck = (
+            os.getenv("PER_TRUCK_WEB_SEARCH") or ""
+        ).strip().lower()
+        if web_search_configured and per_truck in ("1", "true", "yes"):
+            covered = native_social_covered_keys(posts)
+            missing = [
+                item["search_name"]
+                for item in TRUCK_LISTINGS
+                if item["key"] not in covered
+            ]
+            if missing:
+                posts += fetch_web_search_results(missing)
+        elif web_search_configured:
+            print(
+                "[social] skipped per-truck web search on live scan; "
+                "Instagram/Facebook are the primary sources."
             )
 
         matched = 0
@@ -1882,6 +1943,14 @@ def radar_scan(
 ):
 
     h = request.headers
+
+    instagram_header = (h.get("x-rcr-instagram-token") or "").strip()
+    if instagram_header:
+        os.environ["INSTAGRAM_ACCESS_TOKEN"] = instagram_header
+
+    facebook_header = (h.get("x-rcr-facebook-token") or "").strip()
+    if facebook_header:
+        os.environ["FACEBOOK_USER_ACCESS_TOKEN"] = facebook_header
 
     live_scan = (
         h.get("x-rcr-live-scan") or ""

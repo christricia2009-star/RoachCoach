@@ -24,6 +24,8 @@ enum APIKeyValidator {
         case "anthropic": return await checkAnthropic(trimmed)
         case "grok":       return await checkXAI(trimmed)
         case "openrouter": return await checkOpenRouter(trimmed)
+        case "instagram":  return await checkInstagram(trimmed)
+        case "facebook":   return await checkFacebook(trimmed)
         default:           return .invalid("Unknown provider")
         }
     }
@@ -42,6 +44,37 @@ enum APIKeyValidator {
             return .invalid("Bad URL")
         }
         request.setValue("Bearer \(key)", forHTTPHeaderField: "Authorization")
+        return await run(request)
+    }
+
+    private static func checkFacebook(_ key: String) async -> APIKeyCheckResult {
+        var comps = URLComponents(string: "https://graph.facebook.com/v25.0/me")
+        comps?.queryItems = [
+            URLQueryItem(name: "fields", value: "id,name"),
+            URLQueryItem(name: "access_token", value: key),
+        ]
+        guard let url = comps?.url else { return .invalid("Bad URL") }
+        var request = URLRequest(url: url)
+        request.httpMethod = "GET"
+        request.timeoutInterval = 10
+        return await run(request)
+    }
+
+    private static func checkInstagram(_ key: String) async -> APIKeyCheckResult {
+        // IGA… = Instagram Login (graph.instagram.com).
+        // EAA… = Facebook Login / Page token (graph.facebook.com).
+        let host = key.uppercased().hasPrefix("EAA")
+            ? "https://graph.facebook.com/v25.0/me"
+            : "https://graph.instagram.com/v25.0/me"
+        var comps = URLComponents(string: host)
+        comps?.queryItems = [
+            URLQueryItem(name: "fields", value: "id,username"),
+            URLQueryItem(name: "access_token", value: key),
+        ]
+        guard let url = comps?.url else { return .invalid("Bad URL") }
+        var request = URLRequest(url: url)
+        request.httpMethod = "GET"
+        request.timeoutInterval = 10
         return await run(request)
     }
 

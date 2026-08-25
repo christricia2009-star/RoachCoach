@@ -12,6 +12,7 @@ final class APIKeyStore: ObservableObject {
     @Published var xAIKey: String { didSet { save(xAIKey, key: Keys.xAI) } }
     @Published var anthropicKey: String { didSet { save(anthropicKey, key: Keys.anthropic) } }
     @Published var instagramToken: String { didSet { save(instagramToken, key: Keys.instagram) } }
+    @Published var facebookToken: String { didSet { save(facebookToken, key: Keys.facebook) } }
     @Published var xBearerToken: String { didSet { save(xBearerToken, key: Keys.xBearer) } }
     @Published var partnershipKey: String { didSet { save(partnershipKey, key: Keys.partnership) } }
     @Published var partnershipURL: String { didSet { save(partnershipURL, key: Keys.partnershipURL) } }
@@ -33,7 +34,7 @@ final class APIKeyStore: ObservableObject {
 
     private enum Keys {
         static let backendURL = "backendURL", openRouter = "openRouterKey", xAI = "xAIKey", anthropic = "anthropicKey"
-        static let instagram = "instagramToken", xBearer = "xBearerToken", partnership = "partnershipKey", partnershipURL = "partnershipURL"
+        static let instagram = "instagramToken", facebook = "facebookToken", xBearer = "xBearerToken", partnership = "partnershipKey", partnershipURL = "partnershipURL"
         static let municipalToken = "municipalAppToken", municipalURL = "municipalDatasetURL", telecom = "telecomKey", telecomURL = "telecomURL"
         static let uberID = "uberClientID", uberSecret = "uberClientSecret", uberURL = "uberURL"
         static let doorDash = "doorDashKey", doorDashURL = "doorDashURL", s3Bucket = "s3BucketName"
@@ -48,6 +49,7 @@ final class APIKeyStore: ObservableObject {
         xAIKey = Self.read(Keys.xAI) ?? ""
         anthropicKey = Self.read(Keys.anthropic) ?? ""
         instagramToken = Self.read(Keys.instagram) ?? ""
+        facebookToken = Self.read(Keys.facebook) ?? ""
         xBearerToken = Self.read(Keys.xBearer) ?? ""
         partnershipKey = Self.read(Keys.partnership) ?? ""
         partnershipURL = Self.read(Keys.partnershipURL) ?? ""
@@ -75,6 +77,7 @@ final class APIKeyStore: ObservableObject {
             Keys.xAI,
             Keys.anthropic,
             Keys.instagram,
+            Keys.facebook,
             Keys.xBearer,
             Keys.partnership,
             Keys.partnershipURL,
@@ -104,6 +107,7 @@ final class APIKeyStore: ObservableObject {
         xAIKey = ""
         anthropicKey = ""
         instagramToken = ""
+        facebookToken = ""
         xBearerToken = ""
         partnershipKey = ""
         partnershipURL = ""
@@ -129,7 +133,7 @@ final class APIKeyStore: ObservableObject {
     func headers() -> [String: String] {
         let values = [
             "X-RCR-OpenRouter-Key": openRouterKey, "X-RCR-XAI-Key": xAIKey, "X-RCR-Anthropic-Key": anthropicKey,
-            "X-RCR-Instagram-Token": instagramToken, "X-RCR-X-Bearer": xBearerToken, "X-RCR-Partnership-Key": partnershipKey,
+            "X-RCR-Instagram-Token": instagramToken, "X-RCR-Facebook-Token": facebookToken, "X-RCR-X-Bearer": xBearerToken, "X-RCR-Partnership-Key": partnershipKey,
             "X-RCR-Partnership-URL": partnershipURL, "X-RCR-Municipal-Token": municipalAppToken, "X-RCR-Municipal-URL": municipalDatasetURL,
             "X-RCR-Telecom-Key": telecomKey, "X-RCR-Telecom-URL": telecomURL, "X-RCR-Uber-ID": uberClientID, "X-RCR-Uber-Secret": uberClientSecret,
             "X-RCR-Uber-URL": uberURL, "X-RCR-DoorDash-Key": doorDashKey, "X-RCR-DoorDash-URL": doorDashURL,

@@ -9,6 +9,7 @@ struct APISettingsView: View {
     @State private var xAICheck: APIKeyCheckResult = .unchecked
     @State private var anthropicCheck: APIKeyCheckResult = .unchecked
     @State private var instagramCheck: APIKeyCheckResult = .unchecked
+    @State private var facebookCheck: APIKeyCheckResult = .unchecked
     @State private var xBearerCheck: APIKeyCheckResult = .unchecked
     @AppStorage("radar.scanRadius") private var scanRadius = 10.0
     @AppStorage("radar.autoScan") private var autoScan = false
@@ -79,6 +80,9 @@ struct APISettingsView: View {
             Section("Social & Partnership") {
                 keyRow(label: "Instagram access token", text: $keys.instagramToken, result: instagramCheck) {
                     Task { await checkKey(provider: "instagram", key: keys.instagramToken, result: $instagramCheck) }
+                }
+                keyRow(label: "Facebook user/page token", text: $keys.facebookToken, result: facebookCheck) {
+                    Task { await checkKey(provider: "facebook", key: keys.facebookToken, result: $facebookCheck) }
                 }
                 keyRow(label: "X API bearer token", text: $keys.xBearerToken, result: xBearerCheck) {
                     Task { await checkKey(provider: "x_bearer", key: keys.xBearerToken, result: $xBearerCheck) }

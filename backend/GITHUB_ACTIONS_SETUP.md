@@ -60,7 +60,10 @@ already in the Python code):
 | `TELECOM_API_KEY` / `TELECOM_API_BASE_URL` | if your carrier partnership is ready |
 | `UBER_PARTNER_CLIENT_ID` / `_CLIENT_SECRET` / `_API_BASE_URL` | if ready |
 | `DOORDASH_PARTNER_API_KEY` / `_API_BASE_URL` | if ready |
-| `INSTAGRAM_ACCESS_TOKEN` | from your Instagram Tester setup |
+| `INSTAGRAM_ACCESS_TOKEN` | from your Instagram Tester setup (IGA… token) |
+| `INSTAGRAM_BUSINESS_ACCOUNT_ID` | numeric IG user id from GET /me?fields=user_id |
+| `FACEBOOK_USER_ACCESS_TOKEN` | Facebook Login EAA… token for Business Discovery of other IG accounts |
+| `FACEBOOK_PAGE_ACCESS_TOKEN` | Page token if you manage a Page; otherwise same EAA user token |
 | `X_API_BEARER_TOKEN` | if you're paying for X API access |
 
 ## Step 3: Base64-encode your CloudKit private key

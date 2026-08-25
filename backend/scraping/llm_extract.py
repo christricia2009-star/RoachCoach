@@ -44,6 +44,17 @@ Caption:
 
 
 def extract_location_from_caption(caption: str) -> dict:
+    text = (caption or "").strip()
+    empty = {
+        "location_text": None,
+        "start_time": None,
+        "end_time": None,
+        "confidence": "none",
+    }
+    # Empty IG/FB posts have no location; skip the LLM call.
+    if len(text) < 8:
+        return empty
+
     raw_text = complete(EXTRACTION_PROMPT.format(caption=caption), max_tokens=300) or ""
 
     # Defensive parsing in case the model wraps the JSON in fences anyway

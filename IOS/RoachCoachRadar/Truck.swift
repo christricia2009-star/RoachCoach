@@ -103,20 +103,20 @@ enum TruckSocialDirectory {
     }
 
     private static let profiles: [Profile] = [
-        .init(match: "drewski", instagram: "drewskis", x: "drewskis", facebook: "drewskisfoodtrucks", website: "https://drewskis.com"),
-        .init(match: "buckhorn", instagram: "thebuckhornbbqtruck", x: "thebuckhornbbqtruck", facebook: "thebuckhornbbqtruck", website: nil),
-        .init(match: "sactomofo", instagram: "sactomofo", x: "sactomofo", facebook: "sactomofo", website: nil),
-        .init(match: "krush", instagram: "krushroseville", x: "krushroseville", facebook: "krushroseville", website: nil),
-        .init(match: "potato", instagram: "the_potato_truck", x: "the_potato_truck", facebook: "the_potato_truck", website: nil),
-        .init(match: "alameda taco", instagram: "alamedatacossac", x: "alamedatacossac", facebook: "alamedatacossac", website: nil),
-        .init(match: "mucho nacho", instagram: "muchonachossacramento", x: "muchonachossacramento", facebook: "muchonachossacramento", website: nil),
-        .init(match: "pop up", instagram: "sactopopuptruck", x: "sactopopuptruck", facebook: "sactopopuptruck", website: nil),
-        .init(match: "santacos", instagram: "santacosmx", x: "santacosmx", facebook: "santacosmx", website: nil),
-        .init(match: "tacoa", instagram: "tacoasac", x: "tacoasac", facebook: "tacoasac", website: nil),
-        .init(match: "tacos gto", instagram: "tacos_gto_", x: "tacos_gto_", facebook: "tacos_gto_", website: nil),
-        .init(match: "tacomiendo", instagram: "tacomiendofoodtruck", x: "tacomiendofoodtruck", facebook: "tacomiendofoodtruck", website: nil),
-        .init(match: "sac tacos", instagram: "sactacosfoodtruck", x: "sactacosfoodtruck", facebook: "sactacosfoodtruck", website: nil),
-        .init(match: "lumpia", instagram: "thelumpiatruck", x: "thelumpiatruck", facebook: "thelumpiatruck", website: nil)
+        .init(match: "drewski", instagram: "drewskis", x: "drewskishotrod", facebook: "drewskisfoodtrucks", website: "https://drewskis.com"),
+        .init(match: "buckhorn", instagram: "thebuckhornbbqtruck", x: nil, facebook: "thebuckhornbbqtruck", website: nil),
+        .init(match: "sactomofo", instagram: "sactomofo", x: "SactoMoFo", facebook: "sactomofo", website: nil),
+        .init(match: "krush", instagram: "krushroseville", x: nil, facebook: "krushroseville", website: nil),
+        .init(match: "potato", instagram: "the_potato_truck", x: nil, facebook: "the_potato_truck", website: nil),
+        .init(match: "alameda taco", instagram: "alamedatacossac", x: nil, facebook: "alamedatacossac", website: nil),
+        .init(match: "mucho nacho", instagram: "muchonachossacramento", x: nil, facebook: "muchonachossacramento", website: nil),
+        .init(match: "pop up", instagram: "sactopopuptruck", x: nil, facebook: "sactopopuptruck", website: nil),
+        .init(match: "santacos", instagram: "santacosmx", x: nil, facebook: "santacosmx", website: nil),
+        .init(match: "tacoa", instagram: "tacoasac", x: nil, facebook: "tacoasac", website: nil),
+        .init(match: "tacos gto", instagram: "tacos_gto_", x: nil, facebook: "tacos_gto_", website: nil),
+        .init(match: "tacomiendo", instagram: "tacomiendofoodtruck", x: nil, facebook: "tacomiendofoodtruck", website: nil),
+        .init(match: "sac tacos", instagram: "sactacosfoodtruck", x: nil, facebook: "sactacosfoodtruck", website: nil),
+        .init(match: "lumpia", instagram: "thelumpiatruck", x: "TheLumpiaTruck", facebook: "thelumpiatruck", website: nil)
     ]
 
     static func links(for truck: Truck) -> [TruckSocialLink] {
