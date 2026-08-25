@@ -2,6 +2,21 @@
 # Add in CloudKit Dashboard DEVELOPMENT, test, then deploy.
 # Existing app works without these.
 
+# REQUIRED for the GitHub Actions scheduler cache.
+# Production CloudKit does not auto-create this type. Without it, unmatched
+# camera/social detections 404 and Scan stays empty.
+UnmatchedDetection.source = String
+UnmatchedDetection.latitude = Double
+UnmatchedDetection.longitude = Double
+UnmatchedDetection.timestamp = String
+UnmatchedDetection.expiresAt = String
+UnmatchedDetection.rawConfidence = Double
+UnmatchedDetection.reason = String
+UnmatchedDetection.textHint = String
+UnmatchedDetection.note = String
+UnmatchedDetection.status = String
+UnmatchedDetection.resolvedTruckId = String
+
 Sighting.photoAsset = Asset
 Sighting.photoIntelScore = Double
 Sighting.photoIntelLabels = [String]

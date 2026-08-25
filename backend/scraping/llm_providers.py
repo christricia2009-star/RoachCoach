@@ -22,8 +22,22 @@ import itertools
 from openai import OpenAI  # used for xAI + OpenRouter (both OpenAI-compatible)
 import anthropic
 
-LLM_STRATEGY = os.getenv("LLM_STRATEGY", "single")  # single | round_robin | fallback
-LLM_PROVIDER = os.getenv("LLM_PROVIDER", "anthropic")  # used only in "single" mode
+
+def _env(name: str, default: str = "") -> str:
+    """GitHub Actions injects missing secrets as empty strings, which
+    bypasses os.getenv(..., default). Treat blank as unset."""
+    value = os.getenv(name)
+    if value is None:
+        return default
+    value = value.strip()
+    return value if value else default
+
+
+# This app is configured for OpenRouter + openai/gpt-5.6-luna. GitHub
+# Actions must not pass an empty LLM_PROVIDER secret or complete() used
+# to raise ValueError("Unknown provider ''") and kill social scraping.
+LLM_STRATEGY = _env("LLM_STRATEGY", "single")  # single | round_robin | fallback
+LLM_PROVIDER = _env("LLM_PROVIDER", "openrouter")
 
 # Cheap default models per provider — check current pricing before relying
 # on these long-term, since providers change model lineups frequently.
@@ -35,11 +49,8 @@ LLM_PROVIDER = os.getenv("LLM_PROVIDER", "anthropic")  # used only in "single" m
 # whatever's current before hardcoding a replacement.
 DEFAULT_MODELS = {
     "anthropic": "claude-sonnet-4-6",
-    "grok": "grok-4.3",                 # current general xAI tier as of Aug 2026
-    "openrouter": "x-ai/grok-4.3",      # same model, routed through OpenRouter
-    # OpenRouter also lists free, rate-limited models — check
-    # https://openrouter.ai/models filtered by "free" for current options
-    # and set LLM_MODEL to one of those IDs if you want zero-cost testing.
+    "grok": "grok-4.3",
+    "openrouter": "openai/gpt-5.6-luna",
 }
 
 # Separate, cheap default JUST for the web-search step (see
@@ -69,17 +80,33 @@ DEFAULT_WEB_SEARCH_MODEL = "openai/gpt-5.6-luna"
 
 
 
+def _has_key(name: str) -> bool:
+    return bool(_env(name))
+
+
 def _available_providers() -> list[str]:
     """Returns every provider that has an API key set in the environment,
     in a fixed priority order (used for both round_robin and fallback)."""
     candidates = []
-    if os.getenv("ANTHROPIC_API_KEY"):
+    if _has_key("ANTHROPIC_API_KEY"):
         candidates.append("anthropic")
-    if os.getenv("XAI_API_KEY"):
+    if _has_key("XAI_API_KEY"):
         candidates.append("grok")
-    if os.getenv("OPENROUTER_API_KEY"):
+    if _has_key("OPENROUTER_API_KEY"):
         candidates.append("openrouter")
     return candidates
+
+
+def _message_text(response) -> str:
+    """OpenRouter plugin/search calls sometimes return a choice with
+    message.content = None. Never call .strip() on that."""
+    try:
+        content = response.choices[0].message.content
+    except (AttributeError, IndexError, TypeError):
+        return ""
+    if content is None:
+        return ""
+    return str(content).strip()
 
 
 # Round-robin cursor — persists across calls within a process so repeated
@@ -101,7 +128,9 @@ def _next_round_robin_provider() -> str:
 
 
 def _model_for(provider: str) -> str:
-    return os.getenv("LLM_MODEL") or DEFAULT_MODELS.get(provider, DEFAULT_MODELS["anthropic"])
+    return _env("LLM_MODEL") or DEFAULT_MODELS.get(
+        provider, DEFAULT_MODELS["openrouter"]
+    )
 
 
 def _call_provider(provider: str, prompt: str, max_tokens: int) -> str:
@@ -123,7 +152,7 @@ def _call_provider(provider: str, prompt: str, max_tokens: int) -> str:
             max_tokens=max_tokens,
             messages=[{"role": "user", "content": prompt}],
         )
-        return response.choices[0].message.content.strip()
+        return _message_text(response)
 
     elif provider == "openrouter":
         client = OpenAI(api_key=os.getenv("OPENROUTER_API_KEY"), base_url="https://openrouter.ai/api/v1")
@@ -132,7 +161,7 @@ def _call_provider(provider: str, prompt: str, max_tokens: int) -> str:
             max_tokens=max_tokens,
             messages=[{"role": "user", "content": prompt}],
         )
-        return response.choices[0].message.content.strip()
+        return _message_text(response)
 
     else:
         raise ValueError(f"Unknown provider '{provider}'.")
@@ -146,11 +175,13 @@ def complete(prompt: str, max_tokens: int = 300) -> str:
       - "round_robin": rotates through every provider with a key set
       - "fallback": tries providers in order, moving on if one raises
     """
-    if LLM_STRATEGY == "round_robin":
+    strategy = _env("LLM_STRATEGY", "single")
+
+    if strategy == "round_robin":
         provider = _next_round_robin_provider()
         return _call_provider(provider, prompt, max_tokens)
 
-    elif LLM_STRATEGY == "fallback":
+    elif strategy == "fallback":
         providers = _available_providers()
         if not providers:
             raise RuntimeError(
@@ -168,7 +199,18 @@ def complete(prompt: str, max_tokens: int = 300) -> str:
         raise RuntimeError(f"All providers failed. Last error: {last_error}")
 
     else:  # "single"
-        return _call_provider(LLM_PROVIDER, prompt, max_tokens)
+        provider = _env("LLM_PROVIDER", "openrouter")
+        if provider not in ("anthropic", "grok", "openrouter"):
+            available = _available_providers()
+            if "openrouter" in available:
+                provider = "openrouter"
+            elif available:
+                provider = available[0]
+            else:
+                raise ValueError(
+                    f"Unknown provider '{provider}' and no LLM API keys are set."
+                )
+        return _call_provider(provider, prompt, max_tokens)
 
 
 def web_search_complete(prompt: str, max_tokens: int = 350, max_results: int = 3) -> str:
@@ -208,18 +250,16 @@ def web_search_complete(prompt: str, max_tokens: int = 350, max_results: int = 3
         )
 
     client = OpenAI(api_key=api_key, base_url="https://openrouter.ai/api/v1")
-    model = os.getenv("LLM_WEB_SEARCH_MODEL") or DEFAULT_WEB_SEARCH_MODEL
+    model = _env("LLM_WEB_SEARCH_MODEL") or DEFAULT_WEB_SEARCH_MODEL
 
     response = client.chat.completions.create(
         model=model,
         max_tokens=max_tokens,
         messages=[{"role": "user", "content": prompt}],
-        # OpenRouter-specific field — the OpenAI client passes unknown
-        # kwargs straight through in the request body via extra_body.
         extra_body={
             "plugins": [
                 {"id": "web", "max_results": max_results}
             ]
         },
     )
-    return response.choices[0].message.content.strip()
+    return _message_text(response)

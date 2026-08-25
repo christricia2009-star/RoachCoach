@@ -79,7 +79,10 @@ CORROBORATION_WINDOW_MINUTES = 20
 CORROBORATION_DISTANCE_MILES = 0.3
 
 # Confidence thresholds for auto-attach vs. review queue
-AUTO_ATTACH_THRESHOLD = 0.75
+# Name match without corroboration scores 0.70. The old 0.75 cutoff
+# sent every social hit to UnmatchedDetection (which is not in the
+# production CloudKit schema), so Scan never got a Sighting.
+AUTO_ATTACH_THRESHOLD = 0.70
 
 
 @dataclass
@@ -215,6 +218,12 @@ def process_detection(detection: RawDetection, recent_detections: list[RawDetect
         # compactMap) — the truck simply never appeared on the map, with
         # no error anywhere to point at.
         confidence_level = "Confirmed" if result.final_confidence >= 0.9 else "Likely"
+        observed_at = detection.timestamp
+        if observed_at.tzinfo is None:
+            observed_at = observed_at.replace(tzinfo=datetime.timezone.utc)
+        expires_at = observed_at + datetime.timedelta(hours=3)
+        timestamp_ms = int(observed_at.timestamp() * 1000)
+        expires_ms = int(expires_at.timestamp() * 1000)
         sighting = {
             "id": str(uuid.uuid4()),
             "truckId": result.matched_truck_id,
@@ -222,40 +231,50 @@ def process_detection(detection: RawDetection, recent_detections: list[RawDetect
             "longitude": detection.longitude,
             "note": detection.note or f"Auto-detected via {detection.source} ({result.reason})",
             "photoURL": "",
-            "timestamp": detection.timestamp.isoformat(),
+            "timestamp": timestamp_ms,
             "confidenceLevel": confidence_level,
-            "expiresAt": (detection.timestamp + datetime.timedelta(hours=3)).isoformat(),
+            "expiresAt": expires_ms,
         }
-        # NOTE: save_sighting(sighting) — passing the bare dict as a
-        # single positional arg — used to hit its "full CloudKit record"
-        # branch, which looks for "recordName"/"fields" keys. This dict
-        # has neither (it has "id" and flat field names), so that branch
-        # silently fell through to a random generated record name and an
-        # EMPTY fields dict — every auto-attached sighting was written
-        # as a blank record nobody could ever see. Pass (record_name,
-        # fields) explicitly instead, with every field wrapped the way
-        # CloudKit's records/modify actually requires.
-        cloudkit_bridge.save_sighting(
-            sighting["id"],
-            cloudkit_bridge.to_cloudkit_fields(
-                {k: v for k, v in sighting.items() if k != "id"}
-            ),
-        )
-        result.sighting = sighting
-        print(f"[fusion] auto-attached {detection.source} detection to truck {result.matched_truck_id} ({result.reason})")
+        try:
+            cloudkit_bridge.save_sighting(
+                sighting["id"],
+                cloudkit_bridge.to_cloudkit_fields(
+                    {k: v for k, v in sighting.items() if k != "id"}
+                ),
+            )
+            result.sighting = sighting
+            print(f"[fusion] auto-attached {detection.source} detection to truck {result.matched_truck_id} ({result.reason})")
+        except Exception:
+            print(
+                f"[fusion] CloudKit Sighting write failed for truck "
+                f"{result.matched_truck_id}"
+            )
+            raise
     else:
-        cloudkit_bridge.save_unmatched_detection({
-            "id": str(uuid.uuid4()),
-            "source": detection.source,
-            "latitude": detection.latitude,
-            "longitude": detection.longitude,
-            "timestamp": detection.timestamp.isoformat(),
-            "rawConfidence": result.final_confidence,
-            "reason": result.reason,
-            "textHint": detection.text_hint or "",
-            "note": detection.note or "",
-            "status": "pending",
-        })
-        print(f"[fusion] queued for human review: {detection.source} detection ({result.reason})")
+        observed_at = detection.timestamp
+        if observed_at.tzinfo is None:
+            observed_at = observed_at.replace(tzinfo=datetime.timezone.utc)
+        expires_at = observed_at + datetime.timedelta(hours=3)
+        try:
+            cloudkit_bridge.save_unmatched_detection({
+                "id": str(uuid.uuid4()),
+                "source": detection.source,
+                "latitude": detection.latitude,
+                "longitude": detection.longitude,
+                "timestamp": observed_at.isoformat(),
+                "expiresAt": expires_at.isoformat(),
+                "rawConfidence": result.final_confidence,
+                "reason": result.reason,
+                "textHint": detection.text_hint or "",
+                "note": detection.note or "",
+                "status": "pending",
+            })
+            print(f"[fusion] queued for human review: {detection.source} detection ({result.reason})")
+        except Exception as exc:
+            print(
+                f"[fusion] CloudKit UnmatchedDetection write failed "
+                f"({detection.source}): {exc}"
+            )
+            raise
 
     return result

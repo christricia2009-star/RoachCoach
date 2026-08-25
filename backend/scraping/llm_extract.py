@@ -44,10 +44,17 @@ Caption:
 
 
 def extract_location_from_caption(caption: str) -> dict:
-    raw_text = complete(EXTRACTION_PROMPT.format(caption=caption), max_tokens=300)
+    raw_text = complete(EXTRACTION_PROMPT.format(caption=caption), max_tokens=300) or ""
 
     # Defensive parsing in case the model wraps the JSON in fences anyway
     cleaned = raw_text.replace("```json", "").replace("```", "").strip()
+    if not cleaned:
+        return {
+            "location_text": None,
+            "start_time": None,
+            "end_time": None,
+            "confidence": "none",
+        }
 
     try:
         return json.loads(cleaned)

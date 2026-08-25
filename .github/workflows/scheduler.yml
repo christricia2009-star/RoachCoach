@@ -64,4 +64,9 @@ jobs:
 
         run: |
           cd backend
+          # GitHub injects missing secrets as empty strings, which
+          # overrides Python defaults. Force OpenRouter + Luna when blank.
+          export LLM_PROVIDER="${LLM_PROVIDER:-openrouter}"
+          export LLM_STRATEGY="${LLM_STRATEGY:-single}"
+          export LLM_MODEL="${LLM_MODEL:-openai/gpt-5.6-luna}"
           python3 scheduler.py --once

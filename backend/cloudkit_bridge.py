@@ -841,12 +841,29 @@ def prune_expired_unmatched_detections(
         }
     ]
 
-    expired = query_all_records(
-        "UnmatchedDetection",
-        filters=filters,
-        batch_size=batch_size,
-        max_records=None,
-    )
+    try:
+        expired = query_all_records(
+            "UnmatchedDetection",
+            filters=filters,
+            batch_size=batch_size,
+            max_records=None,
+        )
+    except RuntimeError as exc:
+        message = str(exc)
+        if "UnmatchedDetection" in message and (
+            "NOT_FOUND" in message or "Missing record type" in message
+        ):
+            print(
+                "[cloudkit] UnmatchedDetection record type is missing "
+                "in this CloudKit environment. Create it in CloudKit "
+                "Dashboard (production) with fields: source (String), "
+                "latitude (Double), longitude (Double), timestamp "
+                "(String), expiresAt (String), rawConfidence (Double), "
+                "reason (String), textHint (String), note (String), "
+                "status (String), resolvedTruckId (String). Skipping prune."
+            )
+            return 0
+        raise
 
     record_names = [
         record.get("recordName")
@@ -902,11 +919,24 @@ def save_unmatched_detection(
         or f"unmatched_{uuid_safe_id()}"
     )
 
-    return upsert_record(
-        record_type="UnmatchedDetection",
-        record_name=str(record_name),
-        fields=to_cloudkit_fields(detection),
-    )
+    try:
+        return upsert_record(
+            record_type="UnmatchedDetection",
+            record_name=str(record_name),
+            fields=to_cloudkit_fields(detection),
+        )
+    except RuntimeError as exc:
+        message = str(exc)
+        if "UnmatchedDetection" in message and (
+            "NOT_FOUND" in message or "Missing record type" in message
+        ):
+            raise RuntimeError(
+                "CloudKit production is missing the UnmatchedDetection "
+                "record type. Create it in CloudKit Dashboard and deploy "
+                "the schema to production. Camera/telecom/unmatched social "
+                "signals cannot be saved until that exists."
+            ) from exc
+        raise
 
 
 def resolve_unmatched_detection(

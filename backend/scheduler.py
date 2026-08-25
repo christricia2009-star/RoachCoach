@@ -350,9 +350,15 @@ def job_social_scraping():
 
     for post in posts:
 
-        extracted = extract_location_from_caption(
-            post.caption
-        )
+        try:
+            extracted = extract_location_from_caption(
+                post.caption
+            )
+        except Exception:
+            error_tracking.report(
+                f"[social] llm_extract failed for {post.truck_handle}"
+            )
+            continue
 
         if extracted.get("confidence") not in (
             "high",
@@ -449,7 +455,11 @@ def run_all_once():
     Runs every configured job once immediately.
 
     Useful for GitHub Actions and manual testing.
+    Exits non-zero if any job raised, so a green Actions check
+    actually means the pipeline finished without a crash.
     """
+
+    failed = []
 
     for name, fn in JOBS:
 
@@ -465,6 +475,14 @@ def run_all_once():
             error_tracking.report(
                 f"[{name}] failed"
             )
+            failed.append(name)
+
+    if failed:
+        print(
+            "Pipeline finished with failed job(s): "
+            + ", ".join(failed)
+        )
+        sys.exit(1)
 
 
 # ----------------------------------------------------------------------
