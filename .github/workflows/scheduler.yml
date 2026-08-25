@@ -55,10 +55,10 @@ jobs:
           DOORDASH_PARTNER_API_KEY: ${{ secrets.DOORDASH_PARTNER_API_KEY }}
           DOORDASH_PARTNER_API_BASE_URL: ${{ secrets.DOORDASH_PARTNER_API_BASE_URL }}
 
-          # Instagram is intentionally NOT passed here.
-          # Meta Business Discovery is optional until App Review /
-          # Business Verification is approved.
-
+          # Optional. If unset, Instagram/X native APIs skip and
+          # OpenRouter web search still checks instagram.com / x.com.
+          INSTAGRAM_ACCESS_TOKEN: ${{ secrets.INSTAGRAM_ACCESS_TOKEN }}
+          INSTAGRAM_BUSINESS_ACCOUNT_ID: ${{ secrets.INSTAGRAM_BUSINESS_ACCOUNT_ID }}
           FACEBOOK_PAGE_ACCESS_TOKEN: ${{ secrets.FACEBOOK_PAGE_ACCESS_TOKEN }}
           X_API_BEARER_TOKEN: ${{ secrets.X_API_BEARER_TOKEN }}
 

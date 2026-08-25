@@ -282,10 +282,11 @@ def fetch_recent_x_posts(
     )
 
     if not token:
-
-        raise RuntimeError(
-            "X_API_BEARER_TOKEN not set in environment."
+        print(
+            "[x] X_API_BEARER_TOKEN not set — "
+            "skipping native X API, web search will cover x.com."
         )
+        return []
 
     headers = {
         "Authorization":
@@ -492,9 +493,7 @@ INSTAGRAM_BUSINESS_DISCOVERY_USERNAMES: list[str] = [
     "thelumpiatruck",
 ]
 
-# Facebook Page IDs (or usernames) for trucks whose owners have granted
-# your app a Page Access Token. Empty until you actually have one — see
-# fetch_recent_facebook_page_posts()'s docstring for what that requires.
+# Filled from TRUCK_LISTINGS after that list is defined.
 FACEBOOK_PAGE_IDS: list[str] = []
 
 # Full search names + any published listing address we already know.
@@ -504,21 +503,122 @@ TRUCK_LISTINGS: list[dict[str, str]] = [
     {
         "key": "drewski's",
         "search_name": "Drewski's Hot Rod Kitchen",
+        "instagram": "drewskis",
+        "x": "drewskis",
+        "facebook": "drewskisfoodtrucks",
         "address": "5504 Dudley Blvd, Sacramento, CA",
     },
-    {"key": "buckhorn bbq", "search_name": "Buckhorn BBQ Truck", "address": ""},
-    {"key": "sactomofo", "search_name": "SactoMoFo", "address": ""},
-    {"key": "krush burger", "search_name": "Krush Burger", "address": ""},
-    {"key": "potato patoto", "search_name": "Potato Patoto", "address": ""},
-    {"key": "alameda tacos", "search_name": "Alameda Tacos Food Truck", "address": ""},
-    {"key": "mucho nachos", "search_name": "Mucho Nachos Sacramento", "address": ""},
-    {"key": "the pop up truck", "search_name": "The Pop Up Truck Sacramento", "address": ""},
-    {"key": "santacos", "search_name": "SanTacos Sacramento", "address": ""},
-    {"key": "tacoa", "search_name": "Tacoa Sacramento", "address": ""},
-    {"key": "tacos gto", "search_name": "Tacos GTO Sacramento", "address": ""},
-    {"key": "tacomiendo", "search_name": "Tacomiendo Food Truck", "address": ""},
-    {"key": "sac tacos", "search_name": "Sac Tacos Foodtruck", "address": ""},
-    {"key": "the lumpia truck", "search_name": "The Lumpia Truck Sacramento", "address": ""},
+    {
+        "key": "buckhorn bbq",
+        "search_name": "Buckhorn BBQ Truck",
+        "instagram": "thebuckhornbbqtruck",
+        "x": "thebuckhornbbqtruck",
+        "facebook": "thebuckhornbbqtruck",
+        "address": "",
+    },
+    {
+        "key": "sactomofo",
+        "search_name": "SactoMoFo",
+        "instagram": "sactomofo",
+        "x": "sactomofo",
+        "facebook": "sactomofo",
+        "address": "",
+    },
+    {
+        "key": "krush burger",
+        "search_name": "Krush Burger",
+        "instagram": "krushroseville",
+        "x": "krushroseville",
+        "facebook": "krushroseville",
+        "address": "",
+    },
+    {
+        "key": "potato patoto",
+        "search_name": "Potato Patoto",
+        "instagram": "the_potato_truck",
+        "x": "the_potato_truck",
+        "facebook": "the_potato_truck",
+        "address": "",
+    },
+    {
+        "key": "alameda tacos",
+        "search_name": "Alameda Tacos Food Truck",
+        "instagram": "alamedatacossac",
+        "x": "alamedatacossac",
+        "facebook": "alamedatacossac",
+        "address": "",
+    },
+    {
+        "key": "mucho nachos",
+        "search_name": "Mucho Nachos Sacramento",
+        "instagram": "muchonachossacramento",
+        "x": "muchonachossacramento",
+        "facebook": "muchonachossacramento",
+        "address": "",
+    },
+    {
+        "key": "the pop up truck",
+        "search_name": "The Pop Up Truck Sacramento",
+        "instagram": "sactopopuptruck",
+        "x": "sactopopuptruck",
+        "facebook": "sactopopuptruck",
+        "address": "",
+    },
+    {
+        "key": "santacos",
+        "search_name": "SanTacos Sacramento",
+        "instagram": "santacosmx",
+        "x": "santacosmx",
+        "facebook": "santacosmx",
+        "address": "",
+    },
+    {
+        "key": "tacoa",
+        "search_name": "Tacoa Sacramento",
+        "instagram": "tacoasac",
+        "x": "tacoasac",
+        "facebook": "tacoasac",
+        "address": "",
+    },
+    {
+        "key": "tacos gto",
+        "search_name": "Tacos GTO Sacramento",
+        "instagram": "tacos_gto_",
+        "x": "tacos_gto_",
+        "facebook": "tacos_gto_",
+        "address": "",
+    },
+    {
+        "key": "tacomiendo",
+        "search_name": "Tacomiendo Food Truck",
+        "instagram": "tacomiendofoodtruck",
+        "x": "tacomiendofoodtruck",
+        "facebook": "tacomiendofoodtruck",
+        "address": "",
+    },
+    {
+        "key": "sac tacos",
+        "search_name": "Sac Tacos Foodtruck",
+        "instagram": "sactacosfoodtruck",
+        "x": "sactacosfoodtruck",
+        "facebook": "sactacosfoodtruck",
+        "address": "",
+    },
+    {
+        "key": "the lumpia truck",
+        "search_name": "The Lumpia Truck Sacramento",
+        "instagram": "thelumpiatruck",
+        "x": "thelumpiatruck",
+        "facebook": "thelumpiatruck",
+        "address": "",
+    },
+]
+
+X_USERNAMES: list[str] = [
+    item["x"] for item in TRUCK_LISTINGS if item.get("x")
+]
+FACEBOOK_PAGE_IDS = [
+    item["facebook"] for item in TRUCK_LISTINGS if item.get("facebook")
 ]
 
 
@@ -546,11 +646,28 @@ def search_web_for_truck_location(truck_name: str) -> Optional[RawSocialPost]:
     """
     from llm_providers import web_search_complete
 
+    listing = next(
+        (
+            item for item in TRUCK_LISTINGS
+            if item["search_name"] == truck_name
+            or item["key"] == truck_name.lower()
+        ),
+        None,
+    )
+    instagram = (listing or {}).get("instagram") or ""
+    x_handle = (listing or {}).get("x") or ""
+    facebook = (listing or {}).get("facebook") or ""
+
     prompt = (
-        f'Search the web for "{truck_name}" Sacramento food truck. '
-        f"Look at Yelp, Google, the official website, Instagram, and Facebook. "
-        f"Extract the published street address or named lot/kitchen location. "
-        f"A Yelp or website address IS valid even if it is not a post from today. "
+        f'Search Instagram, X/Twitter, Facebook, Yelp, and the web for the '
+        f'Sacramento food truck "{truck_name}". '
+        f"Food trucks post TODAY's location on social media to get customers. "
+        f"Check these profiles first: "
+        f"instagram.com/{instagram or 'search-by-name'}, "
+        f"x.com/{x_handle or 'search-by-name'}, "
+        f"facebook.com/{facebook or 'search-by-name'}. "
+        f"Prefer a today/this-week location from an Instagram, X, or Facebook post. "
+        f"If none, use the published Yelp or website address. "
         f"Reply with EXACTLY one line:\n"
         f"FOUND: <street address or place name, city>\n"
         f"or\n"
@@ -558,7 +675,7 @@ def search_web_for_truck_location(truck_name: str) -> Optional[RawSocialPost]:
     )
 
     try:
-        answer = web_search_complete(prompt, max_tokens=200, max_results=4)
+        answer = web_search_complete(prompt, max_tokens=250, max_results=5)
     except Exception as e:
         print(f"[web_search] failed for '{truck_name}': {e}")
         return None
@@ -585,7 +702,9 @@ def search_web_for_truck_location(truck_name: str) -> Optional[RawSocialPost]:
 
 
 def _parse_found_location(answer: str) -> Optional[str]:
-    """Accept only a FOUND: place. Drop Luna thinking traces."""
+    """Accept a FOUND: place anywhere in the reply. Drop thinking traces."""
+    import re
+
     thinking = (
         "searching for",
         "i need to search",
@@ -594,20 +713,17 @@ def _parse_found_location(answer: str) -> Optional[str]:
         "current system date",
         "check platforms",
     )
-    found: Optional[str] = None
-    for raw in answer.replace("**", "").splitlines():
-        line = raw.strip()
-        if not line:
-            continue
-        upper = line.upper()
-        if upper.startswith("NOTHING_FOUND") or upper == "NOTHING FOUND":
-            return None
-        if upper.startswith("FOUND:"):
-            found = line.split(":", 1)[1].strip()
-            break
-    if not found:
+    match = re.search(
+        r"FOUND:\s*(.+)",
+        answer.replace("**", ""),
+        flags=re.IGNORECASE,
+    )
+    if not match:
         return None
+    found = match.group(1).strip().splitlines()[0].strip()
     lower = found.lower()
+    if "nothing_found" in lower:
+        return None
     if any(marker in lower for marker in thinking):
         return None
     if len(found) < 4:

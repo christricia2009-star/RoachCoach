@@ -291,6 +291,7 @@ def job_social_scraping():
         fetch_web_search_results,
         INSTAGRAM_BUSINESS_DISCOVERY_USERNAMES,
         FACEBOOK_PAGE_IDS,
+        X_USERNAMES,
     )
     from llm_extract import extract_location_from_caption
     from geocoding import geocode, usable_location_text
@@ -309,10 +310,7 @@ def job_social_scraping():
     # Leave empty unless you have actual Instagram account IDs.
     instagram_ids: list[str] = []
 
-    # X usernames.
-    #
-    # Leave empty until X API access is configured.
-    x_usernames: list[str] = []
+    x_usernames: list[str] = list(X_USERNAMES)
 
     # ------------------------------------------------------------------
     # FETCH SOCIAL DATA
