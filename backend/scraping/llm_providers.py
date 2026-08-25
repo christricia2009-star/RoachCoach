@@ -99,14 +99,33 @@ def _available_providers() -> list[str]:
 
 def _message_text(response) -> str:
     """OpenRouter plugin/search calls sometimes return a choice with
-    message.content = None. Never call .strip() on that."""
+    message.content = None, a list of parts, or text on another field."""
     try:
-        content = response.choices[0].message.content
+        message = response.choices[0].message
     except (AttributeError, IndexError, TypeError):
         return ""
-    if content is None:
-        return ""
-    return str(content).strip()
+
+    content = getattr(message, "content", None)
+    if isinstance(content, list):
+        parts = []
+        for part in content:
+            if isinstance(part, str):
+                parts.append(part)
+            elif isinstance(part, dict) and part.get("text"):
+                parts.append(str(part["text"]))
+            else:
+                text = getattr(part, "text", None)
+                if text:
+                    parts.append(str(text))
+        content = "\n".join(parts)
+    if content:
+        return str(content).strip()
+
+    for attr in ("refusal", "reasoning"):
+        extra = getattr(message, attr, None)
+        if extra:
+            return str(extra).strip()
+    return ""
 
 
 # Round-robin cursor — persists across calls within a process so repeated

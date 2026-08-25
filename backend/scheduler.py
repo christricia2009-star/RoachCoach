@@ -356,16 +356,12 @@ def job_social_scraping():
     # PROCESS POSTS
     # ------------------------------------------------------------------
 
-    empty_search_markers = (
-        "found nothing",
-        "nothing recent",
-        "cannot find",
-        "could not find",
-        "no recent",
-        "unable to find",
-    )
-
     for post in posts:
+
+        print(
+            f"[social] {post.truck_handle} caption: "
+            f"{(post.caption or '')[:180]!r}"
+        )
 
         try:
             extracted = extract_location_from_caption(
@@ -375,7 +371,10 @@ def job_social_scraping():
             error_tracking.report(
                 f"[social] llm_extract failed for {post.truck_handle}"
             )
-            continue
+            extracted = {
+                "confidence": "none",
+                "location_text": None,
+            }
 
         print(
             f"[social] {post.truck_handle}: "
@@ -387,16 +386,7 @@ def job_social_scraping():
             "high",
             "medium",
         ):
-            caption_lower = (post.caption or "").lower()
-            looks_empty = any(
-                marker in caption_lower
-                for marker in empty_search_markers
-            )
-            if (
-                post.source == "web_search"
-                and post.caption
-                and not looks_empty
-            ):
+            if post.source == "web_search" and post.caption:
                 extracted = {
                     "confidence": "medium",
                     "location_text": usable_location_text(

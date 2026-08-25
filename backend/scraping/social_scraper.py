@@ -523,27 +523,40 @@ def search_web_for_truck_location(truck_name: str) -> Optional[RawSocialPost]:
     from llm_providers import web_search_complete
 
     prompt = (
-        f'Search the web for where the food truck "{truck_name}" is '
-        f"parked today. Check their most recent Instagram/Facebook posts, "
-        f"local food truck tracker sites, and review sites if you find "
-        f"any. Reply with 2-3 sentences stating the location and any "
-        f"hours/times mentioned. If you cannot find anything specific to "
-        f"today, say plainly that you found nothing recent — do not guess "
-        f"or reuse an old/typical location as if it were today's."
+        f'Search the web for where the Sacramento-area food truck '
+        f'"{truck_name}" is parked TODAY. Check Instagram, Facebook, '
+        f"and local food-truck listings. "
+        f"Reply with EXACTLY one line:\n"
+        f"FOUND: <place name or street address>\n"
+        f"or\n"
+        f"NOTHING_FOUND\n"
+        f"Do not guess a typical/old spot. If the post is not from today, "
+        f"use NOTHING_FOUND."
     )
 
     try:
-        answer = web_search_complete(prompt, max_tokens=400, max_results=4)
+        answer = web_search_complete(prompt, max_tokens=200, max_results=4)
     except Exception as e:
         print(f"[web_search] failed for '{truck_name}': {e}")
         return None
 
     if not answer:
+        print(f"[web_search] {truck_name}: empty reply")
         return None
+
+    compact = " ".join(answer.split())
+    print(f"[web_search] {truck_name}: {compact[:180]}")
+
+    upper = compact.upper()
+    if upper.startswith("NOTHING_FOUND") or upper.strip() == "NOTHING FOUND":
+        return None
+
+    if upper.startswith("FOUND:"):
+        compact = compact.split(":", 1)[1].strip() or compact
 
     return RawSocialPost(
         truck_handle=truck_name,
-        caption=answer,
+        caption=compact,
         posted_at=datetime.datetime.now(datetime.timezone.utc),
         post_url="",
         source="web_search",
