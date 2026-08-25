@@ -84,3 +84,115 @@ struct Truck: Identifiable, Codable, Hashable {
         self.averageWaitMinutes = averageWaitMinutes
     }
 }
+
+struct TruckSocialLink: Identifiable, Hashable {
+    let id: String
+    let title: String
+    let handle: String
+    let url: URL
+    let systemImage: String
+}
+
+enum TruckSocialDirectory {
+    private struct Profile {
+        let match: String
+        let instagram: String?
+        let x: String?
+        let facebook: String?
+        let website: String?
+    }
+
+    private static let profiles: [Profile] = [
+        .init(match: "drewski", instagram: "drewskis", x: "drewskis", facebook: "drewskisfoodtrucks", website: "https://drewskis.com"),
+        .init(match: "buckhorn", instagram: "thebuckhornbbqtruck", x: "thebuckhornbbqtruck", facebook: "thebuckhornbbqtruck", website: nil),
+        .init(match: "sactomofo", instagram: "sactomofo", x: "sactomofo", facebook: "sactomofo", website: nil),
+        .init(match: "krush", instagram: "krushroseville", x: "krushroseville", facebook: "krushroseville", website: nil),
+        .init(match: "potato", instagram: "the_potato_truck", x: "the_potato_truck", facebook: "the_potato_truck", website: nil),
+        .init(match: "alameda taco", instagram: "alamedatacossac", x: "alamedatacossac", facebook: "alamedatacossac", website: nil),
+        .init(match: "mucho nacho", instagram: "muchonachossacramento", x: "muchonachossacramento", facebook: "muchonachossacramento", website: nil),
+        .init(match: "pop up", instagram: "sactopopuptruck", x: "sactopopuptruck", facebook: "sactopopuptruck", website: nil),
+        .init(match: "santacos", instagram: "santacosmx", x: "santacosmx", facebook: "santacosmx", website: nil),
+        .init(match: "tacoa", instagram: "tacoasac", x: "tacoasac", facebook: "tacoasac", website: nil),
+        .init(match: "tacos gto", instagram: "tacos_gto_", x: "tacos_gto_", facebook: "tacos_gto_", website: nil),
+        .init(match: "tacomiendo", instagram: "tacomiendofoodtruck", x: "tacomiendofoodtruck", facebook: "tacomiendofoodtruck", website: nil),
+        .init(match: "sac tacos", instagram: "sactacosfoodtruck", x: "sactacosfoodtruck", facebook: "sactacosfoodtruck", website: nil),
+        .init(match: "lumpia", instagram: "thelumpiatruck", x: "thelumpiatruck", facebook: "thelumpiatruck", website: nil)
+    ]
+
+    static func links(for truck: Truck) -> [TruckSocialLink] {
+        var links: [TruckSocialLink] = []
+        var seen = Set<String>()
+
+        func append(_ title: String, handle: String, urlString: String, image: String) {
+            guard let url = URL(string: urlString) else { return }
+            let id = url.absoluteString.lowercased()
+            guard seen.insert(id).inserted else { return }
+            links.append(
+                TruckSocialLink(
+                    id: id,
+                    title: title,
+                    handle: handle.hasPrefix("@") ? handle : "@\(handle)",
+                    url: url,
+                    systemImage: image
+                )
+            )
+        }
+
+        if let profile = profiles.first(where: { truck.name.localizedCaseInsensitiveContains($0.match) }) {
+            if let handle = profile.instagram {
+                append("Instagram", handle: handle, urlString: "https://www.instagram.com/\(handle)/", image: "camera")
+            }
+            if let handle = profile.x {
+                append("X", handle: handle, urlString: "https://x.com/\(handle)", image: "bubble.left.and.bubble.right")
+            }
+            if let handle = profile.facebook {
+                append("Facebook", handle: handle, urlString: "https://www.facebook.com/\(handle)", image: "person.2")
+            }
+            if let website = profile.website {
+                append("Website", handle: website.replacingOccurrences(of: "https://", with: ""), urlString: website, image: "globe")
+            }
+        }
+
+        for raw in truck.socialLinks {
+            let trimmed = raw.trimmingCharacters(in: .whitespacesAndNewlines)
+            guard let url = socialURL(from: trimmed) else { continue }
+            let host = url.host?.lowercased() ?? ""
+            let title: String
+            let image: String
+            if host.contains("instagram") {
+                title = "Instagram"
+                image = "camera"
+            } else if host.contains("x.com") || host.contains("twitter") {
+                title = "X"
+                image = "bubble.left.and.bubble.right"
+            } else if host.contains("facebook") {
+                title = "Facebook"
+                image = "person.2"
+            } else {
+                title = "Website"
+                image = "globe"
+            }
+            append(title, handle: trimmed, urlString: url.absoluteString, image: image)
+        }
+
+        return links
+    }
+
+    static func seededURLStrings(forName name: String) -> [String] {
+        links(for: Truck(name: name, cuisineType: "")).map(\.url.absoluteString)
+    }
+
+    private static func socialURL(from raw: String) -> URL? {
+        if raw.hasPrefix("http://") || raw.hasPrefix("https://") {
+            return URL(string: raw)
+        }
+        if raw.contains("instagram.com") || raw.contains("x.com") || raw.contains("facebook.com") {
+            return URL(string: "https://\(raw)")
+        }
+        if raw.hasPrefix("@") {
+            let handle = String(raw.dropFirst())
+            return URL(string: "https://www.instagram.com/\(handle)/")
+        }
+        return URL(string: "https://www.instagram.com/\(raw)/")
+    }
+}

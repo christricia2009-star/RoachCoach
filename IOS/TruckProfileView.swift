@@ -9,6 +9,10 @@ struct TruckProfileView: View {
     @StateObject private var locationService = LocationService.shared
     private let api: APIServicing = CloudKitService.shared
 
+    private var socialLinks: [TruckSocialLink] {
+        TruckSocialDirectory.links(for: truck)
+    }
+
     var body: some View {
         NavigationStack {
             List {
@@ -89,11 +93,22 @@ struct TruckProfileView: View {
                     }
                 }
 
-                if !truck.socialLinks.isEmpty {
+                if !socialLinks.isEmpty {
                     Section("Social") {
-                        ForEach(truck.socialLinks, id: \.self) { link in
-                            Text(link)
-                                .foregroundStyle(.blue)
+                        ForEach(socialLinks) { link in
+                            Link(destination: link.url) {
+                                Label {
+                                    VStack(alignment: .leading, spacing: 2) {
+                                        Text(link.title)
+                                            .foregroundStyle(.primary)
+                                        Text(link.handle)
+                                            .font(.caption)
+                                            .foregroundStyle(.secondary)
+                                    }
+                                } icon: {
+                                    Image(systemName: link.systemImage)
+                                }
+                            }
                         }
                     }
                 }

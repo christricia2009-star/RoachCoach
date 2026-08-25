@@ -109,6 +109,7 @@ struct DebugSeedDataView: View {
                 id: truckId,
                 name: entry.name,
                 cuisineType: entry.cuisine,
+                socialLinks: TruckSocialDirectory.seededURLStrings(forName: entry.name),
                 averageConfidenceScore: 0.5,
                 rating: 4.5,
                 averageWaitMinutes: 8
