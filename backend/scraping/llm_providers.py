@@ -51,10 +51,22 @@ DEFAULT_MODELS = {
 # what actually drove the >$1/run bill — reading a handful of search
 # results and stating a location doesn't need deep reasoning, so paying
 # for it is pure waste here. This default is a fast, non-reasoning model
-# instead. Pricing/availability drifts — check
+# instead.
+#
+# Was google/gemini-3.7-flash — switched to the same openai/gpt-5.6-luna
+# model traffic_camera_vision.py already defaults to for its (also
+# high-volume, also classification-not-reasoning) calls: Gemini was
+# consistently overkill/more expensive than needed for "read a few
+# search snippets, state a location," and standardizing on one cheap
+# model across both call sites means one thing to watch pricing/
+# deprecation on instead of two. Override with LLM_WEB_SEARCH_MODEL if
+# you want something else (e.g. google/gemini-3.7-flash or grok-4.3 for
+# higher-quality extraction on ambiguous captions, at higher cost).
+# Pricing/availability drifts — check
 # https://openrouter.ai/models?q=web%20search (filter to plugin-
 # compatible, non-reasoning, cheap) before relying on this long-term.
-DEFAULT_WEB_SEARCH_MODEL = "google/gemini-3.7-flash"
+DEFAULT_WEB_SEARCH_MODEL = "openai/gpt-5.6-luna"
+
 
 
 def _available_providers() -> list[str]:
