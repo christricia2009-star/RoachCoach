@@ -1,10 +1,12 @@
 import SwiftUI
 import UIKit
+import CoreLocation
 
 struct TruckProfileView: View {
     let truck: Truck
 
     @State private var recentSightings: [Sighting] = []
+    @State private var showCaptionImport = false
     @StateObject private var favorites = FavoritesStore.shared
     @StateObject private var locationService = LocationService.shared
     private let api: APIServicing = CloudKitService.shared
@@ -106,8 +108,13 @@ struct TruckProfileView: View {
                 }
 
                 Section("Recent Sightings") {
+                    Button {
+                        showCaptionImport = true
+                    } label: {
+                        Label("Paste Instagram caption", systemImage: "doc.on.clipboard")
+                    }
                     if recentSightings.isEmpty {
-                        Text("Radar only lists pins the backend wrote to CloudKit. Opening Instagram shows their posts, but those captions are not imported until Instagram Graph API credentials are set.")
+                        Text("Instagram in this app is a link, not a feed. Copy a post (like “5730 Packard Ave, Marysville”) and paste it here to drop a pin. No extra API cost.")
                             .font(.footnote)
                             .foregroundStyle(.secondary)
                     } else {
@@ -167,6 +174,14 @@ struct TruckProfileView: View {
                     }
                 }
             }
+            .sheet(isPresented: $showCaptionImport) {
+                CaptionPinImportView(truck: truck) { sighting in
+                    Task {
+                        try? await api.submitSighting(sighting)
+                        recentSightings = (try? await api.fetchSightings(forTruck: truck.id)) ?? []
+                    }
+                }
+            }
             .task {
                 recentSightings = (try? await api.fetchSightings(forTruck: truck.id)) ?? []
                 locationService.requestPermission()
@@ -201,6 +216,114 @@ struct TruckProfileView: View {
         case .likely: return .orange
         case .scheduled: return .gray
         }
+    }
+}
+
+struct CaptionPinImportView: View {
+    let truck: Truck
+    var onSubmit: (Sighting) -> Void
+
+    @Environment(\.dismiss) private var dismiss
+    @State private var caption = ""
+    @State private var parsedQuery = ""
+    @State private var status = "Copy the Instagram caption, then tap Paste."
+    @State private var isWorking = false
+
+    var body: some View {
+        NavigationStack {
+            Form {
+                Section("Caption") {
+                    TextEditor(text: $caption)
+                        .frame(minHeight: 140)
+                    Button("Paste from clipboard") {
+                        caption = UIPasteboard.general.string ?? caption
+                        parsedQuery = Self.locationQuery(from: caption) ?? ""
+                    }
+                }
+                Section("Parsed location") {
+                    Text(parsedQuery.isEmpty ? "No street / park line found yet." : parsedQuery)
+                        .foregroundStyle(parsedQuery.isEmpty ? .secondary : .primary)
+                }
+                Section {
+                    Button("Drop pin on radar") {
+                        Task { await dropPin() }
+                    }
+                    .disabled(caption.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || isWorking)
+                }
+                Section {
+                    Text(status)
+                        .font(.footnote)
+                        .foregroundStyle(.secondary)
+                }
+            }
+            .navigationTitle("Import caption")
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) {
+                    Button("Cancel") { dismiss() }
+                }
+            }
+            .onChange(of: caption) { _, newValue in
+                parsedQuery = Self.locationQuery(from: newValue) ?? ""
+            }
+        }
+    }
+
+    private func dropPin() async {
+        isWorking = true
+        defer { isWorking = false }
+        let query = Self.locationQuery(from: caption) ?? caption
+        parsedQuery = query
+        status = "Geocoding \(query)…"
+        let geocoder = CLGeocoder()
+        do {
+            let marks = try await geocoder.geocodeAddressString(query + ", California")
+            let inRegion = marks.first { mark in
+                guard let loc = mark.location else { return false }
+                return (38.0...40.2).contains(loc.coordinate.latitude)
+                    && (-122.8...(-120.2)).contains(loc.coordinate.longitude)
+            } ?? marks.first
+            guard let loc = inRegion?.location else {
+                status = "Could not geocode that caption."
+                return
+            }
+            let sighting = Sighting(
+                truckId: truck.id,
+                latitude: loc.coordinate.latitude,
+                longitude: loc.coordinate.longitude,
+                note: caption.trimmingCharacters(in: .whitespacesAndNewlines),
+                confidenceLevel: .likely
+            )
+            UINotificationFeedbackGenerator().notificationOccurred(.success)
+            onSubmit(sighting)
+            dismiss()
+        } catch {
+            status = "Geocode failed: \(error.localizedDescription)"
+        }
+    }
+
+    static func locationQuery(from caption: String) -> String? {
+        let lines = caption
+            .components(separatedBy: .newlines)
+            .map { $0.trimmingCharacters(in: .whitespaces) }
+            .filter { !$0.isEmpty && $0.lowercased() != "menu:" }
+
+        let street = try? NSRegularExpression(
+            pattern: #"\d{3,5}\s+.+(Ave|Avenue|Blvd|St|Street|Dr|Drive|Rd|Road|Way|Ln|Lane|Pkwy|Park|Parking)"#,
+            options: [.caseInsensitive]
+        )
+        for line in lines.reversed() {
+            let range = NSRange(line.startIndex..., in: line)
+            if street?.firstMatch(in: line, range: range) != nil {
+                return line
+            }
+        }
+        let placeHints = ["parking", "park", "plaza", "brewery", "school", "bx ", "afb"]
+        if let line = lines.last(where: { candidate in
+            placeHints.contains { candidate.lowercased().contains($0) }
+        }) {
+            return line
+        }
+        return lines.last
     }
 }
 
