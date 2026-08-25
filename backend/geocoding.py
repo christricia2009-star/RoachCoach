@@ -17,58 +17,130 @@ If you outgrow this, Google's Geocoding API or Apple's MapKit server-side
 geocoding are the usual upgrades — both need billing set up, unlike this.
 """
 
+import re
 import time
 import requests
 
 NOMINATIM_URL = "https://nominatim.openstreetmap.org/search"
-USER_AGENT = "RoachCoachRadar/1.0 (contact: your-email@example.com)"  # update this
+PHOTON_URL = "https://photon.komoot.io/api/"
+USER_AGENT = (
+    "RoachCoachRadar/1.0 "
+    "(https://radar.snapcollectibles.com; christricia2009@gmail.com)"
+)
 
-# City/area bias — geocoding "the brewery on 5th" with no city context is
-# unreliable. Set this to your actual pilot area so short/ambiguous
-# location text resolves to the right place instead of a random 5th
-# Street somewhere else in the world.
 DEFAULT_CITY_CONTEXT = "Sacramento, CA"
 
+_UNUSABLE = {
+    "i", "a", "the", "yes", "no", "none", "unknown", "n/a", "here",
+    "today", "tonight", "now", "open", "closed",
+}
+
 _last_request_time = 0.0
+
+
+def usable_location_text(location_text: str | None) -> str | None:
+    """Drop junk like 'I' or a full LLM paragraph before hitting Nominatim."""
+    if not location_text:
+        return None
+    text = " ".join(str(location_text).split())
+    if not text:
+        return None
+    if len(text) > 140:
+        text = re.split(r"[.!?\n]", text, maxsplit=1)[0].strip() or text[:140]
+        text = text[:140]
+    lowered = text.lower().strip(" .,;:\"'")
+    if len(lowered) < 4 or lowered in _UNUSABLE:
+        return None
+    return text
+
+
+def _throttle() -> None:
+    global _last_request_time
+    elapsed = time.time() - _last_request_time
+    if elapsed < 1.0:
+        time.sleep(1.0 - elapsed)
+    _last_request_time = time.time()
+
+
+def _nominatim(query: str) -> dict | None:
+    try:
+        response = requests.get(
+            NOMINATIM_URL,
+            params={"q": query, "format": "json", "limit": 1},
+            headers={"User-Agent": USER_AGENT, "Accept": "application/json"},
+            timeout=10,
+        )
+    except requests.RequestException as exc:
+        print(f"[geocode] nominatim request failed: {exc}")
+        return None
+    if response.status_code != 200:
+        print(f"[geocode] nominatim HTTP {response.status_code}")
+        return None
+    try:
+        results = response.json()
+    except ValueError:
+        return None
+    if not results:
+        return None
+    top = results[0]
+    return {
+        "latitude": float(top["lat"]),
+        "longitude": float(top["lon"]),
+        "display_name": top.get("display_name", query),
+    }
+
+
+def _photon(query: str) -> dict | None:
+    try:
+        response = requests.get(
+            PHOTON_URL,
+            params={"q": query, "limit": 1},
+            headers={"User-Agent": USER_AGENT, "Accept": "application/json"},
+            timeout=10,
+        )
+    except requests.RequestException as exc:
+        print(f"[geocode] photon request failed: {exc}")
+        return None
+    if response.status_code != 200:
+        print(f"[geocode] photon HTTP {response.status_code}")
+        return None
+    try:
+        payload = response.json()
+    except ValueError:
+        return None
+    features = payload.get("features") or []
+    if not features:
+        return None
+    coords = (features[0].get("geometry") or {}).get("coordinates") or []
+    if len(coords) < 2:
+        return None
+    properties = features[0].get("properties") or {}
+    label = properties.get("name") or query
+    return {
+        "latitude": float(coords[1]),
+        "longitude": float(coords[0]),
+        "display_name": str(properties.get("label") or label),
+    }
 
 
 def geocode(location_text: str, city_context: str = None) -> dict | None:
     """
     Returns {"latitude": float, "longitude": float, "display_name": str}
-    or None if nothing matched. Rate-limits itself to Nominatim's 1 req/sec
-    policy automatically.
+    or None if nothing matched. Never raises — a 403/timeout must not
+    kill the social pipeline.
     """
-    global _last_request_time
-
-    if not location_text or not location_text.strip():
+    cleaned = usable_location_text(location_text)
+    if not cleaned:
+        print(f"[geocode] skipped unusable location {location_text!r}")
         return None
 
     context = city_context or DEFAULT_CITY_CONTEXT
-    query = f"{location_text}, {context}"
-
-    elapsed = time.time() - _last_request_time
-    if elapsed < 1.0:
-        time.sleep(1.0 - elapsed)
-
-    response = requests.get(
-        NOMINATIM_URL,
-        params={"q": query, "format": "json", "limit": 1},
-        headers={"User-Agent": USER_AGENT},
-        timeout=10,
-    )
-    _last_request_time = time.time()
-    response.raise_for_status()
-
-    results = response.json()
-    if not results:
-        return None
-
-    top = results[0]
-    return {
-        "latitude": float(top["lat"]),
-        "longitude": float(top["lon"]),
-        "display_name": top.get("display_name", location_text),
-    }
+    query = f"{cleaned}, {context}"
+    _throttle()
+    result = _nominatim(query) or _photon(query)
+    if not result:
+        print(f"[geocode] no match for {query!r}")
+    return result
 
 
 if __name__ == "__main__":

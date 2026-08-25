@@ -293,7 +293,7 @@ def job_social_scraping():
         FACEBOOK_PAGE_IDS,
     )
     from llm_extract import extract_location_from_caption
-    from geocoding import geocode
+    from geocoding import geocode, usable_location_text
 
     # KNOWN_TRUCK_NAMES already imported at module level (see the
     # try/except import block near the top of this file) as
@@ -399,10 +399,9 @@ def job_social_scraping():
             ):
                 extracted = {
                     "confidence": "medium",
-                    "location_text": (
+                    "location_text": usable_location_text(
                         extracted.get("location_text")
-                        or post.caption[:240]
-                    ),
+                    ) or usable_location_text(post.caption),
                 }
                 print(
                     f"[social] {post.truck_handle}: "
@@ -415,15 +414,21 @@ def job_social_scraping():
                 )
                 continue
 
-        location_text = extracted.get(
-            "location_text"
+        location_text = usable_location_text(
+            extracted.get("location_text")
         )
 
-        geocoded = (
-            geocode(location_text)
-            if location_text
-            else None
-        )
+        try:
+            geocoded = (
+                geocode(location_text)
+                if location_text
+                else None
+            )
+        except Exception:
+            error_tracking.report(
+                f"[social] geocode failed for {post.truck_handle}"
+            )
+            geocoded = None
 
         if not geocoded:
 
