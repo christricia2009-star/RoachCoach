@@ -211,6 +211,21 @@ def _parse_datetime(value) -> datetime:
             return value.replace(tzinfo=timezone.utc)
         return value
 
+    if isinstance(value, (int, float)):
+        # CloudKit TIMESTAMP fields are returned as milliseconds
+        # since the Unix epoch (a plain number), not a string. This
+        # is the read-side counterpart of the fix in
+        # _get_sighting_records() / create_sighting() below — Sighting
+        # records were originally created via native CKRecord writes
+        # from the iOS app (Sighting.swift's `timestamp`/`expiresAt`
+        # are Swift `Date`), which CloudKit maps to its native
+        # TIMESTAMP type. Without this branch, any TIMESTAMP value
+        # handed back as a raw int silently fell through to the
+        # `datetime.now(timezone.utc)` fallback below — meaning every
+        # such sighting would quietly get "now" instead of its real
+        # timestamp.
+        return datetime.fromtimestamp(value / 1000, tz=timezone.utc)
+
     if not value:
         return datetime.now(timezone.utc)
 
@@ -621,17 +636,33 @@ def _get_sighting_records() -> list[dict]:
     check every caller of this already does) and sorting newest-first,
     via query_all_records so it still pages if there's a legitimate
     backlog — bounded by max_records as a safety cap.
+
+    IMPORTANT — field type:
+    Sighting.expiresAt / Sighting.timestamp are native CloudKit
+    TIMESTAMP fields (the record type was first created via native
+    CKRecord writes from the iOS app, where Swift `Date` maps directly
+    to CloudKit's TIMESTAMP type). CloudKit's Web Services query filter
+    requires a TIMESTAMP fieldValue to be milliseconds since the Unix
+    epoch as a number, with "type": "TIMESTAMP" — NOT an ISO-8601
+    string with "type": "STRING". Sending the wrong type here is what
+    previously caused CloudKit to reject the whole query with
+    "BadRequestException: Invalid value, expected type TIMESTAMP."
+    (This is unlike UnmatchedDetection.timestamp, which really is a
+    String field, because that table is only ever written by this
+    Python backend via .isoformat().)
     """
 
-    now_iso = datetime.now(timezone.utc).isoformat()
+    now_ms = int(
+        datetime.now(timezone.utc).timestamp() * 1000
+    )
 
     filters = [
         {
             "fieldName": "expiresAt",
             "comparator": "GREATER_THAN",
             "fieldValue": {
-                "value": now_iso,
-                "type": "STRING",
+                "value": now_ms,
+                "type": "TIMESTAMP",
             },
         }
     ]
@@ -832,6 +863,14 @@ def create_sighting(
         # }
         #
         # Do NOT send plain Python values here.
+        #
+        # ALSO IMPORTANT: Sighting.timestamp / Sighting.expiresAt are
+        # native CloudKit TIMESTAMP fields (see _get_sighting_records()
+        # above for why). TIMESTAMP fields must be written as
+        # milliseconds since the Unix epoch (an int), not an
+        # ISO-8601 string — writing .isoformat() here would silently
+        # disagree with the field's real schema type instead of
+        # storing a comparable timestamp.
         # ====================================================
 
         fields = {
@@ -852,11 +891,11 @@ def create_sighting(
             ),
 
             "timestamp": _cloudkit_field(
-                timestamp.isoformat()
+                int(timestamp.timestamp() * 1000)
             ),
 
             "expiresAt": _cloudkit_field(
-                expires_at.isoformat()
+                int(expires_at.timestamp() * 1000)
             ),
         }
 
