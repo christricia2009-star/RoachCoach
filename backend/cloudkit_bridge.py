@@ -340,13 +340,12 @@ def query_records(
             "record_type is required."
         )
 
-    if filters is None:
-        filters = []
-
     query: dict[str, Any] = {
         "recordType": record_type,
-        "filterBy": filters,
     }
+
+    if filters:
+        query["filterBy"] = filters
 
     if sort_by:
         query["sortBy"] = sort_by
@@ -415,8 +414,10 @@ def query_all_records(
 
             query: dict[str, Any] = {
                 "recordType": record_type,
-                "filterBy": filters,
             }
+
+            if filters:
+                query["filterBy"] = filters
 
             if sort_by:
                 query["sortBy"] = sort_by
@@ -750,6 +751,21 @@ def save_sighting(
 # note (String), status (String), resolvedTruckId (String, optional).
 # ============================================================
 
+def _unmatched_status_filter() -> list[dict[str, Any]]:
+    """EQUALS is valid on STRING. Empty filterBy makes CloudKit query
+    recordName, which 400s unless that index exists."""
+    return [
+        {
+            "fieldName": "status",
+            "comparator": "EQUALS",
+            "fieldValue": {
+                "value": "pending",
+                "type": "STRING",
+            },
+        }
+    ]
+
+
 def _as_datetime(value: Any) -> Optional[datetime]:
     """Parse a CloudKit String ISO timestamp or TIMESTAMP millis."""
     if value is None:
@@ -794,20 +810,20 @@ def get_unmatched_detections(
     try:
         records = query_all_records(
             "UnmatchedDetection",
-            filters=[],
+            filters=_unmatched_status_filter(),
             max_records=1000,
         )
     except RuntimeError as exc:
         message = str(exc)
-        if "UnmatchedDetection" in message and (
-            "NOT_FOUND" in message or "Missing record type" in message
-        ):
-            print(
-                "[cloudkit] UnmatchedDetection record type is missing; "
-                "returning no unmatched detections."
-            )
-            return []
-        raise
+        print(
+            f"[cloudkit] get_unmatched_detections skipped: {message}"
+        )
+        print(
+            "[cloudkit] Add Queryable indexes on "
+            "UnmatchedDetection.recordName and UnmatchedDetection.status "
+            "in Development, then Deploy to Production."
+        )
+        return []
 
     recent: list[dict[str, Any]] = []
     for record in records:
@@ -837,7 +853,7 @@ def prune_expired_unmatched_detections(
     try:
         records = query_all_records(
             "UnmatchedDetection",
-            filters=[],
+            filters=_unmatched_status_filter(),
             batch_size=batch_size,
             max_records=2000,
         )
@@ -845,6 +861,11 @@ def prune_expired_unmatched_detections(
         message = str(exc)
         print(
             f"[cloudkit] prune_unmatched_detections skipped: {message}"
+        )
+        print(
+            "[cloudkit] In CloudKit Dashboard (Development then Deploy), "
+            "add Queryable indexes on UnmatchedDetection.recordName and "
+            "UnmatchedDetection.status, then deploy to Production."
         )
         return 0
 

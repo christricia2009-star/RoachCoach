@@ -356,6 +356,15 @@ def job_social_scraping():
     # PROCESS POSTS
     # ------------------------------------------------------------------
 
+    empty_search_markers = (
+        "found nothing",
+        "nothing recent",
+        "cannot find",
+        "could not find",
+        "no recent",
+        "unable to find",
+    )
+
     for post in posts:
 
         try:
@@ -368,11 +377,43 @@ def job_social_scraping():
             )
             continue
 
+        print(
+            f"[social] {post.truck_handle}: "
+            f"confidence={extracted.get('confidence')} "
+            f"location={extracted.get('location_text')!r}"
+        )
+
         if extracted.get("confidence") not in (
             "high",
             "medium",
         ):
-            continue
+            caption_lower = (post.caption or "").lower()
+            looks_empty = any(
+                marker in caption_lower
+                for marker in empty_search_markers
+            )
+            if (
+                post.source == "web_search"
+                and post.caption
+                and not looks_empty
+            ):
+                extracted = {
+                    "confidence": "medium",
+                    "location_text": (
+                        extracted.get("location_text")
+                        or post.caption[:240]
+                    ),
+                }
+                print(
+                    f"[social] {post.truck_handle}: "
+                    "using web_search caption as location"
+                )
+            else:
+                print(
+                    f"[social] {post.truck_handle}: skipped "
+                    f"(confidence {extracted.get('confidence')})"
+                )
+                continue
 
         location_text = extracted.get(
             "location_text"
