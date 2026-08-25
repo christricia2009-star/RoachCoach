@@ -39,10 +39,27 @@ struct MapContentView: View {
     }
     private var filteredSightings: [Sighting] {
         allSightings.filter { sighting in
-            guard let truck = trucks.first(where: { $0.id == sighting.truckId }) else { return false }
-            let search = searchText.isEmpty || truck.name.localizedCaseInsensitiveContains(searchText) || truck.cuisineType.localizedCaseInsensitiveContains(searchText)
-            return search && (selectedCuisine == nil || truck.cuisineType == selectedCuisine)
+            if sighting.isExpired && timeMachineMinutes == 0 { return false }
+            let truck = trucks.first(where: { $0.id == sighting.truckId })
+            if let selectedCuisine {
+                guard truck?.cuisineType == selectedCuisine else { return false }
+            }
+            if searchText.isEmpty { return true }
+            let haystack = "\(truck?.name ?? "") \(truck?.cuisineType ?? "") \(sighting.note ?? "")"
+            return haystack.localizedCaseInsensitiveContains(searchText)
         }
+    }
+
+    private var listingObservations: [RadarObservation] {
+        radarScanObservations.filter { observation in
+            if searchText.isEmpty { return true }
+            let haystack = "\(observation.text ?? "") \(observation.source.rawValue)"
+            return haystack.localizedCaseInsensitiveContains(searchText)
+        }
+    }
+
+    private var activeSightingCount: Int {
+        allSightings.filter { !$0.isExpired }.count
     }
     private var replayDate: Date { Date().addingTimeInterval(Double(timeMachineMinutes) * 60) }
 
@@ -57,47 +74,62 @@ struct MapContentView: View {
                                 .onTapGesture { selectedSighting = sighting }
                         }
                     }
+                    ForEach(listingObservations) { observation in
+                        Annotation(listingTitle(for: observation), coordinate: observation.coordinate) {
+                            ListingPinView(title: listingTitle(for: observation))
+                        }
+                    }
                 }
                 .mapControls { MapCompass(); MapUserLocationButton(); MapScaleView() }
                 .ignoresSafeArea(edges: .bottom)
 
-                VStack(spacing: 10) {
-                    HStack {
+                VStack(spacing: 8) {
+                    HStack(spacing: 8) {
                         Image(systemName: "magnifyingglass").foregroundStyle(.secondary)
-                        TextField("Search trucks, cuisine…", text: $searchText)
-                        if !searchText.isEmpty { Button { searchText = "" } label: { Image(systemName: "xmark.circle.fill") }.foregroundStyle(.secondary) }
+                        TextField("Search…", text: $searchText)
+                        if !searchText.isEmpty {
+                            Button { searchText = "" } label: { Image(systemName: "xmark.circle.fill") }
+                                .foregroundStyle(.secondary)
+                        }
                     }
-                    .padding(10).background(.regularMaterial).clipShape(RoundedRectangle(cornerRadius: 12))
+                    .padding(.horizontal, 10)
+                    .padding(.vertical, 8)
+                    .background(.regularMaterial)
+                    .clipShape(RoundedRectangle(cornerRadius: 10))
 
-                    ScrollView(.horizontal, showsIndicators: false) {
-                        HStack(spacing: 8) {
-                            FilterChip(label: "All", isSelected: selectedCuisine == nil) { selectedCuisine = nil }
-                            ForEach(cuisines, id: \.self) { cuisine in FilterChip(label: cuisine, isSelected: selectedCuisine == cuisine) { selectedCuisine = selectedCuisine == cuisine ? nil : cuisine } }
+                    if !cuisines.isEmpty {
+                        ScrollView(.horizontal, showsIndicators: false) {
+                            HStack(spacing: 6) {
+                                FilterChip(label: "All", isSelected: selectedCuisine == nil) { selectedCuisine = nil }
+                                ForEach(cuisines, id: \.self) { cuisine in
+                                    FilterChip(label: cuisine, isSelected: selectedCuisine == cuisine) {
+                                        selectedCuisine = selectedCuisine == cuisine ? nil : cuisine
+                                    }
+                                }
+                            }
                         }
                     }
 
                     NearbySummaryBar(
                         truckCount: trucks.count,
-                        activeCount: allSightings.filter { !$0.isExpired }.count,
+                        activeCount: activeSightingCount,
+                        listingCount: listingObservations.count,
                         isScanning: radarScanner.isScanning,
                         onScan: { Task { await scanNow() } },
                         onDetails: { showRadarDetails = true }
                     )
                     .disabled(locationService.currentLocation == nil && !radarScanner.isScanning)
+
                     if let scanStatusMessage {
-                        Text(scanStatusMessage).font(.caption2).foregroundStyle(.secondary)
+                        Text(scanStatusMessage)
+                            .font(.caption2)
+                            .foregroundStyle(.secondary)
+                            .lineLimit(2)
                     }
-
-                    HStack(spacing: 8) {
-                        Button { showHot = true } label: { Label("WHAT'S HOT", systemImage: "flame.fill") }.buttonStyle(.borderedProminent)
-                        Button { showRadarDetails = true } label: { Label("RECON", systemImage: "scope") }.buttonStyle(.bordered)
-                    }
-
-                    VStack(spacing: 2) {
-                        HStack { Text(timeMachineMinutes == 0 ? "NOW" : replayDate.formatted(date: .omitted, time: .shortened)).font(.caption.bold().monospacedDigit()); Spacer(); Text("TIME MACHINE").font(.caption2.monospaced()).foregroundStyle(.secondary) }
-                        Slider(value: Binding(get: { Double(timeMachineMinutes) }, set: { timeMachineMinutes = Int($0.rounded()) }), in: -180...240, step: 15)
-                    }.padding(10).background(.regularMaterial).clipShape(RoundedRectangle(cornerRadius: 12))
-                }.padding()
+                    Spacer()
+                }
+                .padding(.horizontal, 12)
+                .padding(.top, 8)
 
                 VStack { Spacer(); HStack { Spacer(); VStack(spacing: 10) {
                     Button { position = .userLocation(fallback: .automatic) } label: { Image(systemName: "location.fill").font(.title3).frame(width: 48,height:48).background(.regularMaterial,in:Circle()) }
@@ -107,11 +139,63 @@ struct MapContentView: View {
                 if radarScanner.isScanning { VStack(spacing:8) { ProgressView(); Text("LIVE RADAR SCAN").font(.caption.bold()); Text("Evidence • cameras • sources • predictions").font(.caption2).foregroundStyle(.secondary) }.padding(14).background(.regularMaterial).clipShape(RoundedRectangle(cornerRadius:14)).shadow(radius:4).padding(.top,150) }
                 if isLoading { ProgressView("Loading radar…").padding().background(.regularMaterial).clipShape(RoundedRectangle(cornerRadius:12)) }
             }
-            .navigationTitle("Roach Coach Radar")
-            .toolbar { ToolbarItem(placement: .topBarTrailing) { HStack(spacing:4) { Circle().fill(.green).frame(width:7,height:7); Text(lastUpdated,style:.time).font(.caption2.monospacedDigit()).foregroundStyle(.secondary) } } }
+            .navigationTitle("Radar")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .topBarLeading) {
+                    HStack(spacing: 4) {
+                        Circle().fill(.green).frame(width: 7, height: 7)
+                        Text(lastUpdated, style: .time)
+                            .font(.caption2.monospacedDigit())
+                            .foregroundStyle(.secondary)
+                    }
+                }
+                ToolbarItem(placement: .topBarTrailing) {
+                    HStack(spacing: 12) {
+                        Button { showHot = true } label: {
+                            Image(systemName: "flame.fill")
+                        }
+                        Button { showRadarDetails = true } label: {
+                            Image(systemName: "list.bullet.rectangle")
+                        }
+                        Menu {
+                            Text(timeMachineMinutes == 0 ? "Live now" : replayDate.formatted(date: .omitted, time: .shortened))
+                            Slider(
+                                value: Binding(
+                                    get: { Double(timeMachineMinutes) },
+                                    set: { timeMachineMinutes = Int($0.rounded()) }
+                                ),
+                                in: -180...240,
+                                step: 15
+                            )
+                            Button("Reset to now") { timeMachineMinutes = 0 }
+                        } label: {
+                            Image(systemName: "clock")
+                        }
+                    }
+                }
+            }
             .task { locationService.requestPermission(); await loadData(); if autoScan { await scanNow() } }
             .refreshable { await loadData() }
-            .sheet(item: $selectedSighting) { sighting in if let truck = trucks.first(where: {$0.id == sighting.truckId}) { TruckProfileView(truck:truck) } }
+            .sheet(item: $selectedSighting) { sighting in
+                if let truck = trucks.first(where: { $0.id == sighting.truckId }) {
+                    TruckProfileView(truck: truck)
+                } else {
+                    NavigationStack {
+                        List {
+                            Text(truckName(for: sighting))
+                                .font(.headline)
+                            if let note = sighting.note {
+                                Text(note)
+                            }
+                            Text("\(sighting.latitude), \(sighting.longitude)")
+                                .font(.caption)
+                                .foregroundStyle(.secondary)
+                        }
+                        .navigationTitle("Listing")
+                    }
+                }
+            }
             .sheet(isPresented: $showReportSheet) { ReportSightingView(trucks:trucks) { newSighting in Task { try? await api.submitSighting(newSighting); NotificationService.shared.scheduleTruckSpottedNotification(truckName:truckName(for:newSighting),note:"A fresh radar report just landed.",delaySeconds:1); await loadData() } } }
             .sheet(isPresented: $showRadarDetails) { RadarDetailsView(trucks:trucks,sightings:sightings,location:locationService.currentLocation) }
             .sheet(isPresented: $showHot) { NavigationStack { WhatIsHotView(observations: radarObservations()) } }
@@ -122,7 +206,17 @@ struct MapContentView: View {
             }
         }
     }
-    private func truckName(for sighting:Sighting)->String { trucks.first(where:{$0.id==sighting.truckId})?.name ?? "Unknown Truck" }
+    private func truckName(for sighting: Sighting) -> String {
+        trucks.first(where: { $0.id == sighting.truckId })?.name ?? sighting.note ?? "Sighting"
+    }
+
+    private func listingTitle(for observation: RadarObservation) -> String {
+        if let text = observation.text, !text.isEmpty {
+            let first = text.split(separator: ",").first.map(String.init) ?? text
+            return String(first.prefix(28))
+        }
+        return observation.source.rawValue.capitalized
+    }
     private func radarObservations()->[RadarObservation] {
         let fromSightings = allSightings.map { RadarObservation(truckID:$0.truckId,source:.userReport,sourceID:$0.id.uuidString,observedAt:$0.timestamp,latitude:$0.latitude,longitude:$0.longitude,text:$0.note,rawConfidence:$0.confidenceLevel == .confirmed ? 0.95 : 0.65) }
         var merged: [UUID: RadarObservation] = [:]
@@ -155,54 +249,91 @@ struct MapContentView: View {
 private struct NearbySummaryBar: View {
     let truckCount: Int
     let activeCount: Int
+    let listingCount: Int
     let isScanning: Bool
     let onScan: () -> Void
     let onDetails: () -> Void
 
     var body: some View {
-        HStack(spacing: 10) {
-            VStack(alignment: .leading, spacing: 2) {
-                HStack(spacing: 6) {
-                    Image(systemName: "truck.box.fill").foregroundStyle(.orange)
-                    Text("\(truckCount) truck\(truckCount == 1 ? "" : "s") tracked")
-                        .font(.subheadline.weight(.semibold))
-                }
-                Text(activeCount > 0
-                     ? "\(activeCount) active sighting\(activeCount == 1 ? "" : "s") right now"
-                     : "No active sightings — tap Scan to check nearby signals")
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-            }
-
-            Spacer()
-
+        HStack(spacing: 8) {
             Button(action: onDetails) {
-                Image(systemName: "chevron.right.circle.fill")
-                    .font(.title2)
-                    .foregroundStyle(.secondary)
+                HStack(spacing: 10) {
+                    compactStat("\(activeCount)", "sightings", "mappin.circle.fill", .green)
+                    compactStat("\(listingCount)", "listings", "list.bullet", .orange)
+                    compactStat("\(truckCount)", "trucks", "truck.box.fill", .secondary)
+                }
             }
+            .buttonStyle(.plain)
+
+            Spacer(minLength: 8)
 
             Button(action: onScan) {
                 if isScanning {
-                    ProgressView().tint(.white).frame(width: 20, height: 20)
+                    ProgressView().tint(.white).frame(width: 18, height: 18)
                 } else {
-                    Label("SCAN", systemImage: "antenna.radiowaves.left.and.right")
+                    Text("SCAN")
                         .font(.caption.bold())
                 }
             }
             .padding(.horizontal, 12)
-            .padding(.vertical, 10)
+            .padding(.vertical, 8)
             .background(.orange, in: Capsule())
             .foregroundStyle(.white)
             .disabled(isScanning)
         }
-        .padding(12)
+        .padding(.horizontal, 10)
+        .padding(.vertical, 8)
         .background(.regularMaterial)
-        .clipShape(RoundedRectangle(cornerRadius: 14))
+        .clipShape(RoundedRectangle(cornerRadius: 12))
+    }
+
+    private func compactStat(_ value: String, _ label: String, _ icon: String, _ color: Color) -> some View {
+        VStack(alignment: .leading, spacing: 0) {
+            HStack(spacing: 3) {
+                Image(systemName: icon).foregroundStyle(color).font(.caption2)
+                Text(value).font(.subheadline.weight(.bold).monospacedDigit())
+            }
+            Text(label).font(.caption2).foregroundStyle(.secondary)
+        }
     }
 }
 
 private struct FilterChip:View { let label:String; let isSelected:Bool; let action:()->Void; var body:some View { Button(action:action){ Text(label).font(.footnote.weight(.medium)).padding(.horizontal,12).padding(.vertical,6).background(isSelected ? Color.orange : Color(.systemBackground).opacity(0.9)).foregroundStyle(isSelected ? .white : .primary).clipShape(Capsule()) } } }
-private struct SightingPinView:View { let sighting:Sighting; let truckName:String; @State private var pulse=false; var body:some View { VStack(spacing:2){ Text(truckName).font(.caption2.bold()).padding(.horizontal,6).padding(.vertical,2).background(.thinMaterial).clipShape(Capsule()); ZStack { if sighting.confidenceLevel == .confirmed { Circle().fill(.green.opacity(0.35)).frame(width:pulse ? 48:28,height:pulse ? 48:28).animation(.easeInOut(duration:1.2).repeatForever(autoreverses:true),value:pulse) }; Image(systemName:sighting.confidenceLevel == .confirmed ? "mappin.and.ellipse":"mappin.circle.fill").resizable().frame(width:28,height:28).foregroundStyle(color(for:sighting.confidenceLevel)) }.onAppear{pulse=true} } } ; private func color(for l:ConfidenceLevel)->Color { l == .confirmed ? .green : l == .likely ? .orange : .gray } }
+private struct SightingPinView: View {
+    let sighting: Sighting
+    let truckName: String
+    var body: some View {
+        VStack(spacing: 2) {
+            Text(truckName)
+                .font(.caption2.bold())
+                .lineLimit(1)
+                .padding(.horizontal, 6)
+                .padding(.vertical, 2)
+                .background(.thinMaterial)
+                .clipShape(Capsule())
+            Image(systemName: "mappin.circle.fill")
+                .font(.title2)
+                .foregroundStyle(sighting.confidenceLevel == .confirmed ? .green : .orange)
+        }
+    }
+}
+
+private struct ListingPinView: View {
+    let title: String
+    var body: some View {
+        VStack(spacing: 2) {
+            Text(title)
+                .font(.caption2.bold())
+                .lineLimit(1)
+                .padding(.horizontal, 6)
+                .padding(.vertical, 2)
+                .background(.thinMaterial)
+                .clipShape(Capsule())
+            Image(systemName: "signpost.right.fill")
+                .font(.title3)
+                .foregroundStyle(.blue)
+        }
+    }
+}
 
 #Preview { MapContentView() }

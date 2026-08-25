@@ -1,4 +1,5 @@
 import Foundation
+import CoreLocation
 
 struct RadarObservation: Identifiable, Codable, Hashable, Sendable {
     enum SourceKind: String, Codable, CaseIterable, Sendable {
@@ -27,6 +28,10 @@ struct RadarObservation: Identifiable, Codable, Hashable, Sendable {
     let rawConfidence: Double
     var state: State
     var metadata: [String:String]
+
+    var coordinate: CLLocationCoordinate2D {
+        CLLocationCoordinate2D(latitude: latitude, longitude: longitude)
+    }
 
     init(id: UUID = UUID(), truckID: UUID?=nil, source: SourceKind, sourceID: String, observedAt: Date = .now, latitude: Double, longitude: Double, text: String?=nil, sourceURL: String?=nil, rawConfidence: Double = 0.5, state: State = .live, metadata: [String:String]=[:]) {
         self.id = id; self.truckID = truckID; self.source = source; self.sourceID = sourceID; self.observedAt = observedAt; self.latitude = latitude; self.longitude = longitude; self.text = text; self.sourceURL = sourceURL; self.rawConfidence = rawConfidence; self.state = state; self.metadata = metadata
