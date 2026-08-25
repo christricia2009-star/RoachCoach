@@ -468,6 +468,39 @@ def job_social_scraping():
         )
 
 
+def job_public_listings():
+    """
+    DuckDuckGo + official sites + SactoMoFo calendar.
+    This is the listing path that does not depend on Meta/X tokens.
+    """
+
+    from public_listings import collect_listings
+    from geocoding import geocode
+
+    hits = collect_listings()
+    print(f"[listings] processing {len(hits)} hit(s)")
+
+    for hit in hits:
+        geocoded = geocode(hit.location_text)
+        if not geocoded:
+            print(
+                f"[listings] could not geocode {hit.location_text!r} "
+                f"for {hit.truck_name}"
+            )
+            continue
+
+        detection = RawDetection(
+            source="social",
+            latitude=geocoded["latitude"],
+            longitude=geocoded["longitude"],
+            timestamp=datetime.datetime.now(datetime.timezone.utc),
+            raw_confidence=0.7,
+            text_hint=hit.location_text,
+            note=hit.note or f"{hit.source}: {geocoded['display_name']}",
+        )
+        _record_and_process(detection)
+
+
 def job_prune_unmatched_detections():
     """
     Deletes expired UnmatchedDetection records from CloudKit.
@@ -552,6 +585,11 @@ JOBS = [
     ),
 
     (
+        "public_listings",
+        job_public_listings,
+    ),
+
+    (
         "prune_unmatched_detections",
         job_prune_unmatched_detections,
     ),
@@ -601,6 +639,13 @@ if __name__ == "__main__":
             "interval",
             minutes=30,
             id="social_scraping",
+        )
+
+        scheduler.add_job(
+            job_public_listings,
+            "interval",
+            minutes=20,
+            id="public_listings",
         )
 
         # expiresAt is set 3 hours out (signal_fusion.py) — pruning
