@@ -344,9 +344,7 @@ def job_social_scraping():
     # OPENROUTER_API_KEY isn't set — see llm_providers.web_search_complete.
     # ------------------------------------------------------------------
 
-    web_posts = fetch_web_search_results(
-        [name.title() for name in signal_fusion.KNOWN_TRUCK_NAMES.keys()]
-    )
+    web_posts = fetch_web_search_results()
     print(
         f"[social] web_search returned {len(web_posts)} result(s)"
     )

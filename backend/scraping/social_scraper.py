@@ -497,6 +497,30 @@ INSTAGRAM_BUSINESS_DISCOVERY_USERNAMES: list[str] = [
 # fetch_recent_facebook_page_posts()'s docstring for what that requires.
 FACEBOOK_PAGE_IDS: list[str] = []
 
+# Full search names + any published listing address we already know.
+# Bing/Yelp/website listings are valid radar pins. "Only if posted today"
+# made Luna return NOTHING_FOUND while Yelp still shows a street address.
+TRUCK_LISTINGS: list[dict[str, str]] = [
+    {
+        "key": "drewski's",
+        "search_name": "Drewski's Hot Rod Kitchen",
+        "address": "5504 Dudley Blvd, Sacramento, CA",
+    },
+    {"key": "buckhorn bbq", "search_name": "Buckhorn BBQ Truck", "address": ""},
+    {"key": "sactomofo", "search_name": "SactoMoFo", "address": ""},
+    {"key": "krush burger", "search_name": "Krush Burger", "address": ""},
+    {"key": "potato patoto", "search_name": "Potato Patoto", "address": ""},
+    {"key": "alameda tacos", "search_name": "Alameda Tacos Food Truck", "address": ""},
+    {"key": "mucho nachos", "search_name": "Mucho Nachos Sacramento", "address": ""},
+    {"key": "the pop up truck", "search_name": "The Pop Up Truck Sacramento", "address": ""},
+    {"key": "santacos", "search_name": "SanTacos Sacramento", "address": ""},
+    {"key": "tacoa", "search_name": "Tacoa Sacramento", "address": ""},
+    {"key": "tacos gto", "search_name": "Tacos GTO Sacramento", "address": ""},
+    {"key": "tacomiendo", "search_name": "Tacomiendo Food Truck", "address": ""},
+    {"key": "sac tacos", "search_name": "Sac Tacos Foodtruck", "address": ""},
+    {"key": "the lumpia truck", "search_name": "The Lumpia Truck Sacramento", "address": ""},
+]
+
 
 # =========================================================================
 # OPENROUTER WEB SEARCH
@@ -523,15 +547,14 @@ def search_web_for_truck_location(truck_name: str) -> Optional[RawSocialPost]:
     from llm_providers import web_search_complete
 
     prompt = (
-        f'Search the web for where the Sacramento-area food truck '
-        f'"{truck_name}" is parked TODAY. Check Instagram, Facebook, '
-        f"and local food-truck listings. "
+        f'Search the web for "{truck_name}" Sacramento food truck. '
+        f"Look at Yelp, Google, the official website, Instagram, and Facebook. "
+        f"Extract the published street address or named lot/kitchen location. "
+        f"A Yelp or website address IS valid even if it is not a post from today. "
         f"Reply with EXACTLY one line:\n"
-        f"FOUND: <place name or street address>\n"
+        f"FOUND: <street address or place name, city>\n"
         f"or\n"
-        f"NOTHING_FOUND\n"
-        f"Do not guess a typical/old spot. If the post is not from today, "
-        f"use NOTHING_FOUND."
+        f"NOTHING_FOUND"
     )
 
     try:
@@ -593,23 +616,66 @@ def _parse_found_location(answer: str) -> Optional[str]:
 
 
 def fetch_web_search_results(
-    truck_names: list[str],
+    truck_names: list[str] | None = None,
 ) -> list[RawSocialPost]:
     """
-    Runs search_web_for_truck_location() for each name in truck_names.
-    Every lookup is independent — one truck's search failing/erroring
-    never stops the rest from running, matching the pattern every other
-    source in this file follows.
+    Looks up published listings for each known truck. Uses OpenRouter
+    web search first, then the curated Yelp/website address if search
+    returns nothing. Independent per truck.
     """
     results: list[RawSocialPost] = []
+    listings = TRUCK_LISTINGS
+    if truck_names:
+        wanted = {name.strip().lower() for name in truck_names}
+        listings = [
+            item for item in TRUCK_LISTINGS
+            if item["key"] in wanted or item["search_name"].lower() in wanted
+        ] or [
+            {"key": name.lower(), "search_name": name, "address": ""}
+            for name in truck_names
+        ]
 
-    for name in truck_names or []:
+    now = datetime.datetime.now(datetime.timezone.utc)
+
+    for listing in listings:
+        name = listing["search_name"]
+        post = None
         try:
             post = search_web_for_truck_location(name)
-            if post:
-                results.append(post)
         except Exception as e:
             print(f"[web_search] unexpected failure for '{name}': {e}")
+
+        if post:
+            # Keep the truck's real name in the caption so fusion
+            # name-matching can attach the detection.
+            post.caption = f"{name} {post.caption}"
+            results.append(post)
+            continue
+
+        address = (listing.get("address") or "").strip()
+        if address:
+            print(f"[web_search] {name}: using listed address {address}")
+            results.append(
+                RawSocialPost(
+                    truck_handle=name,
+                    caption=f"{name} {address}",
+                    posted_at=now,
+                    post_url="",
+                    source="web_search",
+                )
+            )
+            continue
+
+        print(f"[web_search] {name}: no listing yet, will geocode name")
+        results.append(
+            RawSocialPost(
+                truck_handle=name,
+                caption=f"{name} Sacramento, CA",
+                posted_at=now,
+                post_url="",
+                source="web_search",
+            )
+        )
 
     return results
 
