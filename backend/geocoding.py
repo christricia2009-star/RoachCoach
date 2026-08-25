@@ -17,6 +17,8 @@ If you outgrow this, Google's Geocoding API or Apple's MapKit server-side
 geocoding are the usual upgrades — both need billing set up, unlike this.
 """
 
+from __future__ import annotations
+
 import re
 import time
 import requests
@@ -123,6 +125,53 @@ def _photon(query: str) -> dict | None:
     }
 
 
+STREET_RE = re.compile(
+    r"\b\d{3,5}\s+[A-Za-z0-9.'\- ]{2,40}?\s"
+    r"(?:Blvd|Boulevard|St|Street|Ave|Avenue|Rd|Road|Way|Dr|Drive|"
+    r"Ln|Lane|Pkwy|Parkway|Ct|Court|Pl|Place)\b",
+    re.IGNORECASE,
+)
+
+
+def _nominatim_structured(
+    street: str,
+    city: str = "Sacramento",
+    state: str = "California",
+) -> dict | None:
+    try:
+        response = requests.get(
+            NOMINATIM_URL,
+            params={
+                "street": street,
+                "city": city,
+                "state": state,
+                "country": "USA",
+                "format": "json",
+                "limit": 1,
+            },
+            headers={"User-Agent": USER_AGENT, "Accept": "application/json"},
+            timeout=10,
+        )
+    except requests.RequestException as exc:
+        print(f"[geocode] nominatim structured failed: {exc}")
+        return None
+    if response.status_code != 200:
+        print(f"[geocode] nominatim structured HTTP {response.status_code}")
+        return None
+    try:
+        results = response.json()
+    except ValueError:
+        return None
+    if not results:
+        return None
+    top = results[0]
+    return {
+        "latitude": float(top["lat"]),
+        "longitude": float(top["lon"]),
+        "display_name": top.get("display_name", street),
+    }
+
+
 def geocode(location_text: str, city_context: str = None) -> dict | None:
     """
     Returns {"latitude": float, "longitude": float, "display_name": str}
@@ -135,12 +184,31 @@ def geocode(location_text: str, city_context: str = None) -> dict | None:
         return None
 
     context = city_context or DEFAULT_CITY_CONTEXT
-    query = f"{cleaned}, {context}"
-    _throttle()
-    result = _nominatim(query) or _photon(query)
-    if not result:
-        print(f"[geocode] no match for {query!r}")
-    return result
+    queries = [cleaned]
+    if context.lower() not in cleaned.lower():
+        queries.append(f"{cleaned}, {context}")
+
+    street_match = STREET_RE.search(cleaned)
+    street = street_match.group(0) if street_match else None
+    if street:
+        queries.insert(0, street)
+        if f"{street}, {context}" not in queries:
+            queries.insert(1, f"{street}, {context}")
+
+    for query in queries:
+        _throttle()
+        result = _photon(query) or _nominatim(query)
+        if result:
+            return result
+
+    if street:
+        _throttle()
+        result = _nominatim_structured(street)
+        if result:
+            return result
+
+    print(f"[geocode] no match for {cleaned!r}")
+    return None
 
 
 if __name__ == "__main__":

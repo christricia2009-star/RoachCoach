@@ -254,6 +254,100 @@ def sactomofo_event_hits() -> list[ListingHit]:
     return hits
 
 
+def openrouter_live_listings() -> list[ListingHit]:
+    """One grounded web-search call for every known truck. This is what
+    GitHub Actions can actually run (DuckDuckGo returns HTTP 202 there)."""
+    import json
+    import os
+
+    if not (os.getenv("OPENROUTER_API_KEY") or "").strip():
+        print("[listings] OpenRouter key missing; skipping live listing search")
+        return []
+
+    from social_scraper import TRUCK_LISTINGS
+    from llm_providers import web_search_complete
+
+    names = [item["search_name"] for item in TRUCK_LISTINGS]
+    prompt = (
+        "Search Yelp, Google, Instagram, X, and official websites for these "
+        "Sacramento-area food trucks. Return ONLY a JSON array, no markdown.\n"
+        "Each item: {\"name\": string, \"address\": string|null, "
+        "\"latitude\": number|null, \"longitude\": number|null, "
+        "\"when\": \"today\"|\"listed\"|\"unknown\", "
+        "\"source\": \"yelp\"|\"instagram\"|\"x\"|\"website\"|\"google\"}\n"
+        "Rules: prefer a TODAY Instagram/X location; otherwise use the "
+        "published Yelp/Google street address. California longitude is negative. "
+        "Do not invent an address.\n"
+        "Trucks:\n" + "\n".join(f"- {name}" for name in names)
+    )
+    try:
+        raw = web_search_complete(prompt, max_tokens=1200, max_results=8)
+    except Exception as exc:
+        print(f"[listings] openrouter search failed: {exc}")
+        return []
+
+    if not raw:
+        print("[listings] openrouter empty reply")
+        return []
+
+    cleaned = raw.replace("```json", "").replace("```", "").strip()
+    start = cleaned.find("[")
+    end = cleaned.rfind("]")
+    if start < 0 or end <= start:
+        print(f"[listings] openrouter non-JSON: {cleaned[:180]!r}")
+        return []
+    try:
+        payload = json.loads(cleaned[start:end + 1])
+    except json.JSONDecodeError as exc:
+        print(f"[listings] openrouter JSON parse failed: {exc}")
+        return []
+    if not isinstance(payload, list):
+        return []
+
+    hits: list[ListingHit] = []
+    for item in payload:
+        if not isinstance(item, dict):
+            continue
+        name = str(item.get("name") or "").strip()
+        address = str(item.get("address") or "").strip()
+        if not name or not address:
+            continue
+        lat = lon = None
+        try:
+            if item.get("latitude") is not None:
+                lat = float(item["latitude"])
+            if item.get("longitude") is not None:
+                lon = float(item["longitude"])
+        except (TypeError, ValueError):
+            lat = lon = None
+        if lon is not None and lon > 0:
+            lon = -lon
+        matched = name
+        for listing in TRUCK_LISTINGS:
+            if listing["key"] in name.lower() or listing["search_name"].lower() in name.lower():
+                matched = listing["search_name"]
+                if lat is None and listing.get("latitude"):
+                    try:
+                        lat = float(listing["latitude"])
+                        lon = float(listing["longitude"])
+                    except (TypeError, ValueError):
+                        pass
+                break
+        when = str(item.get("when") or "listed")
+        hits.append(
+            ListingHit(
+                truck_name=matched,
+                location_text=f"{matched} {address}",
+                source="social" if when == "today" else "web_search",
+                note=f"OpenRouter {when} via {item.get('source') or 'web'}: {address}",
+                latitude=lat,
+                longitude=lon,
+            )
+        )
+    print(f"[listings] openrouter returned {len(hits)} listing(s)")
+    return hits
+
+
 def collect_listings() -> list[ListingHit]:
     from social_scraper import TRUCK_LISTINGS
 
@@ -273,6 +367,12 @@ def collect_listings() -> list[ListingHit]:
                 add(hit)
         except Exception as exc:
             print(f"[listings] {listing.get('search_name')}: {exc}")
+
+    try:
+        for hit in openrouter_live_listings():
+            add(hit)
+    except Exception as exc:
+        print(f"[listings] openrouter live failed: {exc}")
 
     for hit in sacramento_today_hits() + sactomofo_event_hits():
         add(hit)
