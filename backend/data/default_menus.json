@@ -28,5 +28,86 @@
     {"name": "Porchetta sandwich", "category": "entree", "priceCents": 1600},
     {"name": "Rotisserie chicken", "category": "entree", "priceCents": 1400},
     {"name": "Potatoes", "category": "side", "priceCents": 600}
+  ],
+  "_cuisine_mexican": [
+    {"name": "Street tacos (3)", "category": "entree", "priceCents": 1400, "description": "Choice of al pastor, asada, or chicken"},
+    {"name": "Burrito", "category": "entree", "priceCents": 1500},
+    {"name": "Quesadilla", "category": "entree", "priceCents": 1200},
+    {"name": "Chips & salsa", "category": "side", "priceCents": 500},
+    {"name": "Agua fresca", "category": "drink", "priceCents": 400}
+  ],
+  "_cuisine_bbq": [
+    {"name": "Brisket plate", "category": "entree", "priceCents": 1800},
+    {"name": "Pulled pork sandwich", "category": "entree", "priceCents": 1500},
+    {"name": "Mac & cheese", "category": "side", "priceCents": 700},
+    {"name": "Iced tea", "category": "drink", "priceCents": 300}
+  ],
+  "_cuisine_burgers": [
+    {"name": "Cheeseburger", "category": "entree", "priceCents": 1400},
+    {"name": "Double smash burger", "category": "entree", "priceCents": 1600},
+    {"name": "Fries", "category": "side", "priceCents": 600},
+    {"name": "Shake", "category": "drink", "priceCents": 700}
+  ],
+  "_cuisine_filipino": [
+    {"name": "Lumpia (5)", "category": "entree", "priceCents": 1000},
+    {"name": "Sisig plate", "category": "entree", "priceCents": 1600},
+    {"name": "Garlic rice", "category": "side", "priceCents": 500},
+    {"name": "Calamansi soda", "category": "drink", "priceCents": 400}
+  ],
+  "_cuisine_hawaiian": [
+    {"name": "Kalua pork plate", "category": "entree", "priceCents": 1700},
+    {"name": "Spam musubi (2)", "category": "entree", "priceCents": 900},
+    {"name": "Mac salad", "category": "side", "priceCents": 500},
+    {"name": "POG juice", "category": "drink", "priceCents": 400}
+  ],
+  "_cuisine_american": [
+    {"name": "House sandwich", "category": "entree", "priceCents": 1500},
+    {"name": "Loaded fries", "category": "side", "priceCents": 900},
+    {"name": "Side salad", "category": "side", "priceCents": 700},
+    {"name": "Soda", "category": "drink", "priceCents": 300}
+  ],
+  "_cuisine_pizza": [
+    {"name": "Pepperoni slice", "category": "entree", "priceCents": 600},
+    {"name": "Margherita slice", "category": "entree", "priceCents": 700},
+    {"name": "Garlic knots", "category": "side", "priceCents": 600},
+    {"name": "Soda", "category": "drink", "priceCents": 300}
+  ],
+  "_cuisine_seafood": [
+    {"name": "Fish tacos (2)", "category": "entree", "priceCents": 1500},
+    {"name": "Shrimp plate", "category": "entree", "priceCents": 1800},
+    {"name": "Hush puppies", "category": "side", "priceCents": 600},
+    {"name": "Lemonade", "category": "drink", "priceCents": 400}
+  ],
+  "_cuisine_dessert": [
+    {"name": "Soft serve", "category": "dessert", "priceCents": 700},
+    {"name": "Churro", "category": "dessert", "priceCents": 500},
+    {"name": "Cookie", "category": "dessert", "priceCents": 400},
+    {"name": "Coffee", "category": "drink", "priceCents": 400}
+  ],
+  "_cuisine_indian": [
+    {"name": "Chicken tikka wrap", "category": "entree", "priceCents": 1400},
+    {"name": "Samosas (2)", "category": "side", "priceCents": 700},
+    {"name": "Mango lassi", "category": "drink", "priceCents": 500}
+  ],
+  "_cuisine_indian_fusion": [
+    {"name": "Tikka masala burrito", "category": "entree", "priceCents": 1400},
+    {"name": "Samosas (2)", "category": "side", "priceCents": 700},
+    {"name": "Mango lassi", "category": "drink", "priceCents": 500}
+  ],
+  "_cuisine_greek": [
+    {"name": "Gyro pita", "category": "entree", "priceCents": 1400},
+    {"name": "Chicken plate", "category": "entree", "priceCents": 1600},
+    {"name": "Fries", "category": "side", "priceCents": 600},
+    {"name": "Greek soda", "category": "drink", "priceCents": 300}
+  ],
+  "_cuisine_asian": [
+    {"name": "Rice plate", "category": "entree", "priceCents": 1500},
+    {"name": "Dumplings (5)", "category": "entree", "priceCents": 1100},
+    {"name": "Iced tea", "category": "drink", "priceCents": 300}
+  ],
+  "_cuisine_other": [
+    {"name": "Chef's plate", "category": "entree", "priceCents": 1600, "description": "Today's special — confirm with the truck"},
+    {"name": "Side", "category": "side", "priceCents": 700},
+    {"name": "Drink", "category": "drink", "priceCents": 400}
   ]
 }

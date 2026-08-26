@@ -1334,6 +1334,93 @@ def seed_default_menus() -> int:
         return 0
 
 
+_MENU_PRICE_RE = re.compile(
+    r"(?P<name>[A-Za-z][A-Za-z0-9&/'().+\- ]{2,40}?)\s*[-–—:]?\s*\$\s*(?P<price>\d{1,3}(?:\.\d{2})?)\b"
+)
+
+
+def extract_menu_from_text(text: str) -> list[dict]:
+    found: list[dict] = []
+    seen: set[str] = set()
+    for match in _MENU_PRICE_RE.finditer(text or ""):
+        name = re.sub(r"\s+", " ", match.group("name")).strip(" -:•|")
+        if len(name) < 3 or name.lower() in seen:
+            continue
+        try:
+            cents = int(round(float(match.group("price")) * 100))
+        except ValueError:
+            continue
+        if cents < 100 or cents > 8000:
+            continue
+        seen.add(name.lower())
+        found.append({"name": name, "category": "entree", "priceCents": cents})
+        if len(found) >= 8:
+            break
+    return found
+
+
+def harvest_menus_from_posts(posts: list) -> int:
+    """Parse $-priced items from IG/FB captions and save MenuItem records."""
+    by_handle: dict[str, list[dict]] = {}
+    for post in posts or []:
+        handle = str(getattr(post, "truck_handle", "") or "").lstrip("@").lower()
+        caption = str(getattr(post, "caption", "") or "")
+        if not handle or not caption:
+            continue
+        items = extract_menu_from_text(caption)
+        if not items:
+            continue
+        bucket = by_handle.setdefault(handle, [])
+        have = {i["name"].lower() for i in bucket}
+        for item in items:
+            if item["name"].lower() not in have:
+                bucket.append(item)
+                have.add(item["name"].lower())
+    if not by_handle:
+        return 0
+    try:
+        import cloudkit_bridge
+        catalog = load_live_truck_catalog()
+        id_by_ig = {}
+        for row in catalog:
+            ig = str(row.get("instagram") or "").lower()
+            if ig:
+                id_by_ig[ig] = str(row.get("id") or "").strip() or _deterministic_truck_uuid(ig)
+        created = 0
+        for handle, recipes in by_handle.items():
+            truck_id = id_by_ig.get(handle)
+            if not truck_id:
+                continue
+            existing = cloudkit_bridge.get_menu_items_for_truck(truck_id)
+            if existing:
+                continue
+            for index, recipe in enumerate(recipes[:8]):
+                record_id = f"menu_{handle}_ig_{index}"
+                fields = {
+                    "truckID": truck_id,
+                    "name": recipe["name"],
+                    "category": recipe.get("category") or "entree",
+                    "priceCents": int(recipe["priceCents"]),
+                    "currency": "USD",
+                    "isAvailable": 1,
+                    "sortOrder": index,
+                    "modifiersJSON": "[]",
+                }
+                try:
+                    cloudkit_bridge.save_menu_item(
+                        record_id,
+                        cloudkit_bridge.to_cloudkit_fields(fields),
+                    )
+                    created += 1
+                except Exception as exc:
+                    print(f"[menu] harvest failed {record_id}: {exc}")
+        print(f"[menu] harvested {created} item(s) from social captions")
+        return created
+    except Exception as exc:
+        print(f"[menu] harvest skipped: {exc}")
+        return 0
+
+
 def all_facebook_page_ids(catalog: list[dict] | None = None) -> list[str]:
     catalog = catalog or load_live_truck_catalog()
     seen: set[str] = set()

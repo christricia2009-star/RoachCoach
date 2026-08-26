@@ -18,9 +18,9 @@ const DARK_STYLE = {
     "carto-dark": {
       type: "raster",
       tiles: [
-        "https://a.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}@2x.png",
-        "https://b.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}@2x.png",
-        "https://c.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}@2x.png",
+        "https://a.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}.png",
+        "https://b.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}.png",
+        "https://c.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}.png",
       ],
       tileSize: 256,
       attribution:
@@ -73,6 +73,7 @@ export default function CommandCenter() {
   const [search, setSearch] = useState("");
   const [region, setRegion] = useState("");
   const [loadError, setLoadError] = useState(null);
+  const [mapError, setMapError] = useState(null);
   const [lastUpdated, setLastUpdated] = useState(null);
   const [mapReady, setMapReady] = useState(false);
 
@@ -80,40 +81,70 @@ export default function CommandCenter() {
     let cancelled = false;
     let observer;
     let map;
+    let tries = 0;
+
+    async function loadLib() {
+      try {
+        const mod = await import("maplibre-gl");
+        return mod.default || mod;
+      } catch (err) {
+        console.error("maplibre import failed", err);
+        throw err;
+      }
+    }
+
+    async function waitForBox(el) {
+      while (!cancelled && tries < 40) {
+        if (el.clientWidth > 40 && el.clientHeight > 40) return true;
+        tries += 1;
+        await new Promise((r) => setTimeout(r, 50));
+      }
+      return el.clientWidth > 0 && el.clientHeight > 0;
+    }
 
     (async () => {
-      const maplibregl = (await import("maplibre-gl")).default;
-      if (cancelled || !containerRef.current) return;
+      try {
+        const el = containerRef.current;
+        if (!el) return;
+        const ok = await waitForBox(el);
+        if (cancelled || !ok) {
+          setMapError("Map surface never sized — try resizing the window.");
+          return;
+        }
+        const maplibregl = await loadLib();
+        if (cancelled) return;
 
-      map = new maplibregl.Map({
-        container: containerRef.current,
-        style: DARK_STYLE,
-        center: DEFAULT_CENTER,
-        zoom: DEFAULT_ZOOM,
-        attributionControl: true,
-      });
-      map.addControl(new maplibregl.NavigationControl({ showCompass: false }), "bottom-right");
-      map.addControl(
-        new maplibregl.GeolocateControl({
-          positionOptions: { enableHighAccuracy: true },
-          trackUserLocation: true,
-        }),
-        "bottom-right"
-      );
-
-      const resize = () => {
-        if (!map) return;
-        map.resize();
-      };
-      map.on("load", () => {
+        map = new maplibregl.Map({
+          container: el,
+          style: DARK_STYLE,
+          center: DEFAULT_CENTER,
+          zoom: DEFAULT_ZOOM,
+          attributionControl: true,
+          failIfMajorPerformanceCaveat: false,
+        });
+        map.addControl(new maplibregl.NavigationControl({ showCompass: false }), "top-right");
+        map.addControl(
+          new maplibregl.GeolocateControl({
+            positionOptions: { enableHighAccuracy: true },
+            trackUserLocation: true,
+          }),
+          "top-right"
+        );
+        map.on("error", (event) => {
+          console.error("maplibre error", event?.error || event);
+        });
+        const resize = () => map && map.resize();
+        map.on("load", () => {
+          resize();
+          if (!cancelled) setMapReady(true);
+        });
+        observer = new ResizeObserver(resize);
+        observer.observe(el);
         resize();
-        if (!cancelled) setMapReady(true);
-      });
-      observer = new ResizeObserver(resize);
-      observer.observe(containerRef.current);
-      requestAnimationFrame(resize);
-      setTimeout(resize, 250);
-      mapRef.current = map;
+        mapRef.current = map;
+      } catch (err) {
+        if (!cancelled) setMapError(err.message || "Map failed to start");
+      }
     })();
 
     return () => {
@@ -277,8 +308,9 @@ export default function CommandCenter() {
     <section className="rc-stage">
       <div className="rc-map-wrap">
         <div ref={containerRef} className="rc-map" />
-        <div className="rc-scan" aria-hidden="true" />
-        {!loadError && visible.length === 0 && (
+        {mapError && <div className="rc-map-empty"><strong>{mapError}</strong></div>}
+        {!mapReady && !mapError && <div className="rc-map-boot">Initializing map…</div>}
+        {!mapError && mapReady && visible.length === 0 && (
           <div className="rc-map-empty">
             <span className="rc-kicker">No live pings</span>
             <strong>Map is up. Waiting on Instagram / check-ins.</strong>

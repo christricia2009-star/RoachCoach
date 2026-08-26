@@ -312,6 +312,7 @@ def job_social_scraping():
         all_facebook_page_ids,
         sync_social_profiles_to_cloudkit,
         seed_default_menus,
+        harvest_menus_from_posts,
         X_USERNAMES,
     )
     from llm_extract import extract_location_from_caption
@@ -363,6 +364,10 @@ def job_social_scraping():
         seed_default_menus()
     except Exception:
         error_tracking.report("[menu] starter menu seed failed")
+    try:
+        harvest_menus_from_posts(posts)
+    except Exception:
+        error_tracking.report("[menu] social menu harvest failed")
 
     lookback_hours = float(os.getenv("SOCIAL_LOOKBACK_HOURS") or "12")
     cutoff = datetime.datetime.now(datetime.timezone.utc) - datetime.timedelta(

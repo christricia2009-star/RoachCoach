@@ -32,6 +32,7 @@ except ImportError:
     pass
 
 import json
+import re
 import uuid
 import asyncio
 import traceback
@@ -1213,34 +1214,78 @@ def create_sighting(
 # CLOUDKIT — MENU
 # ============================================================
 
+def _ig_from_links(links) -> str:
+    values = links if isinstance(links, list) else [links]
+    for raw in values:
+        text = str(raw or "")
+        match = re.search(r"instagram\.com/([^/?#]+)", text, re.I)
+        if match:
+            return match.group(1).lstrip("@").lower()
+        if text.startswith("@") and " " not in text:
+            return text[1:].lower()
+    return ""
+
+
+def _menu_context_for_truck(truck_id: str) -> tuple[str, str, str]:
+    """Resolve Instagram handle, cuisine, and name for a truck id."""
+    handle = ""
+    cuisine = ""
+    name = ""
+    tid = str(truck_id or "").lower()
+    try:
+        record = cloudkit_bridge.get_truck(truck_id)
+    except Exception:
+        record = None
+    if record:
+        name = str(_cloudkit_record_value(record, "name", "") or "")
+        cuisine = str(_cloudkit_record_value(record, "cuisineType", "") or "")
+        handle = _ig_from_links(_cloudkit_record_value(record, "socialLinks", []) or [])
+    try:
+        from social_scraper import load_live_truck_catalog, _deterministic_truck_uuid
+
+        for item in load_live_truck_catalog():
+            ig = str(item.get("instagram") or "").strip().lstrip("@").lower()
+            rid = str(item.get("id") or "").strip().lower()
+            det = _deterministic_truck_uuid(ig).lower() if ig else ""
+            search_name = str(item.get("search_name") or "").strip()
+            if tid in {rid, det, ig} or (name and search_name.lower() == name.lower()):
+                handle = handle or ig
+                cuisine = cuisine or str(item.get("cuisine") or "")
+                name = name or search_name
+                break
+    except Exception:
+        pass
+    return handle, cuisine, name
+
+
+def _recipes_to_menu(truck_id: str, prefix: str, recipes: list) -> list[MenuItemOut]:
+    return [
+        MenuItemOut(
+            id=f"menu_{prefix}_{index}",
+            truck_id=str(truck_id),
+            name=row.get("name") or "Item",
+            description=row.get("description"),
+            category=row.get("category") or "entree",
+            price_cents=int(row.get("priceCents") or 0),
+            sort_order=index,
+        )
+        for index, row in enumerate(recipes)
+    ]
+
+
 def _starter_menu_for_truck(truck_id: str) -> list[MenuItemOut]:
     path = os.path.join(BACKEND_DIR, "data", "default_menus.json")
     if not os.path.isfile(path):
         return []
     try:
         rows = json.load(open(path, encoding="utf-8"))
-        from social_scraper import load_live_truck_catalog, _deterministic_truck_uuid
-
-        handle = ""
-        for item in load_live_truck_catalog():
-            rid = str(item.get("id") or "")
-            ig = str(item.get("instagram") or "").lower()
-            if rid == truck_id or (ig and _deterministic_truck_uuid(ig) == truck_id):
-                handle = ig
-                break
-        recipes = rows.get(handle) or []
-        return [
-            MenuItemOut(
-                id=f"menu_{handle}_{index}",
-                truck_id=str(truck_id),
-                name=row.get("name") or "Item",
-                description=row.get("description"),
-                category=row.get("category") or "entree",
-                price_cents=int(row.get("priceCents") or 0),
-                sort_order=index,
-            )
-            for index, row in enumerate(recipes)
-        ]
+        handle, cuisine, _name = _menu_context_for_truck(truck_id)
+        recipes = rows.get(handle) if handle else None
+        if recipes:
+            return _recipes_to_menu(truck_id, handle or "truck", recipes)
+        key = f"_cuisine_{(cuisine or 'other').strip().lower().replace(' ', '_')}"
+        recipes = rows.get(key) or rows.get("_cuisine_other") or []
+        return _recipes_to_menu(truck_id, key.strip("_") or "other", recipes)
     except Exception:
         return []
 
@@ -1283,8 +1328,9 @@ def get_truck_menu(truck_id: str, available_only: bool = False):
         )
 
         items = [_record_to_menu_item(r) for r in records]
-        if items:
-            return items
+        real = [i for i in items if i.name and i.name != "Untitled Item" and i.price_cents > 0]
+        if real:
+            return real
         return _starter_menu_for_truck(truck_id)
 
     except Exception as e:
