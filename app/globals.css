@@ -110,6 +110,10 @@ button, input, textarea { font-family: inherit; }
   z-index: 1;
 }
 .leaflet-container { font-family: inherit; }
+/* Darken OSM tiles locally — no Carto/MapTiler API key. */
+.rc-map .leaflet-tile-pane {
+  filter: invert(1) hue-rotate(180deg) brightness(0.9) contrast(0.95) saturate(0.35);
+}
 .rc-leaflet-pin { background: transparent !important; border: 0 !important; }
 .rc-marker img {
   width: 32px;
