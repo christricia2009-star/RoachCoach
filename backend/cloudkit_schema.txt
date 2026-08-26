@@ -1,0 +1,106 @@
+# Optional Phase 4 CloudKit fields / record types.
+# Add in CloudKit Dashboard DEVELOPMENT, test, then deploy.
+# Existing app works without these.
+
+# REQUIRED for the GitHub Actions scheduler cache.
+# Production CloudKit does not auto-create this type. Without it, unmatched
+# camera/social detections 404 and Scan stays empty.
+UnmatchedDetection.source = String
+UnmatchedDetection.latitude = Double
+UnmatchedDetection.longitude = Double
+UnmatchedDetection.timestamp = String
+UnmatchedDetection.expiresAt = String
+# Keep these as String. CloudKit STRING fields cannot use LESS_THAN /
+# GREATER_THAN filters — the backend prunes and windows in Python.
+UnmatchedDetection.rawConfidence = Double
+UnmatchedDetection.reason = String
+UnmatchedDetection.textHint = String
+UnmatchedDetection.note = String
+UnmatchedDetection.status = String
+UnmatchedDetection.resolvedTruckId = String
+
+Sighting.photoAsset = Asset
+Sighting.photoIntelScore = Double
+Sighting.photoIntelLabels = [String]
+
+RadarWatch.userID = String
+RadarWatch.truckID = String
+RadarWatch.latitude = Location
+RadarWatch.longitude = Location
+RadarWatch.radiusMeters = Double
+RadarWatch.enabled = Int(64)
+RadarWatch.createdAt = Date
+
+Reputation.userID = String
+Reputation.xp = Int(64)
+Reputation.confirmedReports = Int(64)
+Reputation.totalReports = Int(64)
+Reputation.accuracy = Double
+Reputation.badges = [String]
+
+PredictionSnapshot.truckID = String
+PredictionSnapshot.latitude = Double
+PredictionSnapshot.longitude = Double
+PredictionSnapshot.windowStart = Date
+PredictionSnapshot.windowEnd = Date
+PredictionSnapshot.confidence = Double
+PredictionSnapshot.generatedAt = Date
+PredictionSnapshot.evidence = [String]
+
+# ============================================================
+# PHASE: MENU + ORDER
+# Required for Order Ahead (truck detail page) + Owner Order Board.
+# Mirrors backend/schema.sql's menus/menu_items/orders/order_items
+# tables — CloudKit is still the live store; Postgres is the
+# reference/analytics shape. Keep field names identical across both
+# and across Swift's Codable models (MenuItem.swift / Order.swift).
+# ============================================================
+
+# One per truck. is_active lets a truck keep old MenuItem records
+# around (linked to past orders) while only surfacing the current menu.
+MenuItem.truckID = String
+MenuItem.name = String
+MenuItem.itemDescription = String
+MenuItem.category = String            # entree | side | drink | dessert | combo | special
+MenuItem.priceCents = Int(64)
+MenuItem.currency = String
+MenuItem.photoURL = String
+MenuItem.isAvailable = Int(64)         # CloudKit has no native Bool; store 0/1
+MenuItem.sortOrder = Int(64)
+MenuItem.modifiersJSON = String        # JSON-encoded [{"name":.., "priceDeltaCents":..}]
+MenuItem.createdAt = Date
+MenuItem.updatedAt = Date
+
+# Keep as String, same reasoning as UnmatchedDetection above: CloudKit
+# STRING fields can't use LESS_THAN/GREATER_THAN, so any range/queue
+# ordering ("oldest pending order first") is handled backend-side in
+# Python by sorting on createdAtMs (Int64, sortable) rather than relying
+# on a CloudKit query-level comparator.
+Order.truckID = String
+Order.customerUserID = String
+Order.customerName = String
+Order.status = String                  # pending | accepted | preparing | ready | completed | cancelled
+Order.subtotalCents = Int(64)
+Order.taxCents = Int(64)
+Order.tipCents = Int(64)
+Order.totalCents = Int(64)
+Order.currency = String
+Order.specialInstructions = String
+Order.pickupEtaMinutes = Int(64)
+Order.paymentProvider = String         # stripe | square
+Order.paymentIntentID = String
+Order.paymentStatus = String           # unpaid | authorized | captured | refunded | failed
+Order.itemsJSON = String               # JSON-encoded [OrderItem] snapshot, see below
+Order.createdAt = Date
+Order.createdAtMs = Int(64)            # epoch millis, for sortable/queryable ordering
+Order.updatedAt = Date
+
+# OrderItem is intentionally NOT its own CloudKit record type for Phase 1.
+# Orders are small (a handful of line items) and are always read/written
+# as a whole order, never queried by line item — so each Order carries
+# its line items inline as Order.itemsJSON, matching the JSON shape:
+#   [{"menuItemId": "...", "nameSnapshot": "...", "unitPriceCents": 900,
+#     "quantity": 2, "modifiers": [...], "lineTotalCents": 1800}]
+# The Postgres order_items table stays normalized for reporting; this
+# is a deliberate divergence, called out here so it isn't "fixed" by
+# accident later without re-checking the read paths that assume it.
