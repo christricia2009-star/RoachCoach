@@ -1,0 +1,137 @@
+DEFINE SCHEMA
+    RECORD TYPE Truck (
+        "___recordID" REFERENCE QUERYABLE,
+        "___createTime" TIMESTAMP QUERYABLE SORTABLE,
+        name STRING QUERYABLE SORTABLE SEARCHABLE,
+        cuisineType STRING QUERYABLE SEARCHABLE,
+        socialLinks LIST<STRING>,
+        averageConfidenceScore DOUBLE,
+        menuHighlights LIST<STRING>,
+        imageURL STRING,
+        rating DOUBLE,
+        averageWaitMinutes INT64,
+        region STRING QUERYABLE SEARCHABLE,
+        instagramHandle STRING QUERYABLE,
+        GRANT READ TO "_world",
+        GRANT WRITE, CREATE TO "_icloud"
+    );
+    RECORD TYPE Sighting (
+        "___recordID" REFERENCE QUERYABLE,
+        "___createTime" TIMESTAMP QUERYABLE SORTABLE,
+        truckId STRING QUERYABLE,
+        latitude DOUBLE,
+        longitude DOUBLE,
+        note STRING SEARCHABLE,
+        photoURL STRING,
+        confidenceLevel STRING QUERYABLE,
+        timestamp TIMESTAMP QUERYABLE SORTABLE,
+        expiresAt TIMESTAMP QUERYABLE,
+        photoAsset ASSET,
+        photoIntelScore DOUBLE,
+        photoIntelLabels LIST<STRING>,
+        GRANT READ TO "_world",
+        GRANT WRITE, CREATE TO "_icloud"
+    );
+    RECORD TYPE MenuItem (
+        "___recordID" REFERENCE QUERYABLE,
+        "___createTime" TIMESTAMP QUERYABLE SORTABLE,
+        truckID STRING QUERYABLE,
+        name STRING QUERYABLE SEARCHABLE,
+        itemDescription STRING,
+        category STRING QUERYABLE,
+        priceCents INT64,
+        currency STRING,
+        photoURL STRING,
+        isAvailable INT64 QUERYABLE,
+        sortOrder INT64 QUERYABLE SORTABLE,
+        modifiersJSON STRING,
+        createdAt TIMESTAMP,
+        updatedAt TIMESTAMP,
+        GRANT READ TO "_world",
+        GRANT WRITE, CREATE TO "_icloud"
+    );
+    RECORD TYPE Order (
+        "___recordID" REFERENCE QUERYABLE,
+        "___createTime" TIMESTAMP QUERYABLE SORTABLE,
+        truckID STRING QUERYABLE,
+        customerUserID STRING QUERYABLE,
+        customerName STRING,
+        status STRING QUERYABLE,
+        subtotalCents INT64,
+        taxCents INT64,
+        tipCents INT64,
+        totalCents INT64,
+        currency STRING,
+        specialInstructions STRING,
+        pickupEtaMinutes INT64,
+        paymentProvider STRING,
+        paymentIntentID STRING,
+        paymentStatus STRING QUERYABLE,
+        itemsJSON STRING,
+        createdAt TIMESTAMP,
+        createdAtMs INT64 QUERYABLE SORTABLE,
+        updatedAt TIMESTAMP,
+        GRANT READ TO "_world",
+        GRANT WRITE, CREATE TO "_icloud"
+    );
+    RECORD TYPE UnmatchedDetection (
+        "___recordID" REFERENCE QUERYABLE,
+        "___createTime" TIMESTAMP QUERYABLE SORTABLE,
+        source STRING QUERYABLE,
+        latitude DOUBLE,
+        longitude DOUBLE,
+        timestamp STRING QUERYABLE,
+        expiresAt STRING QUERYABLE,
+        rawConfidence DOUBLE,
+        reason STRING,
+        textHint STRING,
+        note STRING,
+        status STRING QUERYABLE,
+        resolvedTruckId STRING QUERYABLE,
+        GRANT READ TO "_world",
+        GRANT WRITE, CREATE TO "_icloud"
+    );
+    RECORD TYPE RadarWatch (
+        "___recordID" REFERENCE QUERYABLE,
+        userID STRING QUERYABLE,
+        truckID STRING QUERYABLE,
+        latitude DOUBLE,
+        longitude DOUBLE,
+        radiusMeters DOUBLE,
+        enabled INT64 QUERYABLE,
+        createdAt TIMESTAMP,
+        GRANT READ TO "_world",
+        GRANT WRITE, CREATE TO "_icloud"
+    );
+    RECORD TYPE Reputation (
+        "___recordID" REFERENCE QUERYABLE,
+        userID STRING QUERYABLE,
+        xp INT64,
+        confirmedReports INT64,
+        totalReports INT64,
+        accuracy DOUBLE,
+        badges LIST<STRING>,
+        GRANT READ TO "_world",
+        GRANT WRITE, CREATE TO "_icloud"
+    );
+    RECORD TYPE PredictionSnapshot (
+        "___recordID" REFERENCE QUERYABLE,
+        truckID STRING QUERYABLE,
+        latitude DOUBLE,
+        longitude DOUBLE,
+        windowStart TIMESTAMP QUERYABLE,
+        windowEnd TIMESTAMP,
+        confidence DOUBLE,
+        generatedAt TIMESTAMP SORTABLE,
+        evidence LIST<STRING>,
+        GRANT READ TO "_world",
+        GRANT WRITE, CREATE TO "_icloud"
+    );
+    RECORD TYPE AppUser (
+        "___recordID" REFERENCE QUERYABLE,
+        displayName STRING,
+        homeCity STRING,
+        favoriteTruckIds LIST<STRING>,
+        GRANT READ TO "_world",
+        GRANT WRITE, CREATE TO "_icloud"
+    );

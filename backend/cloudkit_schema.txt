@@ -1,3 +1,7 @@
+# Human-readable field list. For import into CloudKit, use:
+#   backend/schema.ckdb
+#   backend/CLOUDKIT_SCHEMA_IMPORT.md
+#
 # Optional Phase 4 CloudKit fields / record types.
 # Add in CloudKit Dashboard DEVELOPMENT, test, then deploy.
 # Existing app works without these.
