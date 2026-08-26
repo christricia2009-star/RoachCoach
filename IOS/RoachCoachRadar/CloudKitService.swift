@@ -132,14 +132,21 @@ final class CloudKitService: APIServicing {
     // MARK: - Trucks
 
     func fetchTrucks() async throws -> [Truck] {
-        let query = CKQuery(recordType: "Truck", predicate: NSPredicate(value: true))
-        // Do not require a Sortable index for name.  That was another source
-        // of CloudKit query failures in production.
-        let (results, _) = try await publicDB.records(matching: query)
-        return results.compactMap { _, result in
-            guard case .success(let record) = result else { return nil }
-            return truck(from: record)
-        }.sorted { $0.name.localizedCaseInsensitiveCompare($1.name) == .orderedAscending }
+        let directory = TruckSocialDirectory.bundledDirectoryTrucks()
+        var cloud: [Truck] = []
+        do {
+            let query = CKQuery(recordType: "Truck", predicate: NSPredicate(value: true))
+            // Do not require a Sortable index for name.  That was another source
+            // of CloudKit query failures in production.
+            let (results, _) = try await publicDB.records(matching: query)
+            cloud = results.compactMap { _, result in
+                guard case .success(let record) = result else { return nil }
+                return truck(from: record)
+            }
+        } catch {
+            print("CloudKit Truck query failed: \(error)")
+        }
+        return TruckSocialDirectory.mergeCloudKit(cloud, withDirectory: directory)
     }
 
     func createTruck(_ truck: Truck) async throws {

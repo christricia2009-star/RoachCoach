@@ -1,5 +1,6 @@
 import Foundation
 import CoreLocation
+import CryptoKit
 
 struct Truck: Identifiable, Codable, Hashable {
     let id: UUID
@@ -148,6 +149,98 @@ enum TruckSocialDirectory {
     }
 
     static let regionOrder = ["Sacramento", "Bay Area", "North State", "Sierra", "Central Valley", "Central Coast", "Other"]
+
+    private struct DirectoryRow: Codable {
+        var name: String
+        var cuisine: String
+        var instagram: String
+        var region: String
+        var facebook: String?
+        var x: String?
+    }
+
+    /// Same UUID the scheduler uses when it creates a CloudKit Truck from a handle.
+    static func deterministicID(forHandle handle: String) -> UUID {
+        let seed = handle.lowercased().trimmingCharacters(in: CharacterSet(charactersIn: "@"))
+        let digest = SHA256.hash(data: Data(seed.utf8))
+        var bytes = Array(digest.prefix(16))
+        bytes[6] = (bytes[6] & 0x0F) | 0x50
+        bytes[8] = (bytes[8] & 0x3F) | 0x80
+        return UUID(uuid: (
+            bytes[0], bytes[1], bytes[2], bytes[3],
+            bytes[4], bytes[5], bytes[6], bytes[7],
+            bytes[8], bytes[9], bytes[10], bytes[11],
+            bytes[12], bytes[13], bytes[14], bytes[15]
+        ))
+    }
+
+    static func bundledDirectoryTrucks() -> [Truck] {
+        let data: Data
+        if let url = Bundle.main.url(forResource: "california_food_trucks", withExtension: "json"),
+           let file = try? Data(contentsOf: url) {
+            data = file
+        } else {
+            data = Data(CaliforniaTruckDirectoryJSON.raw.utf8)
+        }
+        guard let rows = try? JSONDecoder().decode([DirectoryRow].self, from: data) else {
+            print("california food truck directory failed to decode")
+            return []
+        }
+        var seen = Set<String>()
+        var trucks: [Truck] = []
+        for row in rows {
+            let handle = row.instagram.lowercased().trimmingCharacters(in: CharacterSet(charactersIn: "@"))
+            guard !handle.isEmpty, seen.insert(handle).inserted else { continue }
+            var links = ["https://www.instagram.com/\(handle)/"]
+            if let facebook = row.facebook, !facebook.isEmpty {
+                links.append("https://www.facebook.com/\(facebook)")
+            }
+            if let x = row.x, !x.isEmpty {
+                links.append("https://x.com/\(x)")
+            }
+            trucks.append(
+                Truck(
+                    id: deterministicID(forHandle: handle),
+                    name: row.name,
+                    cuisineType: row.cuisine,
+                    socialLinks: links,
+                    averageConfidenceScore: 0.8,
+                    region: row.region
+                )
+            )
+        }
+        return trucks
+    }
+
+    static func mergeCloudKit(_ cloud: [Truck], withDirectory directory: [Truck]) -> [Truck] {
+        var byName: [String: Truck] = [:]
+        for truck in cloud {
+            byName[truck.name.lowercased()] = truck
+        }
+        var handles = Set(cloud.compactMap { $0.instagramHandle?.lowercased() })
+        var merged: [Truck] = cloud.map { truck in
+            var copy = truck
+            if let extra = directory.first(where: {
+                $0.name.localizedCaseInsensitiveCompare(truck.name) == .orderedSame
+                    || ($0.instagramHandle != nil && $0.instagramHandle?.lowercased() == truck.instagramHandle?.lowercased())
+            }) {
+                if copy.socialLinks.isEmpty { copy.socialLinks = extra.socialLinks }
+                if copy.cuisineType.isEmpty { copy.cuisineType = extra.cuisineType }
+                if copy.region.isEmpty || copy.region == "Other" { copy.region = extra.region }
+            }
+            return copy
+        }
+        for extra in directory {
+            let nameKey = extra.name.lowercased()
+            let handle = extra.instagramHandle?.lowercased()
+            if byName[nameKey] != nil { continue }
+            if let handle, handles.contains(handle) { continue }
+            merged.append(extra)
+            byName[nameKey] = extra
+            if let handle { handles.insert(handle) }
+        }
+        return merged.sorted { $0.name.localizedCaseInsensitiveCompare($1.name) == .orderedAscending }
+    }
 
     private static let profiles: [Profile] = [
         .init(match: "drewski", instagram: "drewskis", x: "drewskishotrod", facebook: "drewskisfoodtrucks", website: "https://drewskis.com", region: "Sacramento"),

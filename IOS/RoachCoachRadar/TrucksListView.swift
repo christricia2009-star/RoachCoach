@@ -92,6 +92,12 @@ struct TrucksListView: View {
             .searchable(text: $searchText, prompt: "Search trucks, cuisine, region…")
             .navigationTitle("Trucks")
             .toolbar {
+                ToolbarItem(placement: .topBarLeading) {
+                    Text("\(listedTrucks.count)")
+                        .font(.caption.monospacedDigit())
+                        .foregroundStyle(.secondary)
+                        .accessibilityLabel("\(listedTrucks.count) trucks")
+                }
                 ToolbarItem(placement: .topBarTrailing) {
                     Menu {
                         Button("All Regions") { selectedRegion = nil }
