@@ -125,7 +125,13 @@ final class LiveAPIService: APIServicing {
 
     static let shared = LiveAPIService()
 
-    private let baseURL = URL(string: "https://radar.snapcollectibles.com")!
+    private var baseURL: URL {
+        let raw = APIKeyStore.shared.backendURL.trimmingCharacters(in: .whitespacesAndNewlines)
+        if let url = URL(string: raw), !raw.isEmpty, url.scheme != nil {
+            return url
+        }
+        return URL(string: "https://radar.snapcollectibles.com")!
+    }
 
     // CloudKit — same container/database the app already reads from via
     // CloudKitService.swift. fetchUser/updateFavorites go here, NOT to

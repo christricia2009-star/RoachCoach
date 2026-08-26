@@ -1284,6 +1284,56 @@ def sync_social_profiles_to_cloudkit() -> int:
     return updated + created
 
 
+def seed_default_menus() -> int:
+    """Write starter MenuItem records for trucks that have no menu yet."""
+    path = os.path.join(
+        os.path.dirname(__file__), "..", "data", "default_menus.json"
+    )
+    if not os.path.isfile(path):
+        return 0
+    try:
+        import cloudkit_bridge
+        rows = json.load(open(path, encoding="utf-8"))
+        catalog = load_live_truck_catalog()
+        created = 0
+        for item in catalog:
+            ig = str(item.get("instagram") or "").lower()
+            recipes = rows.get(ig)
+            if not recipes:
+                continue
+            truck_id = str(item.get("id") or "").strip() or _deterministic_truck_uuid(ig)
+            existing = cloudkit_bridge.get_menu_items_for_truck(truck_id)
+            if existing:
+                continue
+            for index, recipe in enumerate(recipes):
+                record_id = f"menu_{ig}_{index}"
+                fields = {
+                    "truckID": truck_id,
+                    "name": recipe.get("name") or "Item",
+                    "category": recipe.get("category") or "entree",
+                    "priceCents": int(recipe.get("priceCents") or 0),
+                    "currency": "USD",
+                    "isAvailable": 1,
+                    "sortOrder": index,
+                    "modifiersJSON": "[]",
+                }
+                if recipe.get("description"):
+                    fields["itemDescription"] = recipe["description"]
+                try:
+                    cloudkit_bridge.save_menu_item(
+                        record_id,
+                        cloudkit_bridge.to_cloudkit_fields(fields),
+                    )
+                    created += 1
+                except Exception as exc:
+                    print(f"[menu] seed failed {record_id}: {exc}")
+        print(f"[menu] seeded {created} starter item(s)")
+        return created
+    except Exception as exc:
+        print(f"[menu] seed skipped: {exc}")
+        return 0
+
+
 def all_facebook_page_ids(catalog: list[dict] | None = None) -> list[str]:
     catalog = catalog or load_live_truck_catalog()
     seen: set[str] = set()

@@ -38,15 +38,22 @@ import traceback
 from datetime import datetime, timedelta, timezone
 from typing import Any, Optional
 
-from fastapi import FastAPI, HTTPException, Request
+from fastapi import FastAPI, HTTPException, Request, Header
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel, ConfigDict, Field
 
-from backend import signal_fusion
-from backend.signal_fusion import RawDetection
-from backend import error_tracking
-from backend import payments
-from backend.payments import PaymentError
+try:
+    from backend import signal_fusion
+    from backend.signal_fusion import RawDetection
+    from backend import error_tracking
+    from backend import payments
+    from backend.payments import PaymentError
+except ImportError:
+    import signal_fusion
+    from signal_fusion import RawDetection
+    import error_tracking
+    import payments
+    from payments import PaymentError
 
 import cloudkit_bridge
 
@@ -719,6 +726,47 @@ def get_trucks():
             key=lambda x: x.name.lower()
         )
 
+        try:
+            from social_scraper import (
+                load_live_truck_catalog,
+                _deterministic_truck_uuid,
+            )
+
+            catalog = load_live_truck_catalog()
+            existing_names = {t.name.lower() for t in trucks}
+            existing_ids = {t.id for t in trucks}
+            for item in catalog:
+                name = str(item.get("search_name") or "").strip()
+                if not name or name.lower() in existing_names:
+                    continue
+                ig = str(item.get("instagram") or "").strip().lstrip("@").lower()
+                rid = str(item.get("id") or "").strip() or (
+                    _deterministic_truck_uuid(ig) if ig else ""
+                )
+                if not rid or rid in existing_ids:
+                    continue
+                links = []
+                if ig:
+                    links.append(f"https://www.instagram.com/{ig}/")
+                if item.get("facebook"):
+                    links.append(
+                        f"https://www.facebook.com/{item['facebook']}"
+                    )
+                trucks.append(
+                    TruckOut(
+                        id=rid,
+                        name=name,
+                        cuisine_type=item.get("cuisine") or "",
+                        social_links=links,
+                        average_confidence_score=0.8,
+                    )
+                )
+                existing_names.add(name.lower())
+                existing_ids.add(rid)
+            trucks.sort(key=lambda x: x.name.lower())
+        except Exception:
+            pass
+
         return trucks
 
     except Exception as e:
@@ -1149,6 +1197,38 @@ def create_sighting(
 # CLOUDKIT — MENU
 # ============================================================
 
+def _starter_menu_for_truck(truck_id: str) -> list[MenuItemOut]:
+    path = os.path.join(BACKEND_DIR, "data", "default_menus.json")
+    if not os.path.isfile(path):
+        return []
+    try:
+        rows = json.load(open(path, encoding="utf-8"))
+        from social_scraper import load_live_truck_catalog, _deterministic_truck_uuid
+
+        handle = ""
+        for item in load_live_truck_catalog():
+            rid = str(item.get("id") or "")
+            ig = str(item.get("instagram") or "").lower()
+            if rid == truck_id or (ig and _deterministic_truck_uuid(ig) == truck_id):
+                handle = ig
+                break
+        recipes = rows.get(handle) or []
+        return [
+            MenuItemOut(
+                id=f"menu_{handle}_{index}",
+                truck_id=str(truck_id),
+                name=row.get("name") or "Item",
+                description=row.get("description"),
+                category=row.get("category") or "entree",
+                price_cents=int(row.get("priceCents") or 0),
+                sort_order=index,
+            )
+            for index, row in enumerate(recipes)
+        ]
+    except Exception:
+        return []
+
+
 def _record_to_menu_item(record: dict) -> MenuItemOut:
 
     record_name = record.get("recordName", str(uuid.uuid4()))
@@ -1186,9 +1266,15 @@ def get_truck_menu(truck_id: str, available_only: bool = False):
             only_available=available_only,
         )
 
-        return [_record_to_menu_item(r) for r in records]
+        items = [_record_to_menu_item(r) for r in records]
+        if items:
+            return items
+        return _starter_menu_for_truck(truck_id)
 
     except Exception as e:
+        starter = _starter_menu_for_truck(truck_id)
+        if starter:
+            return starter
         error_tracking.report("get_truck_menu failed")
         raise HTTPException(
             status_code=500,
@@ -1200,8 +1286,13 @@ def get_truck_menu(truck_id: str, available_only: bool = False):
     "/api/trucks/{truck_id}/menu/items",
     response_model=MenuItemOut,
 )
-def create_menu_item(truck_id: str, item: MenuItemIn):
+def create_menu_item(
+    truck_id: str,
+    item: MenuItemIn,
+    x_owner_token: Optional[str] = Header(default=None, alias="X-Owner-Token"),
+):
     """Owner-facing: add an item to a truck's menu."""
+    require_owner(x_owner_token)
 
     try:
         now = datetime.now(timezone.utc)
@@ -1256,8 +1347,13 @@ def create_menu_item(truck_id: str, item: MenuItemIn):
     "/api/menu/items/{item_id}",
     response_model=MenuItemOut,
 )
-def update_menu_item(item_id: str, item: MenuItemIn):
+def update_menu_item(
+    item_id: str,
+    item: MenuItemIn,
+    x_owner_token: Optional[str] = Header(default=None, alias="X-Owner-Token"),
+):
     """Owner-facing: edit an existing item (price, availability, etc)."""
+    require_owner(x_owner_token)
 
     try:
         existing = cloudkit_bridge.get_menu_item(item_id)
@@ -1314,7 +1410,11 @@ def update_menu_item(item_id: str, item: MenuItemIn):
 
 
 @app.delete("/api/menu/items/{item_id}")
-def delete_menu_item(item_id: str):
+def delete_menu_item(
+    item_id: str,
+    x_owner_token: Optional[str] = Header(default=None, alias="X-Owner-Token"),
+):
+    require_owner(x_owner_token)
 
     try:
         cloudkit_bridge.delete_menu_item(item_id)
@@ -1367,7 +1467,15 @@ def _record_to_order(record: dict) -> OrderOut:
 # Flat placeholder tax rate for the Phase 1 skeleton. Replace with a
 # real per-jurisdiction lookup (or let the payment processor compute
 # tax, e.g. Stripe Tax) once Phase 5 payment wiring lands.
-ORDER_TAX_RATE = 0.0
+ORDER_TAX_RATE = float(os.getenv("ORDER_TAX_RATE") or "0.0875")
+OWNER_API_TOKEN = (os.getenv("OWNER_API_TOKEN") or "").strip()
+
+
+def require_owner(x_owner_token: Optional[str] = None) -> None:
+    if not OWNER_API_TOKEN:
+        return
+    if (x_owner_token or "") != OWNER_API_TOKEN:
+        raise HTTPException(status_code=401, detail="Owner token required")
 
 
 @app.post(
@@ -1535,9 +1643,14 @@ def get_order_detail(order_id: str):
     "/api/orders/{order_id}/status",
     response_model=OrderOut,
 )
-def update_order_status(order_id: str, update: OrderStatusUpdateIn):
+def update_order_status(
+    order_id: str,
+    update: OrderStatusUpdateIn,
+    x_owner_token: Optional[str] = Header(default=None, alias="X-Owner-Token"),
+):
     """Owner Order Board status transitions: pending -> accepted ->
     preparing -> ready -> completed (or -> cancelled at any point)."""
+    require_owner(x_owner_token)
 
     try:
         if update.status not in ORDER_STATUSES:

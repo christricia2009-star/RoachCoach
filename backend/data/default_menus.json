@@ -1,0 +1,32 @@
+{
+  "drewskis": [
+    {"name": "Hemi sandwich", "category": "entree", "priceCents": 1500, "description": "Pulled pork, mac, caramelized onion"},
+    {"name": "Totchos", "category": "side", "priceCents": 900},
+    {"name": "Soda", "category": "drink", "priceCents": 300}
+  ],
+  "senorsisig": [
+    {"name": "Sisig burrito", "category": "entree", "priceCents": 1600},
+    {"name": "Sisig tacos (2)", "category": "entree", "priceCents": 1200},
+    {"name": "Sisig fries", "category": "side", "priceCents": 1000}
+  ],
+  "chairmantruck": [
+    {"name": "Pork belly bao", "category": "entree", "priceCents": 900},
+    {"name": "Spicy chicken bao", "category": "entree", "priceCents": 900},
+    {"name": "Milk tea", "category": "drink", "priceCents": 500}
+  ],
+  "curryupnow": [
+    {"name": "Tikka masala burrito", "category": "entree", "priceCents": 1400},
+    {"name": "Sexy fries", "category": "side", "priceCents": 900},
+    {"name": "Mango lassi", "category": "drink", "priceCents": 500}
+  ],
+  "heftygyros": [
+    {"name": "Gyro pita", "category": "entree", "priceCents": 1300},
+    {"name": "Chicken plate", "category": "entree", "priceCents": 1500},
+    {"name": "Hummus", "category": "side", "priceCents": 600}
+  ],
+  "roliroti": [
+    {"name": "Porchetta sandwich", "category": "entree", "priceCents": 1600},
+    {"name": "Rotisserie chicken", "category": "entree", "priceCents": 1400},
+    {"name": "Potatoes", "category": "side", "priceCents": 600}
+  ]
+}

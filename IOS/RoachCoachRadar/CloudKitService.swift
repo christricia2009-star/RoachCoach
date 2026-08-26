@@ -296,4 +296,251 @@ final class CloudKitService: APIServicing {
     }
 
     func updateFavorites(_ truckIds: [UUID]) async throws { }
+
+    // MARK: - Menu + Order Ahead
+
+    func fetchMenu(forTruck truckId: UUID, availableOnly: Bool) async throws -> [MenuItem] {
+        let records = await queryAll(type: "MenuItem")
+        let needle = truckId.uuidString.lowercased()
+        var items = records.compactMap { menuItem(from: $0) }.filter {
+            $0.truckId.lowercased() == needle
+        }
+        if items.isEmpty {
+            items = MenuCatalog.items(matching: truckId)
+        }
+        items.sort { $0.sortOrder < $1.sortOrder }
+        return availableOnly ? items.filter(\.isAvailable) : items
+    }
+
+    func createOrder(_ request: NewOrderRequest) async throws -> Order {
+        guard let truckUUID = UUID(uuidString: request.truckId) else {
+            throw APIError.httpError(400)
+        }
+        let menu = try await fetchMenu(forTruck: truckUUID, availableOnly: false)
+            var resolved: [OrderLineItem] = []
+            var subtotal = 0
+            for line in request.items {
+                guard let item = menu.first(where: { $0.id == line.menuItemId }) else {
+                    continue
+                }
+                try? await upsertMenuItem(item)
+                let delta = line.modifiers.reduce(0) { $0 + $1.priceDeltaCents }
+                let unit = item.priceCents + delta
+                let total = unit * max(1, line.quantity)
+                subtotal += total
+                resolved.append(
+                    OrderLineItem(
+                        menuItemId: item.id,
+                        nameSnapshot: item.name,
+                        unitPriceCents: item.priceCents,
+                        quantity: line.quantity,
+                        modifiers: line.modifiers,
+                        lineTotalCents: total
+                    )
+                )
+            }
+            guard !resolved.isEmpty else { throw APIError.httpError(400) }
+            let tax = Int((Double(subtotal) * 0.0875).rounded())
+            let now = Date()
+            let order = Order(
+                id: "order_\(UUID().uuidString.lowercased())",
+                truckId: request.truckId,
+                customerUserId: request.customerUserId,
+                customerName: request.customerName,
+                status: .pending,
+                items: resolved,
+                subtotalCents: subtotal,
+                taxCents: tax,
+                tipCents: request.tipCents,
+                totalCents: subtotal + tax + request.tipCents,
+                currency: "USD",
+                specialInstructions: request.specialInstructions,
+                pickupEtaMinutes: nil,
+                paymentProvider: nil,
+                paymentStatus: "unpaid",
+                createdAt: now,
+                updatedAt: now
+            )
+            try await saveOrder(order)
+            return order
+    }
+
+    func fetchOrder(id: String) async throws -> Order {
+        let recordID = CKRecord.ID(recordName: id)
+        do {
+            let record = try await publicDB.record(for: recordID)
+            if let order = order(from: record) { return order }
+        } catch {
+            print("CloudKit order lookup failed: \(error)")
+        }
+        throw APIError.httpError(404)
+    }
+
+    func fetchOrders(forTruck truckId: UUID, activeOnly: Bool) async throws -> [Order] {
+        let records = await queryAll(type: "Order")
+        let needle = truckId.uuidString.lowercased()
+        var orders = records.compactMap { order(from: $0) }.filter {
+            $0.truckId.lowercased() == needle
+        }
+        if activeOnly {
+            orders = orders.filter { $0.status != .completed && $0.status != .cancelled }
+        }
+        return orders.sorted { $0.createdAt > $1.createdAt }
+    }
+
+    func updateOrderStatus(orderId: String, status: OrderStatus, pickupEtaMinutes: Int?) async throws -> Order {
+        var order = try await fetchOrder(id: orderId)
+        order.status = status
+        order.pickupEtaMinutes = pickupEtaMinutes ?? order.pickupEtaMinutes
+        order.updatedAt = Date()
+        try await saveOrder(order)
+        if status == .ready {
+            NotificationService.shared.scheduleTruckSpottedNotification(
+                truckName: "Your order",
+                note: "Order is ready for pickup.",
+                delaySeconds: 1
+            )
+        }
+        return order
+    }
+
+    func saveMenuItem(_ item: MenuItem) async throws {
+        try await upsertMenuItem(item)
+    }
+
+    func deleteMenuItem(id: String) async throws {
+        try await publicDB.deleteRecord(withID: CKRecord.ID(recordName: id))
+    }
+
+    func fetchPaymentsConfig() async throws -> PaymentsConfig {
+        try await LiveAPIService.shared.fetchPaymentsConfig()
+    }
+
+    func createStripePaymentIntent(orderId: String) async throws -> StripePaymentIntent {
+        try await LiveAPIService.shared.createStripePaymentIntent(orderId: orderId)
+    }
+
+    func chargeSquare(orderId: String, sourceId: String, verificationToken: String?) async throws -> PaymentResult {
+        try await LiveAPIService.shared.chargeSquare(orderId: orderId, sourceId: sourceId, verificationToken: verificationToken)
+    }
+
+    private func queryAll(type: String) async -> [CKRecord] {
+        let query = CKQuery(recordType: type, predicate: NSPredicate(value: true))
+        do {
+            let (results, _) = try await publicDB.records(matching: query)
+            return results.compactMap { _, result in
+                guard case .success(let record) = result else { return nil }
+                return record
+            }
+        } catch {
+            print("CloudKit \(type) query failed: \(error)")
+            return []
+        }
+    }
+
+    private func menuItem(from record: CKRecord) -> MenuItem? {
+        guard let name = record["name"] as? String else { return nil }
+        let available: Bool
+        if let flag = record["isAvailable"] as? Int {
+            available = flag != 0
+        } else if let flag = record["isAvailable"] as? Int64 {
+            available = flag != 0
+        } else {
+            available = true
+        }
+        var modifiers: [MenuItemModifier] = []
+        if let raw = record["modifiersJSON"] as? String,
+           let data = raw.data(using: .utf8),
+           let parsed = try? JSONDecoder().decode([MenuItemModifier].self, from: data) {
+            modifiers = parsed
+        }
+        let categoryRaw = record["category"] as? String ?? "entree"
+        return MenuItem(
+            id: record.recordID.recordName,
+            truckId: record["truckID"] as? String ?? "",
+            name: name,
+            description: record["itemDescription"] as? String,
+            category: MenuCategory(rawValue: categoryRaw) ?? .entree,
+            priceCents: (record["priceCents"] as? Int) ?? Int(record["priceCents"] as? Int64 ?? 0),
+            currency: record["currency"] as? String ?? "USD",
+            photoURL: record["photoURL"] as? String,
+            isAvailable: available,
+            sortOrder: (record["sortOrder"] as? Int) ?? Int(record["sortOrder"] as? Int64 ?? 0),
+            modifiers: modifiers
+        )
+    }
+
+    private func upsertMenuItem(_ item: MenuItem) async throws {
+        let record = CKRecord(recordType: "MenuItem", recordID: CKRecord.ID(recordName: item.id))
+        record["truckID"] = item.truckId
+        record["name"] = item.name
+        record["itemDescription"] = item.description
+        record["category"] = item.category.rawValue
+        record["priceCents"] = item.priceCents
+        record["currency"] = item.currency
+        record["photoURL"] = item.photoURL
+        record["isAvailable"] = item.isAvailable ? 1 : 0
+        record["sortOrder"] = item.sortOrder
+        if let data = try? JSONEncoder().encode(item.modifiers),
+           let json = String(data: data, encoding: .utf8) {
+            record["modifiersJSON"] = json
+        }
+        record["updatedAt"] = Date()
+        try await upsert(record)
+    }
+
+    private func order(from record: CKRecord) -> Order? {
+        guard let truckId = record["truckID"] as? String else { return nil }
+        var items: [OrderLineItem] = []
+        if let raw = record["itemsJSON"] as? String,
+           let data = raw.data(using: .utf8),
+           let parsed = try? JSONDecoder().decode([OrderLineItem].self, from: data) {
+            items = parsed
+        }
+        let statusRaw = record["status"] as? String ?? "pending"
+        return Order(
+            id: record.recordID.recordName,
+            truckId: truckId,
+            customerUserId: record["customerUserID"] as? String,
+            customerName: record["customerName"] as? String,
+            status: OrderStatus(rawValue: statusRaw) ?? .pending,
+            items: items,
+            subtotalCents: (record["subtotalCents"] as? Int) ?? Int(record["subtotalCents"] as? Int64 ?? 0),
+            taxCents: (record["taxCents"] as? Int) ?? Int(record["taxCents"] as? Int64 ?? 0),
+            tipCents: (record["tipCents"] as? Int) ?? Int(record["tipCents"] as? Int64 ?? 0),
+            totalCents: (record["totalCents"] as? Int) ?? Int(record["totalCents"] as? Int64 ?? 0),
+            currency: record["currency"] as? String ?? "USD",
+            specialInstructions: record["specialInstructions"] as? String,
+            pickupEtaMinutes: record["pickupEtaMinutes"] as? Int,
+            paymentProvider: record["paymentProvider"] as? String,
+            paymentStatus: record["paymentStatus"] as? String ?? "unpaid",
+            createdAt: date(from: record, key: "createdAt") ?? Date(),
+            updatedAt: date(from: record, key: "updatedAt") ?? Date()
+        )
+    }
+
+    private func saveOrder(_ order: Order) async throws {
+        let record = CKRecord(recordType: "Order", recordID: CKRecord.ID(recordName: order.id))
+        record["truckID"] = order.truckId
+        record["customerUserID"] = order.customerUserId
+        record["customerName"] = order.customerName
+        record["status"] = order.status.rawValue
+        record["subtotalCents"] = order.subtotalCents
+        record["taxCents"] = order.taxCents
+        record["tipCents"] = order.tipCents
+        record["totalCents"] = order.totalCents
+        record["currency"] = order.currency
+        record["specialInstructions"] = order.specialInstructions
+        if let eta = order.pickupEtaMinutes { record["pickupEtaMinutes"] = eta }
+        record["paymentProvider"] = order.paymentProvider
+        record["paymentStatus"] = order.paymentStatus
+        record["createdAt"] = order.createdAt
+        record["createdAtMs"] = Int(order.createdAt.timeIntervalSince1970 * 1000)
+        record["updatedAt"] = order.updatedAt
+        if let data = try? JSONEncoder().encode(order.items),
+           let json = String(data: data, encoding: .utf8) {
+            record["itemsJSON"] = json
+        }
+        try await upsert(record)
+    }
 }

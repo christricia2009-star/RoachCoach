@@ -18,6 +18,14 @@ const COLUMNS = [
 
 const POLL_MS = 6000;
 
+function ownerHeaders(extra = {}) {
+  const token = typeof window !== "undefined" ? sessionStorage.getItem("ownerToken") || "" : "";
+  return {
+    ...extra,
+    ...(token ? { "X-Owner-Token": token } : {}),
+  };
+}
+
 function centsToDollars(cents) {
   return `$${(cents / 100).toFixed(2)}`;
 }
@@ -164,10 +172,16 @@ export default function OwnerOrderBoard({ truckId }) {
 
       const res = await fetch(`/api/orders/${encodeURIComponent(order.id)}/status`, {
         method: "PATCH",
-        headers: { "Content-Type": "application/json" },
+        headers: ownerHeaders({ "Content-Type": "application/json" }),
         body: JSON.stringify(body),
       });
-      if (!res.ok) throw new Error(`status update failed (${res.status})`);
+      if (!res.ok) {
+        if (res.status === 401) {
+          const token = window.prompt("Owner token") || "";
+          if (token) sessionStorage.setItem("ownerToken", token);
+        }
+        throw new Error(`status update failed (${res.status})`);
+      }
       const updated = await res.json();
 
       setOrders((prev) => {

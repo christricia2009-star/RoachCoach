@@ -7,6 +7,10 @@ struct TruckProfileView: View {
 
     @State private var recentSightings: [Sighting] = []
     @State private var showCaptionImport = false
+    @State private var menuItems: [MenuItem] = []
+    @State private var cart: [CartLine] = []
+    @State private var showCart = false
+    @State private var liveOrder: Order?
     @StateObject private var favorites = FavoritesStore.shared
     @StateObject private var locationService = LocationService.shared
     private let api: APIServicing = CloudKitService.shared
@@ -133,10 +137,32 @@ struct TruckProfileView: View {
                     }
                 }
 
-                if !truck.menuHighlights.isEmpty {
+                if !menuItems.isEmpty {
+                    TruckMenuSection(items: menuItems) { item, mods in
+                        let key = "\(item.id)-\(mods.map(\.name).joined(separator: ","))"
+                        if let idx = cart.firstIndex(where: { $0.id == key }) {
+                            cart[idx].quantity += 1
+                        } else {
+                            cart.append(CartLine(id: key, item: item, quantity: 1, modifiers: mods))
+                        }
+                    }
+                } else if !truck.menuHighlights.isEmpty {
                     Section("Menu Highlights") {
                         ForEach(truck.menuHighlights, id: \.self) { item in
                             Text(item)
+                        }
+                    }
+                }
+
+                if let liveOrder {
+                    Section("Your order") {
+                        Text(liveOrder.status.displayName)
+                            .font(.headline)
+                        Text(liveOrder.totalDisplay)
+                        if liveOrder.paymentStatus != "captured" && liveOrder.paymentStatus != "authorized" {
+                            CheckoutView(order: liveOrder) { paid in
+                                self.liveOrder = paid
+                            }
                         }
                     }
                 }
@@ -191,6 +217,15 @@ struct TruckProfileView: View {
                         Image(systemName: favorites.contains(truck.id) ? "heart.fill" : "heart")
                     }
                 }
+                if !cart.isEmpty {
+                    ToolbarItem(placement: .topBarTrailing) {
+                        Button {
+                            showCart = true
+                        } label: {
+                            Label("Cart \(cart.reduce(0) { $0 + $1.quantity })", systemImage: "cart.fill")
+                        }
+                    }
+                }
             }
             .sheet(isPresented: $showCaptionImport) {
                 CaptionPinImportView(truck: truck) { sighting in
@@ -200,8 +235,15 @@ struct TruckProfileView: View {
                     }
                 }
             }
+            .sheet(isPresented: $showCart) {
+                CartCheckoutSheet(truck: truck, cart: $cart) { order in
+                    liveOrder = order
+                    cart.removeAll()
+                }
+            }
             .task {
                 recentSightings = (try? await api.fetchSightings(forTruck: truck.id)) ?? []
+                menuItems = (try? await api.fetchMenu(forTruck: truck.id, availableOnly: true)) ?? []
                 locationService.requestPermission()
             }
         }

@@ -74,6 +74,44 @@ struct Order: Identifiable, Codable, Hashable {
     var totalDisplay: String {
         String(format: "$%.2f", Double(totalCents) / 100.0)
     }
+
+    init(
+        id: String,
+        truckId: String,
+        customerUserId: String? = nil,
+        customerName: String? = nil,
+        status: OrderStatus,
+        items: [OrderLineItem],
+        subtotalCents: Int,
+        taxCents: Int,
+        tipCents: Int,
+        totalCents: Int,
+        currency: String = "USD",
+        specialInstructions: String? = nil,
+        pickupEtaMinutes: Int? = nil,
+        paymentProvider: String? = nil,
+        paymentStatus: String = "unpaid",
+        createdAt: Date,
+        updatedAt: Date
+    ) {
+        self.id = id
+        self.truckId = truckId
+        self.customerUserId = customerUserId
+        self.customerName = customerName
+        self.status = status
+        self.items = items
+        self.subtotalCents = subtotalCents
+        self.taxCents = taxCents
+        self.tipCents = tipCents
+        self.totalCents = totalCents
+        self.currency = currency
+        self.specialInstructions = specialInstructions
+        self.pickupEtaMinutes = pickupEtaMinutes
+        self.paymentProvider = paymentProvider
+        self.paymentStatus = paymentStatus
+        self.createdAt = createdAt
+        self.updatedAt = updatedAt
+    }
 }
 
 /// Client -> server payload for POST /api/orders. Server resolves prices

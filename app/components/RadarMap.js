@@ -58,6 +58,8 @@ export default function RadarMap() {
   const mapRef = useRef(null);
   const markersRef = useRef([]);
   const [contacts, setContacts] = useState([]);
+  const [allTrucks, setAllTrucks] = useState([]);
+  const [search, setSearch] = useState("");
   const [loadError, setLoadError] = useState(null);
   const [lastUpdated, setLastUpdated] = useState(null);
 
@@ -115,6 +117,7 @@ export default function RadarMap() {
         const sightings = await sightingsRes.json();
         if (cancelled) return;
 
+        setAllTrucks(Array.isArray(trucks) ? trucks : []);
         const trucksById = new Map(trucks.map((t) => [t.id, t]));
         const latestByTruck = new Map();
 
@@ -168,7 +171,12 @@ export default function RadarMap() {
       markersRef.current.forEach((m) => m.remove());
       markersRef.current = [];
 
+      const q = search.trim().toLowerCase();
       contacts.forEach(({ truck, sighting, isLive }) => {
+        if (q) {
+          const hay = `${truck?.name || ""} ${truck?.cuisine_type || truck?.cuisineType || ""}`.toLowerCase();
+          if (!hay.includes(q)) return;
+        }
         const color = CONFIDENCE_COLOR[sighting.confidenceLevel] || CONFIDENCE_COLOR.medium;
 
         const el = document.createElement("div");
@@ -179,7 +187,7 @@ export default function RadarMap() {
         const popupHtml = `
           <div class="rc-popup">
             <strong>${escapeHtml(truck?.name || "Unknown truck")}</strong>
-            <div class="rc-popup__meta">${escapeHtml(truck?.cuisine_type || "Cuisine unknown")}</div>
+            <div class="rc-popup__meta">${escapeHtml(truck?.cuisine_type || truck?.cuisineType || "Cuisine unknown")}</div>
             <div class="rc-popup__conf" style="color:${color}">
               ${escapeHtml(sighting.confidenceLevel || "medium")} confidence · ${isLive ? "live" : "last seen"}
             </div>
@@ -198,7 +206,7 @@ export default function RadarMap() {
     });
 
     return () => cancelAnimationFrame(raf);
-  }, [contacts]);
+  }, [contacts, search]);
 
   return (
     <div className="rc-map-wrap">
@@ -210,11 +218,17 @@ export default function RadarMap() {
           <h1>🪳 Roach Coach Radar</h1>
         </div>
         <div className="rc-map-status">
+          <input
+            className="rc-search"
+            placeholder="Search trucks…"
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+          />
           {loadError ? (
             <span className="rc-pill rc-pill--error">🔴 {loadError}</span>
           ) : (
             <span className="rc-pill rc-pill--ok">
-              🟢 {contacts.length} truck{contacts.length === 1 ? "" : "s"} on radar
+              🟢 {contacts.length} on radar · {allTrucks.length} in directory
             </span>
           )}
         </div>
@@ -231,6 +245,23 @@ export default function RadarMap() {
         {lastUpdated && (
           <div className="rc-legend__updated">Updated {lastUpdated.toLocaleTimeString()}</div>
         )}
+      </div>
+
+      <div className="rc-directory">
+        <div className="rc-legend__title">Directory</div>
+        {allTrucks
+          .filter((t) => {
+            const q = search.trim().toLowerCase();
+            if (!q) return true;
+            return `${t.name || ""} ${t.cuisine_type || t.cuisineType || ""}`.toLowerCase().includes(q);
+          })
+          .slice(0, 40)
+          .map((t) => (
+            <a key={t.id} className="rc-directory__row" href={`/trucks/${encodeURIComponent(t.id)}`}>
+              <strong>{t.name}</strong>
+              <span>{t.cuisine_type || t.cuisineType || "Menu & order"}</span>
+            </a>
+          ))}
       </div>
     </div>
   );
