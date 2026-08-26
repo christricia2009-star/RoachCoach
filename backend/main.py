@@ -1273,6 +1273,29 @@ def _recipes_to_menu(truck_id: str, prefix: str, recipes: list) -> list[MenuItem
     ]
 
 
+def _resolve_order_menu_item(menu_item_id: str, truck_id: str) -> MenuItemOut:
+    """CloudKit MenuItem if present; otherwise a starter/cuisine item
+    returned by GET /api/trucks/{id}/menu (ids like menu_drewskis_0)."""
+    record = None
+    try:
+        record = cloudkit_bridge.get_menu_item(menu_item_id)
+    except Exception:
+        record = None
+    if record:
+        record_truck_id = str(_cloudkit_record_value(record, "truckID", "") or "")
+        if record_truck_id.lower() == str(truck_id).lower():
+            return _record_to_menu_item(record)
+
+    for item in _starter_menu_for_truck(truck_id):
+        if item.id == menu_item_id:
+            return item
+
+    raise HTTPException(
+        status_code=400,
+        detail=f"Menu item {menu_item_id} not found",
+    )
+
+
 def _starter_menu_for_truck(truck_id: str) -> list[MenuItemOut]:
     path = os.path.join(BACKEND_DIR, "data", "default_menus.json")
     if not os.path.isfile(path):
@@ -1564,22 +1587,8 @@ def create_order(order: OrderIn):
         subtotal_cents = 0
 
         for line in order.items:
-            menu_record = cloudkit_bridge.get_menu_item(line.menu_item_id)
-
-            if not menu_record:
-                raise HTTPException(
-                    status_code=400,
-                    detail=f"Menu item {line.menu_item_id} not found",
-                )
-
-            record_truck_id = str(_cloudkit_record_value(menu_record, "truckID", ""))
-            if record_truck_id != str(order.truck_id):
-                raise HTTPException(
-                    status_code=400,
-                    detail=f"Menu item {line.menu_item_id} does not belong to truck {order.truck_id}",
-                )
-
-            unit_price = int(_cloudkit_record_value(menu_record, "priceCents", 0) or 0)
+            menu_item = _resolve_order_menu_item(line.menu_item_id, str(order.truck_id))
+            unit_price = int(menu_item.price_cents or 0)
             modifier_delta = sum(m.price_delta_cents for m in line.modifiers)
             line_total = (unit_price + modifier_delta) * line.quantity
             subtotal_cents += line_total
@@ -1587,7 +1596,7 @@ def create_order(order: OrderIn):
             resolved_items.append(
                 OrderItemOut(
                     menu_item_id=line.menu_item_id,
-                    name_snapshot=_cloudkit_record_value(menu_record, "name", "Item"),
+                    name_snapshot=menu_item.name or "Item",
                     unit_price_cents=unit_price,
                     quantity=line.quantity,
                     modifiers=line.modifiers,
