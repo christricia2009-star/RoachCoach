@@ -191,9 +191,15 @@ struct CheckoutView: View {
     }
 
     private var unconfiguredNotice: some View {
-        Text("No payment method is configured for this truck yet.")
-            .font(.footnote)
-            .foregroundStyle(.secondary)
-            .multilineTextAlignment(.center)
+        VStack(spacing: 12) {
+            Text("Pay in the browser — same Stripe checkout as the website.")
+                .font(.footnote)
+                .foregroundStyle(.secondary)
+                .multilineTextAlignment(.center)
+            if let url = URL(string: "https://radar.snapcollectibles.com/pay/\(order.id)") {
+                Link("Open payment page", destination: url)
+                    .buttonStyle(.borderedProminent)
+            }
+        }
     }
 }

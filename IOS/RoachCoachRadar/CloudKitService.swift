@@ -300,6 +300,10 @@ final class CloudKitService: APIServicing {
     // MARK: - Menu + Order Ahead
 
     func fetchMenu(forTruck truckId: UUID, availableOnly: Bool) async throws -> [MenuItem] {
+        if let remote = try? await LiveAPIService.shared.fetchMenu(forTruck: truckId, availableOnly: availableOnly),
+           !remote.isEmpty {
+            return remote
+        }
         let records = await queryAll(type: "MenuItem")
         let needle = truckId.uuidString.lowercased()
         var items = records.compactMap { menuItem(from: $0) }.filter {
@@ -313,6 +317,9 @@ final class CloudKitService: APIServicing {
     }
 
     func createOrder(_ request: NewOrderRequest) async throws -> Order {
+        if let remote = try? await LiveAPIService.shared.createOrder(request) {
+            return remote
+        }
         guard let truckUUID = UUID(uuidString: request.truckId) else {
             throw APIError.httpError(400)
         }
