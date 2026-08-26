@@ -1609,6 +1609,7 @@ def create_order(order: OrderIn):
 
         now = datetime.now(timezone.utc)
         record_id = f"order_{cloudkit_bridge.uuid_safe_id()}"
+        now_ms = int(now.timestamp() * 1000)
 
         fields = {
             "truckID": _cloudkit_field(str(order.truck_id)),
@@ -1622,9 +1623,9 @@ def create_order(order: OrderIn):
             "itemsJSON": _cloudkit_field(
                 json.dumps([i.model_dump(by_alias=True) for i in resolved_items])
             ),
-            "createdAt": _cloudkit_field(now.isoformat()),
-            "createdAtMs": _cloudkit_field(int(now.timestamp() * 1000)),
-            "updatedAt": _cloudkit_field(now.isoformat()),
+            "createdAt": {"value": now_ms, "type": "TIMESTAMP"},
+            "createdAtMs": {"value": now_ms, "type": "INT64"},
+            "updatedAt": {"value": now_ms, "type": "TIMESTAMP"},
         }
 
         if order.customer_user_id:

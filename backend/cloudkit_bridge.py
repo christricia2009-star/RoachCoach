@@ -528,6 +528,21 @@ def save_records(
 # UPSERT RECORD
 # ============================================================
 
+def _timestamp_field(value) -> dict[str, Any]:
+    """CloudKit TIMESTAMP fields want milliseconds since epoch, not ISO text."""
+    if isinstance(value, datetime):
+        dt = value
+    else:
+        text = str(value or "").replace("Z", "+00:00")
+        try:
+            dt = datetime.fromisoformat(text)
+        except Exception:
+            return {"value": value}
+    if dt.tzinfo is None:
+        dt = dt.replace(tzinfo=timezone.utc)
+    return {"value": int(dt.timestamp() * 1000), "type": "TIMESTAMP"}
+
+
 def upsert_record(
     record_type: str,
     record_name: str,
@@ -926,7 +941,7 @@ def update_order_status(
     }
 
     if updated_at_iso:
-        fields["updatedAt"] = {"value": updated_at_iso}
+        fields["updatedAt"] = _timestamp_field(updated_at_iso)
 
     return upsert_record(
         record_type="Order",
@@ -960,7 +975,7 @@ def update_order_payment(
     if order_status is not None:
         fields["status"] = {"value": order_status}
     if updated_at_iso:
-        fields["updatedAt"] = {"value": updated_at_iso}
+        fields["updatedAt"] = _timestamp_field(updated_at_iso)
 
     return upsert_record(
         record_type="Order",
