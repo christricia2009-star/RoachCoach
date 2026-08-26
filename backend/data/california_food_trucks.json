@@ -521,12 +521,6 @@
     "region": "Bay Area"
   },
   {
-    "name": "Get Rad Pizza",
-    "cuisine": "Pizza",
-    "instagram": "getradpizza",
-    "region": "North State"
-  },
-  {
     "name": "Big C's Food Coma",
     "cuisine": "BBQ",
     "instagram": "bigcsfoodcoma",
@@ -543,6 +537,30 @@
     "cuisine": "Mexican",
     "instagram": "dosamigostaq",
     "region": "North State"
+  },
+  {
+    "name": "Get Rad Pizza",
+    "cuisine": "Pizza",
+    "instagram": "getradpizza",
+    "region": "Sierra"
+  },
+  {
+    "name": "Reno Street Food",
+    "cuisine": "Events",
+    "instagram": "foodtruckfridayreno",
+    "region": "Sierra"
+  },
+  {
+    "name": "Daddy's Tacos NV",
+    "cuisine": "Mexican",
+    "instagram": "daddystacosnv",
+    "region": "Sierra"
+  },
+  {
+    "name": "Mr Yummy Yummy",
+    "cuisine": "Japanese",
+    "instagram": "mryummyyummyreno",
+    "region": "Sierra"
   },
   {
     "name": "Where's The Food",

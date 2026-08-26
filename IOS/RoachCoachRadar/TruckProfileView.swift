@@ -15,8 +15,12 @@ struct TruckProfileView: View {
         TruckSocialDirectory.links(for: truck)
     }
 
+    private var displayedSightings: [Sighting] {
+        recentSightings.uniqueRecent(limit: 5)
+    }
+
     private var latestSighting: Sighting? {
-        recentSightings.first { !$0.isExpired } ?? recentSightings.first
+        displayedSightings.first { !$0.isExpired } ?? displayedSightings.first
     }
 
     var body: some View {
@@ -94,6 +98,26 @@ struct TruckProfileView: View {
                     }
                 }
 
+                if !socialLinks.isEmpty {
+                    Section("Social") {
+                        ForEach(socialLinks) { link in
+                            Link(destination: link.url) {
+                                Label {
+                                    VStack(alignment: .leading, spacing: 2) {
+                                        Text(link.title)
+                                            .foregroundStyle(.primary)
+                                        Text(link.handle)
+                                            .font(.caption)
+                                            .foregroundStyle(.secondary)
+                                    }
+                                } icon: {
+                                    Image(systemName: link.systemImage)
+                                }
+                            }
+                        }
+                    }
+                }
+
                 if let latest = latestSighting {
                     Section {
                         Button {
@@ -118,21 +142,21 @@ struct TruckProfileView: View {
                 }
 
                 Section {
-                    TruckReliabilityChartView(sightings: recentSightings)
+                    TruckReliabilityChartView(sightings: displayedSightings)
                 }
 
-                Section("Recent Sightings") {
+                Section("Last 5 Sightings") {
                     Button {
                         showCaptionImport = true
                     } label: {
                         Label("Paste Instagram caption", systemImage: "doc.on.clipboard")
                     }
-                    if recentSightings.isEmpty {
-                        Text("No CloudKit sightings for this truck in the last 14 days yet. Map pins from a radar scan can appear before they land in this list.")
+                    if displayedSightings.isEmpty {
+                        Text("No unique CloudKit pins for this truck yet. Map pins from a radar scan can appear before they land in this list.")
                             .font(.footnote)
                             .foregroundStyle(.secondary)
                     } else {
-                        ForEach(recentSightings.prefix(10)) { sighting in
+                        ForEach(displayedSightings) { sighting in
                             VStack(alignment: .leading, spacing: 4) {
                                 HStack {
                                     Text(sighting.confidenceLevel.rawValue)
@@ -154,26 +178,6 @@ struct TruckProfileView: View {
                                 }
                             }
                             .padding(.vertical, 4)
-                        }
-                    }
-                }
-
-                if !socialLinks.isEmpty {
-                    Section("Social") {
-                        ForEach(socialLinks) { link in
-                            Link(destination: link.url) {
-                                Label {
-                                    VStack(alignment: .leading, spacing: 2) {
-                                        Text(link.title)
-                                            .foregroundStyle(.primary)
-                                        Text(link.handle)
-                                            .font(.caption)
-                                            .foregroundStyle(.secondary)
-                                    }
-                                } icon: {
-                                    Image(systemName: link.systemImage)
-                                }
-                            }
                         }
                     }
                 }

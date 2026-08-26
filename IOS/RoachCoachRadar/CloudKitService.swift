@@ -22,6 +22,21 @@ final class CloudKitService: APIServicing {
 
     /// Backend CloudKit web services write TIMESTAMP as epoch milliseconds.
     /// Native iOS writes a Date. Accept both so scheduler sightings show up.
+    private func stringList(from record: CKRecord, key: String) -> [String] {
+        if let list = record[key] as? [String] {
+            return list.map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }.filter { !$0.isEmpty }
+        }
+        if let one = record[key] as? String {
+            let trimmed = one.trimmingCharacters(in: .whitespacesAndNewlines)
+            if trimmed.isEmpty { return [] }
+            if trimmed.contains("\n") {
+                return trimmed.split(separator: "\n").map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }.filter { !$0.isEmpty }
+            }
+            return [trimmed]
+        }
+        return []
+    }
+
     private func date(from record: CKRecord, key: String) -> Date? {
         if let date = record[key] as? Date {
             return date
@@ -147,11 +162,19 @@ final class CloudKitService: APIServicing {
         guard let name = record["name"] as? String else { return nil }
         let id = UUID(uuidString: record.recordID.recordName) ?? stableUUID(for: record.recordID.recordName)
         let image = (record["imageURL"] as? String)?.trimmingCharacters(in: .whitespacesAndNewlines)
+        var links = stringList(from: record, key: "socialLinks")
+        if let handle = (record["instagramHandle"] as? String)?.trimmingCharacters(in: .whitespacesAndNewlines),
+           !handle.isEmpty {
+            let url = "https://www.instagram.com/\(handle.trimmingCharacters(in: CharacterSet(charactersIn: "@")))/"
+            if !links.contains(where: { $0.localizedCaseInsensitiveContains(handle) }) {
+                links.append(url)
+            }
+        }
         return Truck(
             id: id,
             name: name,
             cuisineType: record["cuisineType"] as? String ?? "",
-            socialLinks: record["socialLinks"] as? [String] ?? [],
+            socialLinks: links,
             averageConfidenceScore: record["averageConfidenceScore"] as? Double ?? 0.0,
             menuHighlights: record["menuHighlights"] as? [String] ?? [],
             imageURL: (image?.isEmpty == false) ? image : nil,

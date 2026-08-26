@@ -92,3 +92,23 @@ struct Sighting: Identifiable, Codable, Hashable, Sendable {
         self.expiresAt = expiresAt ?? timestamp.addingTimeInterval(3 * 60 * 60) // 3 hour default expiry
     }
 }
+
+extension Array where Element == Sighting {
+    /// Newest first, same pin collapsed, capped at `limit`.
+    func uniqueRecent(limit: Int = 5, meters: CLLocationDistance = 150) -> [Sighting] {
+        let sorted = sorted { $0.timestamp > $1.timestamp }
+        var kept: [Sighting] = []
+        for sighting in sorted {
+            let here = CLLocation(latitude: sighting.latitude, longitude: sighting.longitude)
+            let duplicate = kept.contains { existing in
+                let there = CLLocation(latitude: existing.latitude, longitude: existing.longitude)
+                return there.distance(from: here) < meters
+            }
+            if !duplicate {
+                kept.append(sighting)
+                if kept.count == limit { break }
+            }
+        }
+        return kept
+    }
+}

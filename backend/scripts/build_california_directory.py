@@ -95,11 +95,15 @@ TRUCKS = [
     ("Cielito Lindo", "Mexican", "cielitolindomsk", "", "", "Bay Area"),
     ("Kabob Trolley", "Mediterranean", "kabobtrolley", "", "", "Bay Area"),
     ("Daisy's Desserts", "Dessert", "daisysdesserts", "", "", "Bay Area"),
-    # North State
-    ("Get Rad Pizza", "Pizza", "getradpizza", "", "", "North State"),
+    # North State — Redding through Humboldt / Siskiyou to the Oregon border
     ("Big C's Food Coma", "BBQ", "bigcsfoodcoma", "", "", "North State"),
     ("Granny's Grill", "Filipino", "grannysgrillfilipinofoodtruck", "", "", "North State"),
     ("Dos Amigos Taqueria", "Mexican", "dosamigostaq", "", "", "North State"),
+    # Sierra — Tahoe, Truckee, Reno–Sparks metro
+    ("Get Rad Pizza", "Pizza", "getradpizza", "", "", "Sierra"),
+    ("Reno Street Food", "Events", "foodtruckfridayreno", "", "", "Sierra"),
+    ("Daddy's Tacos NV", "Mexican", "daddystacosnv", "", "", "Sierra"),
+    ("Mr Yummy Yummy", "Japanese", "mryummyyummyreno", "", "", "Sierra"),
     # Central Valley
     ("Where's The Food", "Fusion", "wtfwheresthefoodfresno", "", "", "Central Valley"),
     ("Brickology Pizza", "Pizza", "brickologypizza", "", "", "Central Valley"),

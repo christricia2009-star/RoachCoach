@@ -1,6 +1,6 @@
 import SwiftUI
 
-/// Instagram (or CloudKit) profile photo when we have one; truck glyph otherwise.
+/// Instagram profile photo when we can load one; truck glyph otherwise.
 struct TruckAvatar: View {
     let truck: Truck
     var size: CGFloat = 48
@@ -14,6 +14,8 @@ struct TruckAvatar: View {
                         image
                             .resizable()
                             .scaledToFill()
+                    case .failure:
+                        placeholder
                     default:
                         placeholder
                     }

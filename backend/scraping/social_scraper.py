@@ -1068,6 +1068,11 @@ def load_live_truck_catalog(*, refresh: bool = False) -> list[dict]:
             links = _ck_value(rec, "socialLinks") or []
             if isinstance(links, str):
                 links = [links]
+            stored_handle = str(_ck_value(rec, "instagramHandle") or "").strip().lstrip("@").lower()
+            if stored_handle and stored_handle not in [
+                instagram_handle_from_text(str(item)) for item in links
+            ]:
+                links = list(links) + [f"https://www.instagram.com/{stored_handle}/"]
             igs: list[str] = []
             facebook = ""
             x_handle = ""
@@ -1186,10 +1191,16 @@ def sync_social_profiles_to_cloudkit() -> int:
         record_name = rec.get("recordName") or ""
         if name:
             by_name[name] = rec
-        for link in _ck_value(rec, "socialLinks") or []:
+        links = _ck_value(rec, "socialLinks") or []
+        if isinstance(links, str):
+            links = [links]
+        for link in links:
             handle = instagram_handle_from_text(str(link))
             if handle:
                 by_handle[handle] = rec
+        stored_handle = str(_ck_value(rec, "instagramHandle") or "").strip().lstrip("@").lower()
+        if stored_handle:
+            by_handle[stored_handle] = rec
 
     updated = 0
     created = 0
@@ -1213,30 +1224,40 @@ def sync_social_profiles_to_cloudkit() -> int:
             "name": name,
             "cuisineType": item.get("cuisine") or _ck_value(rec or {}, "cuisineType") or "",
             "socialLinks": social,
+            "instagramHandle": handle,
         }
         if item.get("region"):
             fields["region"] = item["region"]
-        if picture:
+        # CloudKit STRING is 255 chars. Graph profile_picture_url is almost
+        # always longer, so writing it either fails the whole record or
+        # truncates the URL. Keep a short handle; the app loads the avatar.
+        if picture and len(picture) <= 240:
             fields["imageURL"] = picture
 
         def _upsert(record_name: str, payload: dict) -> None:
-            try:
-                cloudkit_bridge.upsert_record(
-                    "Truck",
-                    record_name,
-                    cloudkit_bridge.to_cloudkit_fields(payload),
-                )
-            except Exception as exc:
-                if "region" not in payload:
-                    raise
-                retry = dict(payload)
-                retry.pop("region", None)
-                print(f"[social] retrying {name} without region: {exc}")
-                cloudkit_bridge.upsert_record(
-                    "Truck",
-                    record_name,
-                    cloudkit_bridge.to_cloudkit_fields(retry),
-                )
+            attempt = dict(payload)
+            drops = (
+                [],
+                ["region"],
+                ["region", "instagramHandle"],
+                ["region", "instagramHandle", "imageURL"],
+            )
+            last_error: Exception | None = None
+            for drop in drops:
+                for key in drop:
+                    attempt.pop(key, None)
+                try:
+                    cloudkit_bridge.upsert_record(
+                        "Truck",
+                        record_name,
+                        cloudkit_bridge.to_cloudkit_fields(attempt),
+                    )
+                    return
+                except Exception as exc:
+                    last_error = exc
+                    print(f"[social] retrying {name} without {drop or 'no extra fields'}: {exc}")
+            if last_error:
+                raise last_error
 
         if rec:
             record_name = rec.get("recordName")

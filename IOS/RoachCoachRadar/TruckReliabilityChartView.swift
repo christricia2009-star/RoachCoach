@@ -1,11 +1,7 @@
 import SwiftUI
 import Charts
 
-/// A real, working chart (Swift Charts, iOS 16+) showing how many
-/// confirmed/likely sightings a truck had per day over the last 14 days.
-/// Built from actual Sighting data — swap the mock backfill in
-/// MockDataService for real historical data once the live backend exists,
-/// and this chart keeps working unchanged.
+/// Chart of unique recent pins (the same five shown on the profile).
 struct TruckReliabilityChartView: View {
     let sightings: [Sighting]
 
@@ -22,12 +18,12 @@ struct TruckReliabilityChartView: View {
         }
         return grouped.map { DayCount(day: $0.key, count: $0.value.count) }
             .sorted { $0.day < $1.day }
-            .suffix(14)
+            .suffix(5)
     }
 
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
-            Text("Sighting Activity (Last 14 Days)")
+            Text("Sighting Activity (Last 5)")
                 .font(.subheadline)
                 .fontWeight(.semibold)
 

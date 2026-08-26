@@ -90,14 +90,34 @@ struct Truck: Identifiable, Codable, Hashable {
         self.region = region.isEmpty ? TruckSocialDirectory.region(forName: name) : region
     }
 
-    var socialImageURL: URL? {
-        guard let raw = imageURL?.trimmingCharacters(in: .whitespacesAndNewlines), !raw.isEmpty else {
-            return nil
+    var instagramHandle: String? {
+        if let handle = TruckSocialDirectory.links(for: self).first(where: { $0.title == "Instagram" })?.handle {
+            return handle.trimmingCharacters(in: CharacterSet(charactersIn: "@"))
         }
-        return URL(string: raw)
+        for raw in socialLinks {
+            if let parsed = TruckSocialDirectory.instagramHandle(from: raw) {
+                return parsed
+            }
+        }
+        return nil
+    }
+
+    var socialImageURL: URL? {
+        if let raw = imageURL?.trimmingCharacters(in: .whitespacesAndNewlines),
+           raw.count > 12,
+           raw.count < 2000,
+           let url = URL(string: raw),
+           url.scheme == "https" {
+            return url
+        }
+        if let handle = instagramHandle {
+            return URL(string: "https://unavatar.io/instagram/\(handle)")
+        }
+        return nil
     }
 
     var hasSocialPresence: Bool {
+        if instagramHandle != nil { return true }
         let links = TruckSocialDirectory.links(for: self)
         if links.contains(where: { $0.title == "Instagram" || $0.title == "Facebook" }) {
             return true
@@ -127,7 +147,7 @@ enum TruckSocialDirectory {
         let region: String
     }
 
-    static let regionOrder = ["Sacramento", "Bay Area", "North State", "Central Valley", "Central Coast", "Other"]
+    static let regionOrder = ["Sacramento", "Bay Area", "North State", "Sierra", "Central Valley", "Central Coast", "Other"]
 
     private static let profiles: [Profile] = [
         .init(match: "drewski", instagram: "drewskis", x: "drewskishotrod", facebook: "drewskisfoodtrucks", website: "https://drewskis.com", region: "Sacramento"),
@@ -213,7 +233,10 @@ enum TruckSocialDirectory {
         .init(match: "cielito lindo", instagram: "cielitolindomsk", x: nil, facebook: nil, website: nil, region: "Bay Area"),
         .init(match: "kabob trolley", instagram: "kabobtrolley", x: nil, facebook: nil, website: nil, region: "Bay Area"),
         .init(match: "daisy", instagram: "daisysdesserts", x: nil, facebook: nil, website: nil, region: "Bay Area"),
-        .init(match: "get rad", instagram: "getradpizza", x: nil, facebook: nil, website: nil, region: "North State"),
+        .init(match: "get rad", instagram: "getradpizza", x: nil, facebook: nil, website: nil, region: "Sierra"),
+        .init(match: "reno street", instagram: "foodtruckfridayreno", x: nil, facebook: nil, website: nil, region: "Sierra"),
+        .init(match: "daddy", instagram: "daddystacosnv", x: nil, facebook: nil, website: nil, region: "Sierra"),
+        .init(match: "yummy yummy", instagram: "mryummyyummyreno", x: nil, facebook: nil, website: nil, region: "Sierra"),
         .init(match: "food coma", instagram: "bigcsfoodcoma", x: nil, facebook: nil, website: nil, region: "North State"),
         .init(match: "granny", instagram: "grannysgrillfilipinofoodtruck", x: nil, facebook: nil, website: nil, region: "North State"),
         .init(match: "dos amigos", instagram: "dosamigostaq", x: nil, facebook: nil, website: nil, region: "North State"),
@@ -328,6 +351,24 @@ enum TruckSocialDirectory {
 
     static func seededURLStrings(forName name: String) -> [String] {
         links(for: Truck(name: name, cuisineType: "")).map(\.url.absoluteString)
+    }
+
+    static func instagramHandle(from raw: String) -> String? {
+        let trimmed = raw.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty else { return nil }
+        if let url = socialURL(from: trimmed),
+           let host = url.host?.lowercased(),
+           host.contains("instagram") {
+            let path = url.path.split(separator: "/").map(String.init)
+            if let first = path.first, first.count >= 2 {
+                return first.lowercased()
+            }
+        }
+        if trimmed.hasPrefix("@") {
+            let handle = String(trimmed.dropFirst()).lowercased()
+            return handle.isEmpty ? nil : handle
+        }
+        return nil
     }
 
     private static func socialURL(from raw: String) -> URL? {
