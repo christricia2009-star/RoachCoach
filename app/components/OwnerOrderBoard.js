@@ -205,10 +205,11 @@ export default function OwnerOrderBoard({ truckId }) {
 
   return (
     <div className="rc-owner-shell">
-      <Link href={`/trucks/${truckId}`} className="rc-back-link">← Back to truck page</Link>
-
       <header className="rc-owner-header">
-        <h1>Order Board{truck ? ` — ${truck.name}` : ""}</h1>
+        <div>
+          <Link href={`/trucks/${truckId}`} className="rc-back-link">Menu</Link>
+          <h1>{truck ? truck.name : "Order board"}</h1>
+        </div>
         <div className="rc-owner-header__right">
           <span className={`rc-pill ${live ? "rc-pill--ok" : "rc-pill--warn"}`}>
             {live ? "🟢 Live" : "🟡 Polling"}

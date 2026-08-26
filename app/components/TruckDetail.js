@@ -4,6 +4,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { notificationsSupported, notify, requestNotificationPermission, notificationPermission } from "../lib/notify";
 import Checkout from "./Checkout";
+import { avatarUrl, socialLinks, truckRegion } from "../lib/trucks";
 
 const PAID_STATUSES = new Set(["authorized", "captured"]);
 
@@ -256,6 +257,10 @@ export default function TruckDetail({ truckId }) {
     setCustomTip("");
   }
 
+  const photo = avatarUrl(truck || {});
+  const links = truck ? socialLinks(truck) : [];
+  const region = truck ? truckRegion(truck) : "";
+
   if (loadState === "loading") {
     return (
       <div className="rc-detail-shell">
@@ -267,31 +272,53 @@ export default function TruckDetail({ truckId }) {
   if (loadState === "error" || !truck) {
     return (
       <div className="rc-detail-shell">
-        <Link href="/" className="rc-back-link">← Back to radar</Link>
-        <div className="rc-pill rc-pill--error" style={{ marginTop: 16 }}>
-          🔴 {loadError || "Truck not found"}
-        </div>
+        <div className="rc-empty rc-empty--error">{loadError || "Truck not found"}</div>
       </div>
     );
   }
 
   return (
     <div className="rc-detail-shell">
-      <div className="rc-detail-topnav">
-        <Link href="/" className="rc-back-link">← Back to radar</Link>
-        <Link href={`/trucks/${truckId}/owner`} className="rc-back-link">Owner? Manage orders →</Link>
-      </div>
-
-      <header className="rc-detail-header">
-        {truck.image_url && <img className="rc-detail-photo" src={truck.image_url} alt={truck.name} />}
+      <header className="rc-profile">
+        {photo ? (
+          <img className="rc-profile__photo" src={photo} alt="" />
+        ) : (
+          <span className="rc-thumb rc-thumb--fallback rc-thumb--lg" aria-hidden="true">
+            <svg viewBox="0 0 24 24">
+              <path
+                fill="currentColor"
+                d="M3 7.5A1.5 1.5 0 0 1 4.5 6h9A1.5 1.5 0 0 1 15 7.5V9h2.2c.5 0 .96.24 1.25.64l1.9 2.6c.2.27.3.6.3.94V16a1.5 1.5 0 0 1-1.5 1.5h-.6a2.5 2.5 0 0 1-4.8 0h-4.4a2.5 2.5 0 0 1-4.8 0H3.5A1.5 1.5 0 0 1 2 16V7.5H3Z"
+              />
+            </svg>
+          </span>
+        )}
         <div>
           <h1>{truck.name}</h1>
           {truck.cuisine_type && <p className="rc-detail-cuisine">{truck.cuisine_type}</p>}
+          {region && region !== "Other" && <span className="rc-region-pill">{region}</span>}
           {truck.menu_highlights?.length > 0 && (
-            <p className="rc-detail-highlights">✨ {truck.menu_highlights.join(" · ")}</p>
+            <p className="rc-detail-highlights">{truck.menu_highlights.join(" · ")}</p>
           )}
         </div>
       </header>
+
+      {links.length > 0 && (
+        <div className="rc-card rc-social">
+          {links.map((link) => (
+            <a key={link.href} href={link.href} target="_blank" rel="noreferrer" className="rc-social__row">
+              <span>
+                <strong>{link.title}</strong>
+                <small>{link.handle}</small>
+              </span>
+              <span className="rc-chevron">›</span>
+            </a>
+          ))}
+        </div>
+      )}
+
+      <div className="rc-owner-link">
+        <Link href={`/trucks/${truckId}/owner`}>Owner order board</Link>
+      </div>
 
       {order ? (
         PAID_STATUSES.has(order.paymentStatus) ? (

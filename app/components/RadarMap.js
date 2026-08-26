@@ -60,6 +60,7 @@ export default function RadarMap() {
   const [contacts, setContacts] = useState([]);
   const [allTrucks, setAllTrucks] = useState([]);
   const [search, setSearch] = useState("");
+  const [cuisine, setCuisine] = useState("");
   const [loadError, setLoadError] = useState(null);
   const [lastUpdated, setLastUpdated] = useState(null);
 
@@ -88,11 +89,18 @@ export default function RadarMap() {
         "bottom-right"
       );
 
+      const resize = () => map.resize();
+      map.on("load", resize);
+      const observer = new ResizeObserver(resize);
+      observer.observe(containerRef.current);
+
       mapRef.current = map;
+      map._rcResizeObserver = observer;
     })();
 
     return () => {
       cancelled = true;
+      mapRef.current?._rcResizeObserver?.disconnect();
       mapRef.current?.remove();
       mapRef.current = null;
     };
@@ -173,8 +181,10 @@ export default function RadarMap() {
 
       const q = search.trim().toLowerCase();
       contacts.forEach(({ truck, sighting, isLive }) => {
+        const cuisineType = truck?.cuisine_type || truck?.cuisineType || "";
+        if (cuisine && cuisineType !== cuisine) return;
         if (q) {
-          const hay = `${truck?.name || ""} ${truck?.cuisine_type || truck?.cuisineType || ""}`.toLowerCase();
+          const hay = `${truck?.name || ""} ${cuisineType}`.toLowerCase();
           if (!hay.includes(q)) return;
         }
         const color = CONFIDENCE_COLOR[sighting.confidenceLevel] || CONFIDENCE_COLOR.medium;
@@ -182,7 +192,7 @@ export default function RadarMap() {
         const el = document.createElement("div");
         el.className = `rc-marker${isLive ? " rc-marker--live" : " rc-marker--ghost"}`;
         el.style.setProperty("--rc-color", color);
-        el.innerHTML = `<span class="rc-marker__pulse"></span><span class="rc-marker__dot">🪳</span>`;
+        el.innerHTML = `<span class="rc-marker__pulse"></span><span class="rc-marker__dot"><svg viewBox="0 0 24 24" width="14" height="14"><path fill="currentColor" d="M3 7.5A1.5 1.5 0 0 1 4.5 6h9A1.5 1.5 0 0 1 15 7.5V9h2.2c.5 0 .96.24 1.25.64l1.9 2.6c.2.27.3.6.3.94V16a1.5 1.5 0 0 1-1.5 1.5h-.6a2.5 2.5 0 0 1-4.8 0h-4.4a2.5 2.5 0 0 1-4.8 0H3.5A1.5 1.5 0 0 1 2 16V7.5H3Z"/></svg></span>`;
 
         const popupHtml = `
           <div class="rc-popup">
@@ -206,62 +216,56 @@ export default function RadarMap() {
     });
 
     return () => cancelAnimationFrame(raf);
-  }, [contacts, search]);
+  }, [contacts, search, cuisine]);
+
+  const cuisines = Array.from(
+    new Set(allTrucks.map((t) => t.cuisine_type || t.cuisineType).filter(Boolean))
+  ).sort();
+  const liveCount = contacts.filter((c) => c.isLive).length;
 
   return (
     <div className="rc-map-wrap">
       <div ref={containerRef} className="rc-map" />
 
       <div className="rc-map-topbar">
-        <div className="rc-map-brand">
-          <span className="eyebrow">RCR • 27.515</span>
-          <h1>🪳 Roach Coach Radar</h1>
-        </div>
-        <div className="rc-map-status">
+        <div className="rc-search-wrap rc-search-wrap--map">
+          <span className="rc-search-icon" aria-hidden="true">
+            ⌕
+          </span>
           <input
-            className="rc-search"
-            placeholder="Search trucks…"
+            className="rc-ios-search"
+            placeholder="Search…"
             value={search}
             onChange={(e) => setSearch(e.target.value)}
           />
+        </div>
+        {cuisines.length > 0 && (
+          <div className="rc-chips rc-chips--map">
+            <button type="button" className={`rc-filter${cuisine === "" ? " rc-filter--on" : ""}`} onClick={() => setCuisine("")}>
+              All
+            </button>
+            {cuisines.map((name) => (
+              <button
+                key={name}
+                type="button"
+                className={`rc-filter${cuisine === name ? " rc-filter--on" : ""}`}
+                onClick={() => setCuisine(cuisine === name ? "" : name)}
+              >
+                {name}
+              </button>
+            ))}
+          </div>
+        )}
+        <div className="rc-summary">
           {loadError ? (
-            <span className="rc-pill rc-pill--error">🔴 {loadError}</span>
+            <span>{loadError}</span>
           ) : (
-            <span className="rc-pill rc-pill--ok">
-              🟢 {contacts.length} on radar · {allTrucks.length} in directory
+            <span>
+              {liveCount} live · {contacts.length} on map · {allTrucks.length} trucks
+              {lastUpdated ? ` · ${lastUpdated.toLocaleTimeString()}` : ""}
             </span>
           )}
         </div>
-      </div>
-
-      <div className="rc-map-legend">
-        <div className="rc-legend__title">Radar confidence</div>
-        <div><span className="rc-legend__swatch" style={{ background: CONFIDENCE_COLOR.high }} /> High</div>
-        <div><span className="rc-legend__swatch" style={{ background: CONFIDENCE_COLOR.medium }} /> Medium</div>
-        <div><span className="rc-legend__swatch" style={{ background: CONFIDENCE_COLOR.low }} /> Low</div>
-        <div className="rc-legend__note">
-          Pulsing = live sighting (last 30 min). Dim = last seen, up to 3 hrs ago.
-        </div>
-        {lastUpdated && (
-          <div className="rc-legend__updated">Updated {lastUpdated.toLocaleTimeString()}</div>
-        )}
-      </div>
-
-      <div className="rc-directory">
-        <div className="rc-legend__title">Directory</div>
-        {allTrucks
-          .filter((t) => {
-            const q = search.trim().toLowerCase();
-            if (!q) return true;
-            return `${t.name || ""} ${t.cuisine_type || t.cuisineType || ""}`.toLowerCase().includes(q);
-          })
-          .slice(0, 40)
-          .map((t) => (
-            <a key={t.id} className="rc-directory__row" href={`/trucks/${encodeURIComponent(t.id)}`}>
-              <strong>{t.name}</strong>
-              <span>{t.cuisine_type || t.cuisineType || "Menu & order"}</span>
-            </a>
-          ))}
       </div>
     </div>
   );

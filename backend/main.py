@@ -133,6 +133,7 @@ class TruckOut(BaseModel):
     average_confidence_score: float = 0.0
     menu_highlights: list[str] = []
     image_url: Optional[str] = None
+    region: Optional[str] = None
 
 
 # Both SightingIn/SightingOut previously used bare snake_case field
@@ -719,6 +720,11 @@ def get_trucks():
                         record,
                         "imageURL",
                     ),
+
+                    region=_cloudkit_record_value(
+                        record,
+                        "region",
+                    ) or "",
                 )
             )
 
@@ -759,10 +765,20 @@ def get_trucks():
                         cuisine_type=item.get("cuisine") or "",
                         social_links=links,
                         average_confidence_score=0.8,
+                        region=item.get("region") or "",
                     )
                 )
                 existing_names.add(name.lower())
                 existing_ids.add(rid)
+            region_by_name = {
+                str(item.get("search_name") or "").strip().lower(): str(item.get("region") or "").strip()
+                for item in catalog
+                if item.get("search_name") and item.get("region")
+            }
+            trucks = [
+                t.model_copy(update={"region": t.region or region_by_name.get(t.name.lower(), "")})
+                for t in trucks
+            ]
             trucks.sort(key=lambda x: x.name.lower())
         except Exception:
             pass

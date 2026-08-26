@@ -1,7 +1,7 @@
 "use client";
 
-import RadarMap from "./components/RadarMap";
+import TrucksList from "./components/TrucksList";
 
 export default function Home() {
-  return <RadarMap />;
+  return <TrucksList />;
 }
