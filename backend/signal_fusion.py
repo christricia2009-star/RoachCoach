@@ -224,9 +224,13 @@ def process_detection(detection: RawDetection, recent_detections: list[RawDetect
         expires_at = observed_at + datetime.timedelta(hours=3)
         timestamp_ms = int(observed_at.timestamp() * 1000)
         expires_ms = int(expires_at.timestamp() * 1000)
+        try:
+            truck_id = str(uuid.UUID(str(result.matched_truck_id)))
+        except (ValueError, TypeError, AttributeError):
+            truck_id = str(result.matched_truck_id)
         sighting = {
             "id": str(uuid.uuid4()),
-            "truckId": result.matched_truck_id,
+            "truckId": truck_id,
             "latitude": detection.latitude,
             "longitude": detection.longitude,
             "note": detection.note or f"Auto-detected via {detection.source} ({result.reason})",
@@ -236,11 +240,24 @@ def process_detection(detection: RawDetection, recent_detections: list[RawDetect
             "expiresAt": expires_ms,
         }
         try:
+            fields = cloudkit_bridge.to_cloudkit_fields(
+                {
+                    k: v
+                    for k, v in sighting.items()
+                    if k not in ("id", "timestamp", "expiresAt")
+                }
+            )
+            fields["timestamp"] = {
+                "value": timestamp_ms,
+                "type": "TIMESTAMP",
+            }
+            fields["expiresAt"] = {
+                "value": expires_ms,
+                "type": "TIMESTAMP",
+            }
             cloudkit_bridge.save_sighting(
                 sighting["id"],
-                cloudkit_bridge.to_cloudkit_fields(
-                    {k: v for k, v in sighting.items() if k != "id"}
-                ),
+                fields,
             )
             result.sighting = sighting
             print(f"[fusion] auto-attached {detection.source} detection to truck {result.matched_truck_id} ({result.reason})")

@@ -16,6 +16,36 @@ final class CloudKitService: APIServicing {
 
     // MARK: - Helpers
 
+    private func canonicalTruckID(from raw: String) -> UUID {
+        UUID(uuidString: raw) ?? stableUUID(for: raw)
+    }
+
+    /// Backend CloudKit web services write TIMESTAMP as epoch milliseconds.
+    /// Native iOS writes a Date. Accept both so scheduler sightings show up.
+    private func date(from record: CKRecord, key: String) -> Date? {
+        if let date = record[key] as? Date {
+            return date
+        }
+        let value: Double?
+        if let number = record[key] as? NSNumber {
+            value = number.doubleValue
+        } else if let intValue = record[key] as? Int {
+            value = Double(intValue)
+        } else if let doubleValue = record[key] as? Double {
+            value = doubleValue
+        } else {
+            value = nil
+        }
+        guard let value else { return nil }
+        if value > 1_000_000_000_000 {
+            return Date(timeIntervalSince1970: value / 1000)
+        }
+        if value > 1_000_000_000 {
+            return Date(timeIntervalSince1970: value)
+        }
+        return nil
+    }
+
     private func stableUUID(for recordName: String) -> UUID {
         // SHA-256 gives us 16 deterministic bytes for a UUID-shaped value.
         // We set UUID version/variant bits so the value is a valid RFC-style UUID.
@@ -129,24 +159,43 @@ final class CloudKitService: APIServicing {
     // MARK: - Sightings
 
     func fetchSightings() async throws -> [Sighting] {
-        let cutoff = Date().addingTimeInterval(-3 * 60 * 60)
-        let predicate = NSPredicate(format: "timestamp > %@", cutoff as NSDate)
-        let query = CKQuery(recordType: "Sighting", predicate: predicate)
-        // No Sortable index required; sort locally.
-        let (results, _) = try await publicDB.records(matching: query)
-        return results.compactMap { _, result in
-            guard case .success(let record) = result else { return nil }
-            return sighting(from: record)
-        }.sorted { $0.timestamp > $1.timestamp }
+        try await fetchSightings(since: Date().addingTimeInterval(-3 * 60 * 60))
     }
 
     func fetchSightings(forTruck truckId: UUID) async throws -> [Sighting] {
-        let query = CKQuery(recordType: "Sighting", predicate: NSPredicate(format: "truckId == %@", truckId.uuidString))
-        let (results, _) = try await publicDB.records(matching: query)
-        return results.compactMap { _, result in
-            guard case .success(let record) = result else { return nil }
-            return sighting(from: record)
-        }.sorted { $0.timestamp > $1.timestamp }
+        // Do not query `truckId == uuidString`. Backend writes lowercase UUIDs
+        // or `truck_…` record names; CloudKit string compare is case-sensitive
+        // and UUID(uuidString:) would drop the latter. Fetch the 14-day window
+        // and match the same canonical Truck.id the rest of the app uses.
+        let window = try await fetchSightings(since: Date().addingTimeInterval(-14 * 24 * 60 * 60))
+        return window.filter { $0.truckId == truckId }
+    }
+
+    private func fetchSightings(since cutoff: Date) async throws -> [Sighting] {
+        let parsed = try await querySightings(
+            predicate: NSPredicate(format: "timestamp > %@", cutoff as NSDate)
+        )
+        if !parsed.isEmpty {
+            return parsed.filter { $0.timestamp > cutoff }
+        }
+        // Older scheduler writes used INT64 millis. A Date predicate can
+        // miss those; fall back to an unfiltered query and filter locally.
+        let all = try await querySightings(predicate: NSPredicate(value: true))
+        return all.filter { $0.timestamp > cutoff }
+    }
+
+    private func querySightings(predicate: NSPredicate) async throws -> [Sighting] {
+        let query = CKQuery(recordType: "Sighting", predicate: predicate)
+        do {
+            let (results, _) = try await publicDB.records(matching: query)
+            return results.compactMap { _, result in
+                guard case .success(let record) = result else { return nil }
+                return sighting(from: record)
+            }.sorted { $0.timestamp > $1.timestamp }
+        } catch {
+            print("CloudKit Sighting query failed: \(error)")
+            return []
+        }
     }
 
     func submitSighting(_ sighting: Sighting) async throws {
@@ -183,14 +232,14 @@ final class CloudKitService: APIServicing {
     private func sighting(from record: CKRecord) -> Sighting? {
         guard
             let truckIdString = record["truckId"] as? String,
-            let truckId = UUID(uuidString: truckIdString),
             let latitude = record["latitude"] as? Double,
             let longitude = record["longitude"] as? Double,
-            let timestamp = record["timestamp"] as? Date,
+            let timestamp = date(from: record, key: "timestamp"),
             let confidenceRaw = record["confidenceLevel"] as? String,
             let confidence = ConfidenceLevel(rawValue: confidenceRaw)
         else { return nil }
 
+        let truckId = canonicalTruckID(from: truckIdString)
         let id = UUID(uuidString: record.recordID.recordName) ?? stableUUID(for: record.recordID.recordName)
         return Sighting(
             id: id,
@@ -201,7 +250,7 @@ final class CloudKitService: APIServicing {
             note: record["note"] as? String,
             timestamp: timestamp,
             confidenceLevel: confidence,
-            expiresAt: record["expiresAt"] as? Date
+            expiresAt: date(from: record, key: "expiresAt")
         )
     }
 

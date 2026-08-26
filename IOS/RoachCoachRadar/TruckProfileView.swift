@@ -114,7 +114,7 @@ struct TruckProfileView: View {
                         Label("Paste Instagram caption", systemImage: "doc.on.clipboard")
                     }
                     if recentSightings.isEmpty {
-                        Text("Instagram in this app is a link, not a feed. Copy a post (like “5730 Packard Ave, Marysville”) and paste it here to drop a pin. No extra API cost.")
+                        Text("No CloudKit sightings for this truck in the last 14 days yet. Map pins from a radar scan can appear before they land in this list.")
                             .font(.footnote)
                             .foregroundStyle(.secondary)
                     } else {
