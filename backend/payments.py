@@ -47,14 +47,23 @@ class PaymentError(Exception):
         self.status_code = status_code
 
 
+def _stripe_sdk_available() -> bool:
+    try:
+        import stripe  # noqa: F401
+        return True
+    except ImportError:
+        return False
+
+
 def public_config() -> dict[str, Any]:
     """Non-secret config the frontend needs to initialize a payment SDK."""
 
+    stripe_ready = bool(STRIPE_SECRET_KEY) and _stripe_sdk_available()
     return {
         "provider": DEFAULT_PROVIDER,
         "stripe": {
-            "enabled": bool(STRIPE_SECRET_KEY),
-            "publishableKey": STRIPE_PUBLISHABLE_KEY,
+            "enabled": stripe_ready,
+            "publishableKey": STRIPE_PUBLISHABLE_KEY if stripe_ready else None,
         },
         "square": {
             "enabled": bool(SQUARE_ACCESS_TOKEN and SQUARE_LOCATION_ID),

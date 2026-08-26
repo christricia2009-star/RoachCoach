@@ -8,3 +8,7 @@ anthropic>=0.34,<1
 openai>=1.51,<2
 cryptography>=43,<44
 boto3>=1.35,<2
+# Vercel installs THIS file for api/index.py — stripe must live here,
+# not only in backend/requirements.txt, or Pay returns HTTP 500.
+stripe==11.1.1
+squareup==38.1.0.20241120

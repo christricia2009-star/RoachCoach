@@ -366,10 +366,15 @@ final class LiveAPIService: APIServicing {
     }
 
     func createStripePaymentIntent(orderId: String) async throws -> StripePaymentIntent {
+        // appendingPathComponent("a/b") percent-encodes slashes on some
+        // iOS versions, so each segment is added separately.
         let url = baseURL
-            .appendingPathComponent("api/orders")
+            .appendingPathComponent("api")
+            .appendingPathComponent("orders")
             .appendingPathComponent(orderId)
-            .appendingPathComponent("payments/stripe/intent")
+            .appendingPathComponent("payments")
+            .appendingPathComponent("stripe")
+            .appendingPathComponent("intent")
 
         var urlRequest = URLRequest(url: url)
         urlRequest.httpMethod = "POST"
@@ -379,7 +384,7 @@ final class LiveAPIService: APIServicing {
 
         let (data, response) = try await URLSession.shared.data(for: urlRequest)
 
-        try validate(response)
+        try validate(response, data: data)
 
         return try JSONDecoder.apiDecoder.decode(StripePaymentIntent.self, from: data)
     }
@@ -389,9 +394,12 @@ final class LiveAPIService: APIServicing {
     /// card details client-side. See docs/PAYMENTS.md.
     func chargeSquare(orderId: String, sourceId: String, verificationToken: String?) async throws -> PaymentResult {
         let url = baseURL
-            .appendingPathComponent("api/orders")
+            .appendingPathComponent("api")
+            .appendingPathComponent("orders")
             .appendingPathComponent(orderId)
-            .appendingPathComponent("payments/square/charge")
+            .appendingPathComponent("payments")
+            .appendingPathComponent("square")
+            .appendingPathComponent("charge")
 
         var urlRequest = URLRequest(url: url)
         urlRequest.httpMethod = "POST"
@@ -458,14 +466,14 @@ final class LiveAPIService: APIServicing {
 
     // MARK: - HTTP Validation
 
-    private func validate(_ response: URLResponse) throws {
+    private func validate(_ response: URLResponse, data: Data? = nil) throws {
 
         guard let http = response as? HTTPURLResponse else {
             throw APIError.invalidResponse
         }
 
         guard (200...299).contains(http.statusCode) else {
-            throw APIError.httpError(http.statusCode)
+            throw APIError.httpError(http.statusCode, detail: APIError.detail(from: data))
         }
     }
 }
@@ -473,7 +481,7 @@ final class LiveAPIService: APIServicing {
 enum APIError: LocalizedError {
 
     case invalidResponse
-    case httpError(Int)
+    case httpError(Int, detail: String? = nil)
 
     var errorDescription: String? {
 
@@ -482,9 +490,25 @@ enum APIError: LocalizedError {
         case .invalidResponse:
             return "Invalid response from Radar backend."
 
-        case .httpError(let status):
+        case .httpError(let status, let detail):
+            if let detail, !detail.isEmpty {
+                return "Radar backend returned HTTP \(status): \(detail)"
+            }
             return "Radar backend returned HTTP \(status)."
         }
+    }
+
+    static func detail(from data: Data?) -> String? {
+        guard let data, !data.isEmpty else { return nil }
+        if let obj = try? JSONSerialization.jsonObject(with: data) as? [String: Any] {
+            if let detail = obj["detail"] as? String, !detail.isEmpty {
+                return String(detail.prefix(280))
+            }
+            if let detail = obj["detail"] {
+                return String(describing: detail).prefix(280).description
+            }
+        }
+        return String(data: data, encoding: .utf8).map { String($0.prefix(280)) }
     }
 }
 

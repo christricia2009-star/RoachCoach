@@ -486,10 +486,10 @@ def lookup_records(
         },
     )
 
-    return result.get(
-        "records",
-        [],
-    )
+    # CloudKit lookup returns HTTP 200 with a stub per missing name
+    # ({"recordName", "serverErrorCode": "NOT_FOUND", "reason": ...}).
+    # Treat those as misses, not empty records with zero totals.
+    return _usable_cloudkit_records(result.get("records", []))
 
 
 # ============================================================
@@ -942,6 +942,19 @@ def update_order_payment(
         record_name=record_name,
         fields=fields,
     )
+
+
+def _usable_cloudkit_records(records: Any) -> list[dict[str, Any]]:
+    if not isinstance(records, list):
+        return []
+    usable: list[dict[str, Any]] = []
+    for record in records:
+        if not isinstance(record, dict):
+            continue
+        if record.get("serverErrorCode") or record.get("reason"):
+            continue
+        usable.append(record)
+    return usable
 
 
 def _as_record_list(result: Any) -> list[dict[str, Any]]:

@@ -1736,40 +1736,54 @@ def create_stripe_payment_intent(order_id: str, _body: PaymentIntentRequestIn = 
     """Creates (or refreshes) the Stripe PaymentIntent for this order and
     returns its client_secret for Stripe.js / PaymentSheet to confirm."""
 
-    record = _load_order_or_404(order_id)
-    order = _record_to_order(record)
-
-    if order.payment_status == "captured":
-        raise HTTPException(status_code=400, detail="Order is already paid")
-
     try:
-        intent = payments.stripe_create_payment_intent(
-            order_id=order_id,
-            amount_cents=order.total_cents,
-            currency=order.currency.lower(),
-            customer_name=order.customer_name,
-            existing_intent_id=order.payment_intent_id if order.payment_provider == "stripe" else None,
+        record = _load_order_or_404(order_id)
+        order = _record_to_order(record)
+
+        if order.payment_status == "captured":
+            raise HTTPException(status_code=400, detail="Order is already paid")
+
+        try:
+            intent = payments.stripe_create_payment_intent(
+                order_id=order_id,
+                amount_cents=order.total_cents,
+                currency=(order.currency or "usd").lower(),
+                customer_name=order.customer_name,
+                existing_intent_id=order.payment_intent_id if order.payment_provider == "stripe" else None,
+            )
+        except PaymentError as exc:
+            raise HTTPException(status_code=exc.status_code, detail=str(exc))
+
+        now = datetime.now(timezone.utc)
+        try:
+            cloudkit_bridge.update_order_payment(
+                order_id,
+                payment_provider="stripe",
+                payment_status=payments.stripe_status_to_order_status(intent["status"]),
+                payment_intent_id=intent["paymentIntentId"],
+                updated_at_iso=now.isoformat(),
+            )
+        except Exception:
+            # Don't fail checkout if CloudKit can't store the intent id —
+            # the client still needs client_secret, and the webhook retries.
+            error_tracking.report("create_stripe_payment_intent: failed to persist paymentIntentID")
+
+        return PaymentIntentOut(
+            provider="stripe",
+            payment_intent_id=intent["paymentIntentId"],
+            client_secret=intent["clientSecret"],
+            status=intent["status"],
+            amount_cents=intent["amountCents"],
+            currency=intent["currency"],
         )
-    except PaymentError as exc:
-        raise HTTPException(status_code=exc.status_code, detail=str(exc))
-
-    now = datetime.now(timezone.utc)
-    cloudkit_bridge.update_order_payment(
-        order_id,
-        payment_provider="stripe",
-        payment_status=payments.stripe_status_to_order_status(intent["status"]),
-        payment_intent_id=intent["paymentIntentId"],
-        updated_at_iso=now.isoformat(),
-    )
-
-    return PaymentIntentOut(
-        provider="stripe",
-        payment_intent_id=intent["paymentIntentId"],
-        client_secret=intent["clientSecret"],
-        status=intent["status"],
-        amount_cents=intent["amountCents"],
-        currency=intent["currency"],
-    )
+    except HTTPException:
+        raise
+    except Exception as e:
+        error_tracking.report("create_stripe_payment_intent failed")
+        raise HTTPException(
+            status_code=500,
+            detail=f"PaymentIntent failed: {e}",
+        )
 
 
 @app.post("/api/payments/stripe/webhook")
