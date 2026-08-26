@@ -532,6 +532,7 @@ def upsert_record(
     record_type: str,
     record_name: str,
     fields: dict[str, Any],
+    operation_type: str = "forceUpdate",
 ) -> dict[str, Any]:
 
     record = {
@@ -540,17 +541,40 @@ def upsert_record(
         "fields": fields,
     }
 
-    return cloudkit_request(
+    result = cloudkit_request(
         "records/modify",
         {
             "operations": [
                 {
-                    "operationType": "forceUpdate",
+                    "operationType": operation_type,
                     "record": record,
                 }
             ],
         },
     )
+
+    records = result.get("records") if isinstance(result, dict) else None
+    errors = []
+    if isinstance(records, list):
+        for item in records:
+            if isinstance(item, dict) and (item.get("serverErrorCode") or item.get("reason")):
+                errors.append(item)
+
+    if errors:
+        first = errors[0]
+        code = first.get("serverErrorCode") or "MODIFY_FAILED"
+        reason = first.get("reason") or str(first)
+        # forceUpdate cannot create a missing record — retry as replace.
+        if code == "NOT_FOUND" and operation_type == "forceUpdate":
+            return upsert_record(
+                record_type,
+                record_name,
+                fields,
+                operation_type="forceReplace",
+            )
+        raise RuntimeError(f"CloudKit {operation_type} {record_type} {record_name} failed: {code} {reason}")
+
+    return result
 
 
 # ============================================================
@@ -887,6 +911,7 @@ def save_order(
         record_type="Order",
         record_name=record_name,
         fields=fields,
+        operation_type="forceReplace",
     )
 
 

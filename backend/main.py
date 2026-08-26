@@ -1637,6 +1637,12 @@ def create_order(order: OrderIn):
             fields["specialInstructions"] = _cloudkit_field(order.special_instructions)
 
         cloudkit_bridge.save_order(record_id, fields)
+        persisted = cloudkit_bridge.get_order(record_id)
+        if not persisted:
+            raise HTTPException(
+                status_code=500,
+                detail="Order was not saved to CloudKit. Check the Order record type is deployed to production.",
+            )
 
         return OrderOut(
             id=record_id,
