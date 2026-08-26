@@ -24,12 +24,26 @@ struct TruckProfileView: View {
             List {
                 Section {
                     VStack(alignment: .leading, spacing: 8) {
-                        Text(truck.name)
-                            .font(.title2)
-                            .fontWeight(.bold)
-                        Text(truck.cuisineType)
-                            .font(.subheadline)
-                            .foregroundStyle(.secondary)
+                        HStack(alignment: .top, spacing: 14) {
+                            TruckAvatar(truck: truck, size: 72)
+                            VStack(alignment: .leading, spacing: 4) {
+                                Text(truck.name)
+                                    .font(.title2)
+                                    .fontWeight(.bold)
+                                Text(truck.cuisineType)
+                                    .font(.subheadline)
+                                    .foregroundStyle(.secondary)
+                                if !truck.region.isEmpty {
+                                    Text(truck.region)
+                                        .font(.caption.bold())
+                                        .padding(.horizontal, 8)
+                                        .padding(.vertical, 3)
+                                        .background(Color.orange.opacity(0.16))
+                                        .foregroundStyle(.orange)
+                                        .clipShape(Capsule())
+                                }
+                            }
+                        }
 
                         let hours = TruckHoursDirectory.status(for: truck)
                         HStack(spacing: 8) {

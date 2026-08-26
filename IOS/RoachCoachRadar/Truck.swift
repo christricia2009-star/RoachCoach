@@ -11,6 +11,7 @@ struct Truck: Identifiable, Codable, Hashable {
     var imageURL: String?
     var rating: Double
     var averageWaitMinutes: Int
+    var region: String
 
     // Backend (backend/main.py TruckOut) has no alias_generator, so it
     // serializes plain Python snake_case field names — cuisine_type,
@@ -34,6 +35,7 @@ struct Truck: Identifiable, Codable, Hashable {
         case imageURL = "image_url"
         case rating
         case averageWaitMinutes = "average_wait_minutes"
+        case region
     }
 
     init(from decoder: Decoder) throws {
@@ -47,6 +49,7 @@ struct Truck: Identifiable, Codable, Hashable {
         imageURL = try container.decodeIfPresent(String.self, forKey: .imageURL)
         rating = try container.decodeIfPresent(Double.self, forKey: .rating) ?? 4.5
         averageWaitMinutes = try container.decodeIfPresent(Int.self, forKey: .averageWaitMinutes) ?? 8
+        region = try container.decodeIfPresent(String.self, forKey: .region) ?? TruckSocialDirectory.region(forName: name)
     }
 
     func encode(to encoder: Encoder) throws {
@@ -60,6 +63,7 @@ struct Truck: Identifiable, Codable, Hashable {
         try container.encodeIfPresent(imageURL, forKey: .imageURL)
         try container.encode(rating, forKey: .rating)
         try container.encode(averageWaitMinutes, forKey: .averageWaitMinutes)
+        try container.encode(region, forKey: .region)
     }
 
     init(
@@ -71,7 +75,8 @@ struct Truck: Identifiable, Codable, Hashable {
         menuHighlights: [String] = [],
         imageURL: String? = nil,
         rating: Double = 4.5,
-        averageWaitMinutes: Int = 8
+        averageWaitMinutes: Int = 8,
+        region: String = ""
     ) {
         self.id = id
         self.name = name
@@ -82,6 +87,25 @@ struct Truck: Identifiable, Codable, Hashable {
         self.imageURL = imageURL
         self.rating = rating
         self.averageWaitMinutes = averageWaitMinutes
+        self.region = region.isEmpty ? TruckSocialDirectory.region(forName: name) : region
+    }
+
+    var socialImageURL: URL? {
+        guard let raw = imageURL?.trimmingCharacters(in: .whitespacesAndNewlines), !raw.isEmpty else {
+            return nil
+        }
+        return URL(string: raw)
+    }
+
+    var hasSocialPresence: Bool {
+        let links = TruckSocialDirectory.links(for: self)
+        if links.contains(where: { $0.title == "Instagram" || $0.title == "Facebook" }) {
+            return true
+        }
+        return socialLinks.contains { raw in
+            let lower = raw.lowercased()
+            return lower.contains("instagram") || lower.contains("facebook") || lower.hasPrefix("@")
+        }
     }
 }
 
@@ -100,24 +124,65 @@ enum TruckSocialDirectory {
         let x: String?
         let facebook: String?
         let website: String?
+        let region: String
     }
 
+    static let regionOrder = ["Sacramento", "Bay Area", "North State", "Central Valley", "Central Coast", "Other"]
+
     private static let profiles: [Profile] = [
-        .init(match: "drewski", instagram: "drewskis", x: "drewskishotrod", facebook: "drewskisfoodtrucks", website: "https://drewskis.com"),
-        .init(match: "buckhorn", instagram: "thebuckhornbbqtruck", x: nil, facebook: "thebuckhornbbqtruck", website: nil),
-        .init(match: "sactomofo", instagram: "sactomofo", x: "SactoMoFo", facebook: "sactomofo", website: nil),
-        .init(match: "krush", instagram: "krushroseville", x: nil, facebook: "krushroseville", website: nil),
-        .init(match: "potato", instagram: "the_potato_truck", x: nil, facebook: "the_potato_truck", website: nil),
-        .init(match: "alameda taco", instagram: "alamedatacossac", x: nil, facebook: "alamedatacossac", website: nil),
-        .init(match: "mucho nacho", instagram: "muchonachossacramento", x: nil, facebook: "muchonachossacramento", website: nil),
-        .init(match: "pop up", instagram: "sactopopuptruck", x: nil, facebook: "sactopopuptruck", website: nil),
-        .init(match: "santacos", instagram: "santacosmx", x: nil, facebook: "santacosmx", website: nil),
-        .init(match: "tacoa", instagram: "tacoasac", x: nil, facebook: "tacoasac", website: nil),
-        .init(match: "tacos gto", instagram: "tacos_gto_", x: nil, facebook: "tacos_gto_", website: nil),
-        .init(match: "tacomiendo", instagram: "tacomiendofoodtruck", x: nil, facebook: "tacomiendofoodtruck", website: nil),
-        .init(match: "sac tacos", instagram: "sactacosfoodtruck", x: nil, facebook: "sactacosfoodtruck", website: nil),
-        .init(match: "lumpia", instagram: "thelumpiatruck", x: "TheLumpiaTruck", facebook: "thelumpiatruck", website: nil)
+        .init(match: "drewski", instagram: "drewskis", x: "drewskishotrod", facebook: "drewskisfoodtrucks", website: "https://drewskis.com", region: "Sacramento"),
+        .init(match: "buckhorn", instagram: "thebuckhornbbqtruck", x: nil, facebook: "thebuckhornbbqtruck", website: nil, region: "Sacramento"),
+        .init(match: "sactomofo", instagram: "sactomofo", x: "SactoMoFo", facebook: "sactomofo", website: nil, region: "Sacramento"),
+        .init(match: "krush", instagram: "krushroseville", x: nil, facebook: "krushroseville", website: nil, region: "Sacramento"),
+        .init(match: "potato", instagram: "the_potato_truck", x: nil, facebook: "the_potato_truck", website: nil, region: "Sacramento"),
+        .init(match: "alameda taco", instagram: "alamedatacossac", x: nil, facebook: "alamedatacossac", website: nil, region: "Sacramento"),
+        .init(match: "mucho nacho", instagram: "muchonachossacramento", x: nil, facebook: "muchonachossacramento", website: nil, region: "Sacramento"),
+        .init(match: "pop up", instagram: "sactopopuptruck", x: nil, facebook: "sactopopuptruck", website: nil, region: "Sacramento"),
+        .init(match: "santacos", instagram: "santacosmx", x: nil, facebook: "santacosmx", website: nil, region: "Sacramento"),
+        .init(match: "tacoa", instagram: "tacoasac", x: nil, facebook: "tacoasac", website: nil, region: "Sacramento"),
+        .init(match: "tacos gto", instagram: "tacos_gto_", x: nil, facebook: "tacos_gto_", website: nil, region: "Sacramento"),
+        .init(match: "tacomiendo", instagram: "tacomiendofoodtruck", x: nil, facebook: "tacomiendofoodtruck", website: nil, region: "Sacramento"),
+        .init(match: "sac tacos", instagram: "sactacosfoodtruck", x: nil, facebook: "sactacosfoodtruck", website: nil, region: "Sacramento"),
+        .init(match: "lumpia", instagram: "thelumpiatruck", x: "TheLumpiaTruck", facebook: "thelumpiatruck", website: nil, region: "Sacramento"),
+        .init(match: "hefty gyro", instagram: "heftygyros", x: nil, facebook: nil, website: nil, region: "Sacramento"),
+        .init(match: "chando", instagram: "chandostacos", x: nil, facebook: nil, website: nil, region: "Sacramento"),
+        .init(match: "local kine", instagram: "localkineshaveice", x: nil, facebook: nil, website: nil, region: "Sacramento"),
+        .init(match: "west coast taco", instagram: "westcoasttacobar", x: nil, facebook: nil, website: nil, region: "Sacramento"),
+        .init(match: "philly", instagram: "thephillyfoodtruck", x: nil, facebook: nil, website: nil, region: "Sacramento"),
+        .init(match: "kado", instagram: "kadosasiangrill", x: nil, facebook: nil, website: nil, region: "Sacramento"),
+        .init(match: "laopino", instagram: "laopinokitchen", x: nil, facebook: nil, website: nil, region: "Sacramento"),
+        .init(match: "palbq", instagram: "palbqsmokehouse", x: nil, facebook: nil, website: nil, region: "Sacramento"),
+        .init(match: "smokinewe", instagram: "smokinewebbq", x: nil, facebook: nil, website: nil, region: "Sacramento"),
+        .init(match: "birria boys", instagram: "birriaboys", x: nil, facebook: nil, website: nil, region: "Sacramento"),
+        .init(match: "authentic street", instagram: "authenticstreettaco", x: nil, facebook: nil, website: nil, region: "Sacramento"),
+        .init(match: "senor sisig", instagram: "senorsisig", x: nil, facebook: nil, website: nil, region: "Bay Area"),
+        .init(match: "chairman", instagram: "chairmantruck", x: nil, facebook: nil, website: nil, region: "Bay Area"),
+        .init(match: "curry up", instagram: "curryupnow", x: nil, facebook: nil, website: nil, region: "Bay Area"),
+        .init(match: "koja", instagram: "koja_kitchen", x: nil, facebook: nil, website: nil, region: "Bay Area"),
+        .init(match: "liba", instagram: "libafalafel", x: nil, facebook: nil, website: nil, region: "Bay Area"),
+        .init(match: "adobo bite", instagram: "adobobite", x: nil, facebook: nil, website: nil, region: "Bay Area"),
+        .init(match: "hons wonton", instagram: "honswontonpantry", x: nil, facebook: nil, website: nil, region: "Bay Area"),
+        .init(match: "kasa indian", instagram: "kasaindian", x: nil, facebook: nil, website: nil, region: "Bay Area"),
+        .init(match: "cousins maine", instagram: "cousinsmainelobster", x: nil, facebook: nil, website: nil, region: "Bay Area"),
+        .init(match: "roli roti", instagram: "roliroti", x: nil, facebook: nil, website: nil, region: "Bay Area"),
+        .init(match: "frogo", instagram: "frogofoodtruck", x: nil, facebook: nil, website: nil, region: "Bay Area"),
+        .init(match: "cochinita", instagram: "cochinita.sf", x: nil, facebook: nil, website: nil, region: "Bay Area"),
+        .init(match: "poke man", instagram: "da_poke_man", x: nil, facebook: nil, website: nil, region: "Bay Area"),
+        .init(match: "meso hungry", instagram: "mesohungrytoo", x: nil, facebook: nil, website: nil, region: "Bay Area"),
+        .init(match: "corn dog", instagram: "worldfamouscorndogs", x: nil, facebook: nil, website: nil, region: "Bay Area"),
+        .init(match: "churroteka", instagram: "lachurroteka", x: nil, facebook: nil, website: nil, region: "Bay Area"),
+        .init(match: "food truck mafia", instagram: "thefoodtruckmafia", x: nil, facebook: nil, website: nil, region: "Bay Area"),
+        .init(match: "where's the food", instagram: "wtfwheresthefoodfresno", x: nil, facebook: nil, website: nil, region: "Central Valley"),
+        .init(match: "brickology", instagram: "brickologypizza", x: nil, facebook: nil, website: nil, region: "Central Valley"),
+        .init(match: "el premio mayor", instagram: "elpremiomayor", x: nil, facebook: nil, website: nil, region: "Central Valley"),
+        .init(match: "vaporera", instagram: "tacos_lavaporera", x: nil, facebook: nil, website: nil, region: "Central Valley"),
+        .init(match: "sticky rice", instagram: "stickyriceonwheels_fresno", x: nil, facebook: nil, website: nil, region: "Central Valley"),
+        .init(match: "taco pinto", instagram: "tacopinto1", x: nil, facebook: nil, website: nil, region: "Central Valley")
     ]
+
+    static func region(forName name: String) -> String {
+        profiles.first(where: { name.localizedCaseInsensitiveContains($0.match) })?.region ?? "Other"
+    }
 
     static func links(for truck: Truck) -> [TruckSocialLink] {
         var links: [TruckSocialLink] = []

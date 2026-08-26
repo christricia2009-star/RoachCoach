@@ -10,22 +10,35 @@ struct TrucksListView: View {
     @State private var isLoading = true
     @State private var searchText = ""
     @State private var selectedCuisine: String?
+    @State private var selectedRegion: String?
     @State private var selectedTruck: Truck?
     @StateObject private var locationService = LocationService.shared
     @StateObject private var favorites = FavoritesStore.shared
     private let api: APIServicing = CloudKitService.shared
 
+    private var listedTrucks: [Truck] {
+        trucks.filter(\.hasSocialPresence)
+    }
+
     private var cuisines: [String] {
-        Array(Set(trucks.map(\.cuisineType))).sorted()
+        Array(Set(listedTrucks.map(\.cuisineType).filter { !$0.isEmpty })).sorted()
+    }
+
+    private var regions: [String] {
+        let present = Set(listedTrucks.map(\.region))
+        return TruckSocialDirectory.regionOrder.filter { present.contains($0) }
+            + present.subtracting(TruckSocialDirectory.regionOrder).sorted()
     }
 
     private var filtered: [Truck] {
-        trucks.filter { truck in
+        listedTrucks.filter { truck in
             let matchesSearch = searchText.isEmpty
                 || truck.name.localizedCaseInsensitiveContains(searchText)
                 || truck.cuisineType.localizedCaseInsensitiveContains(searchText)
+                || truck.region.localizedCaseInsensitiveContains(searchText)
             let matchesCuisine = selectedCuisine == nil || truck.cuisineType == selectedCuisine
-            return matchesSearch && matchesCuisine
+            let matchesRegion = selectedRegion == nil || truck.region == selectedRegion
+            return matchesSearch && matchesCuisine && matchesRegion
         }
     }
 
@@ -54,7 +67,7 @@ struct TrucksListView: View {
                 if isLoading && trucks.isEmpty {
                     ProgressView("Loading trucks…")
                         .frame(maxWidth: .infinity, maxHeight: .infinity)
-                } else if trucks.isEmpty {
+                } else if listedTrucks.isEmpty {
                     emptyState
                 } else {
                     List {
@@ -65,26 +78,38 @@ struct TrucksListView: View {
                                 }
                             }
                         }
-                        Section(activeSection.isEmpty ? "All Trucks" : "All Trucks") {
-                            ForEach(sorted.filter { !activeTruckIDs.contains($0.id) }) { truck in
-                                truckRow(truck)
+                        ForEach(regionSections, id: \.region) { section in
+                            Section(section.region) {
+                                ForEach(section.trucks) { truck in
+                                    truckRow(truck)
+                                }
                             }
                         }
                     }
                     .listStyle(.insetGrouped)
                 }
             }
-            .searchable(text: $searchText, prompt: "Search trucks, cuisine…")
+            .searchable(text: $searchText, prompt: "Search trucks, cuisine, region…")
             .navigationTitle("Trucks")
             .toolbar {
                 ToolbarItem(placement: .topBarTrailing) {
                     Menu {
+                        Button("All Regions") { selectedRegion = nil }
+                        ForEach(regions, id: \.self) { region in
+                            Button(region) { selectedRegion = region }
+                        }
+                        Divider()
                         Button("All Cuisines") { selectedCuisine = nil }
                         ForEach(cuisines, id: \.self) { cuisine in
                             Button(cuisine) { selectedCuisine = cuisine }
                         }
                     } label: {
-                        Label("Filter", systemImage: selectedCuisine == nil ? "line.3.horizontal.decrease.circle" : "line.3.horizontal.decrease.circle.fill")
+                        Label(
+                            "Filter",
+                            systemImage: (selectedCuisine == nil && selectedRegion == nil)
+                                ? "line.3.horizontal.decrease.circle"
+                                : "line.3.horizontal.decrease.circle.fill"
+                        )
                     }
                 }
             }
@@ -122,7 +147,7 @@ struct TrucksListView: View {
                             Circle().fill(.green).frame(width: 7, height: 7)
                         }
                     }
-                    Text(truck.cuisineType)
+                    Text([truck.cuisineType, truck.region].filter { !$0.isEmpty }.joined(separator: " · "))
                         .font(.subheadline)
                         .foregroundStyle(.secondary)
                     Text(TruckHoursDirectory.status(for: truck).badge)
@@ -154,14 +179,24 @@ struct TrucksListView: View {
     }
 
     private func truckThumbnail(_ truck: Truck) -> some View {
-        ZStack {
-            RoundedRectangle(cornerRadius: 10)
-                .fill(Color.orange.opacity(0.15))
-            Image(systemName: "truck.box.fill")
-                .font(.title3)
-                .foregroundStyle(.orange)
+        TruckAvatar(truck: truck, size: 48)
+    }
+
+    private var regionSections: [(region: String, trucks: [Truck])] {
+        let remaining = sorted.filter { !activeTruckIDs.contains($0.id) }
+        let grouped = Dictionary(grouping: remaining, by: \.region)
+        var order = TruckSocialDirectory.regionOrder
+        for key in grouped.keys.sorted() {
+            let region = key.isEmpty ? "Other" : key
+            if !order.contains(region) {
+                order.append(region)
+            }
         }
-        .frame(width: 48, height: 48)
+        return order.compactMap { region in
+            let items = grouped[region] ?? (region == "Other" ? grouped[""] : nil) ?? []
+            guard !items.isEmpty else { return nil }
+            return (region, items)
+        }
     }
 
     private var emptyState: some View {
@@ -169,13 +204,17 @@ struct TrucksListView: View {
             Image(systemName: "truck.box")
                 .font(.system(size: 42))
                 .foregroundStyle(.secondary)
-            Text("No trucks yet")
+            Text(trucks.isEmpty ? "No trucks yet" : "No Instagram/Facebook trucks")
                 .font(.headline)
-            Text("Once trucks are added to the directory, they'll show up here.")
-                .font(.subheadline)
-                .foregroundStyle(.secondary)
-                .multilineTextAlignment(.center)
-                .padding(.horizontal, 40)
+            Text(
+                trucks.isEmpty
+                    ? "Once trucks are added to the directory, they'll show up here."
+                    : "Trucks without Instagram or Facebook stay hidden — those pages are how we get timely location updates."
+            )
+            .font(.subheadline)
+            .foregroundStyle(.secondary)
+            .multilineTextAlignment(.center)
+            .padding(.horizontal, 40)
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
     }

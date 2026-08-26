@@ -16,13 +16,18 @@ struct ReportSightingView: View {
     @State private var latitude: Double = 38.5816
     @State private var longitude: Double = -121.4944
 
+    private var reportableTrucks: [Truck] {
+        let social = trucks.filter(\.hasSocialPresence)
+        return social.isEmpty ? trucks : social
+    }
+
     var body: some View {
         NavigationStack {
             Form {
                 Section("Which truck did you see?") {
                     Picker("Truck", selection: $selectedTruckId) {
                         Text("Select a truck").tag(UUID?.none)
-                        ForEach(trucks) { truck in
+                        ForEach(reportableTrucks) { truck in
                             Text(truck.name).tag(Optional(truck.id))
                         }
                     }

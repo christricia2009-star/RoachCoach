@@ -310,6 +310,7 @@ def job_social_scraping():
         register_trucks_for_fusion,
         all_instagram_discovery_usernames,
         all_facebook_page_ids,
+        sync_social_profiles_to_cloudkit,
         X_USERNAMES,
     )
     from llm_extract import extract_location_from_caption
@@ -353,6 +354,10 @@ def job_social_scraping():
     print(
         f"[social] account fetch returned {len(posts)} post(s)"
     )
+    try:
+        sync_social_profiles_to_cloudkit()
+    except Exception:
+        error_tracking.report("[social] truck profile sync failed")
 
     lookback_hours = float(os.getenv("SOCIAL_LOOKBACK_HOURS") or "12")
     cutoff = datetime.datetime.now(datetime.timezone.utc) - datetime.timedelta(

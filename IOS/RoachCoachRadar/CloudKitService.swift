@@ -137,12 +137,16 @@ final class CloudKitService: APIServicing {
         record["imageURL"] = truck.imageURL
         record["rating"] = truck.rating
         record["averageWaitMinutes"] = truck.averageWaitMinutes
+        if !truck.region.isEmpty {
+            record["region"] = truck.region
+        }
         try await upsert(record)
     }
 
     private func truck(from record: CKRecord) -> Truck? {
         guard let name = record["name"] as? String else { return nil }
         let id = UUID(uuidString: record.recordID.recordName) ?? stableUUID(for: record.recordID.recordName)
+        let image = (record["imageURL"] as? String)?.trimmingCharacters(in: .whitespacesAndNewlines)
         return Truck(
             id: id,
             name: name,
@@ -150,9 +154,10 @@ final class CloudKitService: APIServicing {
             socialLinks: record["socialLinks"] as? [String] ?? [],
             averageConfidenceScore: record["averageConfidenceScore"] as? Double ?? 0.0,
             menuHighlights: record["menuHighlights"] as? [String] ?? [],
-            imageURL: record["imageURL"] as? String,
+            imageURL: (image?.isEmpty == false) ? image : nil,
             rating: record["rating"] as? Double ?? 0.0,
-            averageWaitMinutes: record["averageWaitMinutes"] as? Int ?? 15
+            averageWaitMinutes: record["averageWaitMinutes"] as? Int ?? 15,
+            region: record["region"] as? String ?? ""
         )
     }
 

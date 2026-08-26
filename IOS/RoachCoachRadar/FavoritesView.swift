@@ -20,10 +20,12 @@ struct FavoritesView: View {
                     ForEach(favoriteTrucks) { truck in
                         NavigationLink { TruckProfileView(truck: truck) } label: {
                             HStack(spacing: 12) {
-                                Image(systemName: "heart.fill").foregroundStyle(.pink)
+                                TruckAvatar(truck: truck, size: 44)
                                 VStack(alignment: .leading, spacing: 3) {
                                     Text(truck.name).fontWeight(.semibold)
-                                    Text(truck.cuisineType).font(.caption).foregroundStyle(.secondary)
+                                    Text([truck.cuisineType, truck.region].filter { !$0.isEmpty }.joined(separator: " · "))
+                                        .font(.caption)
+                                        .foregroundStyle(.secondary)
                                     if let latest = latestSighting(for: truck) {
                                         Text("Last seen \(latest.timestamp, style: .relative)")
                                             .font(.caption2)

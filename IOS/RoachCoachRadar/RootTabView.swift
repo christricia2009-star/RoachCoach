@@ -5,6 +5,7 @@ struct RootTabView: View {
     @State private var showWatchZones = false
     @State private var showWarRoom = false
     @State private var showSettings = false
+    @State private var showFeedback = false
 
     var body: some View {
         TabView {
@@ -29,6 +30,7 @@ struct RootTabView: View {
                     Button { showWatchZones = true } label: { Label("Watch Zones", systemImage: "location.viewfinder") }
                     Button { showWarRoom = true } label: { Label("AI Radar War Room", systemImage: "brain.head.profile") }
                     Button { showSettings = true } label: { Label("API & Radar Settings", systemImage: "key.fill") }
+                    Button { showFeedback = true } label: { Label("Send Feedback", systemImage: "exclamationmark.bubble") }
                     NavigationLink { RadarLabView() } label: { Label("Radar Lab", systemImage: "flask") }
                     HStack { Label("Scout Level", systemImage: "shield.fill"); Spacer(); Text(ReputationService.shared.reputation.title).foregroundStyle(.secondary) }
                 }.navigationTitle("More Radar")
@@ -52,6 +54,9 @@ struct RootTabView: View {
         }
         .sheet(isPresented: $showSettings) {
             NavigationStack { APISettingsView() }
+        }
+        .sheet(isPresented: $showFeedback) {
+            NavigationStack { FeedbackView() }
         }
     }
 }

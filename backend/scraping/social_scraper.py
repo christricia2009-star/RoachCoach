@@ -15,9 +15,11 @@ We do NOT bypass Instagram access controls or use unauthorized scraping.
 
 from __future__ import annotations
 
+import hashlib
 import json
 import os
 import re
+import uuid
 
 import requests
 
@@ -68,6 +70,9 @@ class RawSocialPost:
 # return "nonexisting field (business_discovery)" and we skip it.
 
 INSTAGRAM_GRAPH_VERSION = "v25.0"
+
+# username -> {username, picture, ig_id} filled during Business Discovery
+INSTAGRAM_PROFILES: dict[str, dict] = {}
 
 _IG_ACCOUNT_CACHE: Optional[dict] = None
 _IG_ACCOUNT_CACHE_TAIL = ""
@@ -363,7 +368,7 @@ def fetch_recent_instagram_posts_business_discovery(
         "fields": (
             "business_discovery.username("
             f"{username}"
-            "){username,media.limit(8){caption,timestamp,permalink}}"
+            "){username,id,profile_picture_url,media.limit(8){caption,timestamp,permalink}}"
         ),
         "access_token": token,
     }
@@ -423,6 +428,13 @@ def fetch_recent_instagram_posts_business_discovery(
         (discovery.get("media") or {}).get("data") or []
     )
     handle = discovery.get("username") or username
+    picture = discovery.get("profile_picture_url") or ""
+    if handle:
+        INSTAGRAM_PROFILES[handle.lower()] = {
+            "username": handle,
+            "picture": picture,
+            "ig_id": str(discovery.get("id") or ""),
+        }
     posts = _posts_from_media_items(media_items, handle)
     if posts:
         print(
@@ -874,6 +886,48 @@ TRUCK_LISTINGS: list[dict[str, str]] = [
     },
 ]
 
+def _merge_california_directory() -> None:
+    path = os.path.join(
+        os.path.dirname(__file__), "..", "data", "california_food_trucks.json"
+    )
+    if not os.path.isfile(path):
+        return
+    try:
+        with open(path, encoding="utf-8") as handle:
+            rows = json.load(handle)
+    except Exception as exc:
+        print(f"[social] california directory load failed: {exc}")
+        return
+    known = {item.get("instagram") for item in TRUCK_LISTINGS if item.get("instagram")}
+    for row in rows or []:
+        ig = (row.get("instagram") or "").strip().lstrip("@").lower()
+        if not ig:
+            continue
+        if ig in known:
+            for item in TRUCK_LISTINGS:
+                if item.get("instagram") == ig:
+                    item["region"] = row.get("region") or item.get("region") or ""
+            continue
+        TRUCK_LISTINGS.append(
+            {
+                "key": str(row.get("name") or ig).lower(),
+                "search_name": row.get("name") or ig,
+                "instagram": ig,
+                "x": (row.get("x") or "").strip(),
+                "facebook": (row.get("facebook") or "").strip(),
+                "address": row.get("address") or "",
+                "region": row.get("region") or "",
+                "cuisine": row.get("cuisine") or "",
+            }
+        )
+        known.add(ig)
+
+
+_merge_california_directory()
+
+INSTAGRAM_BUSINESS_DISCOVERY_USERNAMES = [
+    item["instagram"] for item in TRUCK_LISTINGS if item.get("instagram")
+]
 X_USERNAMES: list[str] = [
     item["x"] for item in TRUCK_LISTINGS if item.get("x")
 ]
@@ -934,7 +988,7 @@ def _catalog_add(by_key: dict[str, dict], entry: dict) -> None:
         return
     if entry.get("id") and not existing.get("id"):
         existing["id"] = entry["id"]
-    for field in ("instagram", "facebook", "x", "search_name"):
+    for field in ("instagram", "facebook", "x", "search_name", "region", "cuisine"):
         if entry.get(field) and not existing.get(field):
             existing[field] = entry[field]
     merged = list(existing.get("instagram_all") or [])
@@ -947,8 +1001,8 @@ def _catalog_add(by_key: dict[str, dict], entry: dict) -> None:
 def load_live_truck_catalog(*, refresh: bool = False) -> list[dict]:
     """
     Union of curated listings, sacramento_trucks.json, and live CloudKit
-    Truck records. Instagram handles come from socialLinks when present,
-    otherwise a best-effort slug of the truck name.
+    Truck records. Instagram handles come from known listings or
+    socialLinks — names are not guessed into handles.
     """
     global _LIVE_CATALOG
     if _LIVE_CATALOG is not None and not refresh:
@@ -966,6 +1020,8 @@ def load_live_truck_catalog(*, refresh: bool = False) -> list[dict]:
             "instagram_all": [ig] if ig else [],
             "facebook": (item.get("facebook") or "").strip(),
             "x": (item.get("x") or "").strip(),
+            "region": item.get("region") or "",
+            "cuisine": item.get("cuisine") or "",
         })
 
     json_paths = [
@@ -987,9 +1043,6 @@ def load_live_truck_catalog(*, refresh: bool = False) -> list[dict]:
                     parsed = instagram_handle_from_text(str(link))
                     if parsed:
                         igs.append(parsed)
-                guess = guessed_instagram_handle(name)
-                if guess and guess not in igs:
-                    igs.append(guess)
                 _catalog_add(by_key, {
                     "id": "",
                     "key": name.lower(),
@@ -1029,10 +1082,6 @@ def load_live_truck_catalog(*, refresh: bool = False) -> list[dict]:
                 if ("x.com/" in lower or "twitter.com/" in lower) and not x_handle:
                     host = "x.com/" if "x.com/" in lower else "twitter.com/"
                     x_handle = lower.split(host, 1)[1].split("/")[0].split("?")[0]
-            if not igs:
-                guess = guessed_instagram_handle(name)
-                if guess:
-                    igs.append(guess)
             if name:
                 _catalog_add(by_key, {
                     "id": truck_id,
@@ -1042,6 +1091,8 @@ def load_live_truck_catalog(*, refresh: bool = False) -> list[dict]:
                     "instagram_all": igs,
                     "facebook": facebook,
                     "x": x_handle,
+                    "region": str(_ck_value(rec, "region") or ""),
+                    "cuisine": str(_ck_value(rec, "cuisineType") or ""),
                 })
     except Exception as exc:
         print(f"[social] CloudKit truck catalog unavailable: {exc}")
@@ -1104,6 +1155,112 @@ def all_instagram_discovery_usernames(
                 seen.add(item)
                 out.append(item)
     return out
+
+
+def _deterministic_truck_uuid(seed: str) -> str:
+    digest = hashlib.sha256(seed.encode("utf-8")).digest()
+    raw = bytearray(digest[:16])
+    raw[6] = (raw[6] & 0x0F) | 0x50
+    raw[8] = (raw[8] & 0x3F) | 0x80
+    return str(uuid.UUID(bytes=bytes(raw)))
+
+
+def sync_social_profiles_to_cloudkit() -> int:
+    """Write Instagram profile photos + social links onto Truck records."""
+    try:
+        import cloudkit_bridge
+    except Exception as exc:
+        print(f"[social] truck profile sync skipped: {exc}")
+        return 0
+
+    try:
+        records = cloudkit_bridge.get_trucks()
+    except Exception as exc:
+        print(f"[social] cannot load trucks for profile sync: {exc}")
+        return 0
+
+    by_name = {}
+    by_handle = {}
+    for rec in records:
+        name = str(_ck_value(rec, "name") or "").strip().lower()
+        record_name = rec.get("recordName") or ""
+        if name:
+            by_name[name] = rec
+        for link in _ck_value(rec, "socialLinks") or []:
+            handle = instagram_handle_from_text(str(link))
+            if handle:
+                by_handle[handle] = rec
+
+    updated = 0
+    created = 0
+    catalog = load_live_truck_catalog()
+    for item in catalog:
+        igs = [h for h in (item.get("instagram_all") or []) if h]
+        if not igs:
+            continue
+        handle = igs[0]
+        profile = INSTAGRAM_PROFILES.get(handle.lower()) or {}
+        picture = profile.get("picture") or ""
+        name = item.get("search_name") or handle
+        social = [f"https://www.instagram.com/{h}/" for h in igs]
+        if item.get("facebook"):
+            social.append(f"https://www.facebook.com/{item['facebook']}")
+        rec = by_handle.get(handle) or by_name.get(name.lower())
+        validated = handle.lower() in INSTAGRAM_PROFILES
+        if not rec and not validated:
+            continue
+        fields = {
+            "name": name,
+            "cuisineType": item.get("cuisine") or _ck_value(rec or {}, "cuisineType") or "",
+            "socialLinks": social,
+        }
+        if item.get("region"):
+            fields["region"] = item["region"]
+        if picture:
+            fields["imageURL"] = picture
+
+        def _upsert(record_name: str, payload: dict) -> None:
+            try:
+                cloudkit_bridge.upsert_record(
+                    "Truck",
+                    record_name,
+                    cloudkit_bridge.to_cloudkit_fields(payload),
+                )
+            except Exception as exc:
+                if "region" not in payload:
+                    raise
+                retry = dict(payload)
+                retry.pop("region", None)
+                print(f"[social] retrying {name} without region: {exc}")
+                cloudkit_bridge.upsert_record(
+                    "Truck",
+                    record_name,
+                    cloudkit_bridge.to_cloudkit_fields(retry),
+                )
+
+        if rec:
+            record_name = rec.get("recordName")
+            try:
+                _upsert(record_name, fields)
+                updated += 1
+            except Exception as exc:
+                print(f"[social] truck update failed {name}: {exc}")
+        else:
+            record_name = _deterministic_truck_uuid(handle)
+            fields.setdefault("averageConfidenceScore", 0.8)
+            fields.setdefault("rating", 4.5)
+            fields.setdefault("averageWaitMinutes", 12)
+            fields.setdefault("menuHighlights", [])
+            try:
+                _upsert(record_name, fields)
+                created += 1
+            except Exception as exc:
+                print(f"[social] truck create failed {name}: {exc}")
+    print(
+        f"[social] truck profiles synced: updated={updated} created={created} "
+        f"instagram_photos={sum(1 for p in INSTAGRAM_PROFILES.values() if p.get('picture'))}"
+    )
+    return updated + created
 
 
 def all_facebook_page_ids(catalog: list[dict] | None = None) -> list[str]:
