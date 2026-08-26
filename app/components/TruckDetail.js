@@ -4,7 +4,8 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { notificationsSupported, notify, requestNotificationPermission, notificationPermission } from "../lib/notify";
 import Checkout from "./Checkout";
-import { avatarUrl, socialLinks, truckRegion } from "../lib/trucks";
+import { socialLinks, truckRegion } from "../lib/trucks";
+import TruckThumb from "./TruckThumb";
 
 const PAID_STATUSES = new Set(["authorized", "captured"]);
 
@@ -257,7 +258,6 @@ export default function TruckDetail({ truckId }) {
     setCustomTip("");
   }
 
-  const photo = avatarUrl(truck || {});
   const links = truck ? socialLinks(truck) : [];
   const region = truck ? truckRegion(truck) : "";
 
@@ -280,18 +280,7 @@ export default function TruckDetail({ truckId }) {
   return (
     <div className="rc-detail-shell">
       <header className="rc-profile">
-        {photo ? (
-          <img className="rc-profile__photo" src={photo} alt="" />
-        ) : (
-          <span className="rc-thumb rc-thumb--fallback rc-thumb--lg" aria-hidden="true">
-            <svg viewBox="0 0 24 24">
-              <path
-                fill="currentColor"
-                d="M3 7.5A1.5 1.5 0 0 1 4.5 6h9A1.5 1.5 0 0 1 15 7.5V9h2.2c.5 0 .96.24 1.25.64l1.9 2.6c.2.27.3.6.3.94V16a1.5 1.5 0 0 1-1.5 1.5h-.6a2.5 2.5 0 0 1-4.8 0h-4.4a2.5 2.5 0 0 1-4.8 0H3.5A1.5 1.5 0 0 1 2 16V7.5H3Z"
-              />
-            </svg>
-          </span>
-        )}
+        <TruckThumb truck={truck} className="rc-thumb rc-thumb--lg rc-profile__photo" />
         <div>
           <h1>{truck.name}</h1>
           {truck.cuisine_type && <p className="rc-detail-cuisine">{truck.cuisine_type}</p>}

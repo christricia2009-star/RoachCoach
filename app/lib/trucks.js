@@ -32,12 +32,25 @@ export function hasSocialPresence(truck) {
   return Boolean(instagramHandle(truck) || facebookHandle(truck));
 }
 
-export function avatarUrl(truck) {
+export function avatarCandidates(truck) {
+  const out = [];
   const image = String(truck?.image_url || "").trim();
-  if (image.startsWith("https://") && image.length < 2000) return image;
-  const handle = instagramHandle(truck);
-  if (handle) return `https://unavatar.io/instagram/${encodeURIComponent(handle)}`;
-  return "";
+  if (image.startsWith("https://") && image.length < 2000) out.push(image);
+  const ig = instagramHandle(truck);
+  if (ig) {
+    out.push(`https://unavatar.io/instagram/${encodeURIComponent(ig)}`);
+  }
+  const fb = facebookHandle(truck);
+  if (fb) {
+    out.push(`https://unavatar.io/facebook/${encodeURIComponent(fb)}`);
+  }
+  const name = encodeURIComponent(String(truck?.name || "Truck").slice(0, 24));
+  out.push(`https://ui-avatars.com/api/?name=${name}&background=ff7a1a&color=fff&size=128&bold=true&format=png`);
+  return out;
+}
+
+export function avatarUrl(truck) {
+  return avatarCandidates(truck)[0] || "";
 }
 
 export function truckRegion(truck) {

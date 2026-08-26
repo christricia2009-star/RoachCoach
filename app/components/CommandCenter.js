@@ -2,33 +2,12 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
-import "maplibre-gl/dist/maplibre-gl.css";
+import "leaflet/dist/leaflet.css";
 import { avatarUrl, hasSocialPresence, truckRegion } from "../lib/trucks";
+import TruckThumb from "./TruckThumb";
 
-const DEFAULT_CENTER = [-121.4944, 38.5816];
+const DEFAULT_CENTER = [38.5816, -121.4944];
 const DEFAULT_ZOOM = 10;
-const CA_BOUNDS = [
-  [-124.5, 32.5],
-  [-114.1, 42.1],
-];
-
-const DARK_STYLE = {
-  version: 8,
-  sources: {
-    "carto-dark": {
-      type: "raster",
-      tiles: [
-        "https://a.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}.png",
-        "https://b.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}.png",
-        "https://c.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}.png",
-      ],
-      tileSize: 256,
-      attribution:
-        "© <a href='https://www.openstreetmap.org/copyright'>OpenStreetMap</a> © <a href='https://carto.com/attributions'>CARTO</a>",
-    },
-  },
-  layers: [{ id: "carto-dark-layer", type: "raster", source: "carto-dark" }],
-};
 
 const CONFIDENCE_COLOR = {
   high: "#3ee0c5",
@@ -83,65 +62,34 @@ export default function CommandCenter() {
     let map;
     let tries = 0;
 
-    async function loadLib() {
-      try {
-        const mod = await import("maplibre-gl");
-        return mod.default || mod;
-      } catch (err) {
-        console.error("maplibre import failed", err);
-        throw err;
-      }
-    }
-
-    async function waitForBox(el) {
-      while (!cancelled && tries < 40) {
-        if (el.clientWidth > 40 && el.clientHeight > 40) return true;
-        tries += 1;
-        await new Promise((r) => setTimeout(r, 50));
-      }
-      return el.clientWidth > 0 && el.clientHeight > 0;
-    }
-
     (async () => {
       try {
         const el = containerRef.current;
         if (!el) return;
-        const ok = await waitForBox(el);
-        if (cancelled || !ok) {
-          setMapError("Map surface never sized — try resizing the window.");
-          return;
+        while (!cancelled && tries < 40 && (el.clientWidth < 40 || el.clientHeight < 40)) {
+          tries += 1;
+          await new Promise((r) => setTimeout(r, 50));
         }
-        const maplibregl = await loadLib();
         if (cancelled) return;
-
-        map = new maplibregl.Map({
-          container: el,
-          style: DARK_STYLE,
-          center: DEFAULT_CENTER,
-          zoom: DEFAULT_ZOOM,
+        const leaflet = await import("leaflet");
+        const L = leaflet.default || leaflet;
+        map = L.map(el, {
+          zoomControl: true,
           attributionControl: true,
-          failIfMajorPerformanceCaveat: false,
-        });
-        map.addControl(new maplibregl.NavigationControl({ showCompass: false }), "top-right");
-        map.addControl(
-          new maplibregl.GeolocateControl({
-            positionOptions: { enableHighAccuracy: true },
-            trackUserLocation: true,
-          }),
-          "top-right"
-        );
-        map.on("error", (event) => {
-          console.error("maplibre error", event?.error || event);
-        });
-        const resize = () => map && map.resize();
-        map.on("load", () => {
-          resize();
-          if (!cancelled) setMapReady(true);
-        });
+        }).setView(DEFAULT_CENTER, DEFAULT_ZOOM);
+        L.tileLayer("https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png", {
+          attribution:
+            "&copy; <a href='https://www.openstreetmap.org/copyright'>OpenStreetMap</a> &copy; <a href='https://carto.com/attributions'>CARTO</a>",
+          subdomains: "abcd",
+          maxZoom: 19,
+        }).addTo(map);
+        const resize = () => map.invalidateSize();
         observer = new ResizeObserver(resize);
         observer.observe(el);
-        resize();
+        setTimeout(resize, 80);
+        setTimeout(resize, 400);
         mapRef.current = map;
+        if (!cancelled) setMapReady(true);
       } catch (err) {
         if (!cancelled) setMapError(err.message || "Map failed to start");
       }
@@ -235,20 +183,27 @@ export default function CommandCenter() {
     let cancelled = false;
 
     (async () => {
-      const maplibregl = (await import("maplibre-gl")).default;
+      const leaflet = await import("leaflet");
+      const L = leaflet.default || leaflet;
       if (cancelled || !mapRef.current) return;
       markersRef.current.forEach((m) => m.remove());
       markersRef.current = [];
 
+      const latlngs = [];
       visible.forEach(({ truck, sighting, isLive }) => {
         const color = confidenceTone(sighting.confidenceLevel);
-        const el = document.createElement("div");
-        el.className = `rc-marker${isLive ? " rc-marker--live" : " rc-marker--ghost"}`;
-        el.style.setProperty("--rc-color", color);
-        el.innerHTML =
-          `<span class="rc-marker__ring"></span><span class="rc-marker__core"></span>`;
-
         const name = truck?.name || sighting.note || "Unmatched ping";
+        const thumb = truck ? avatarUrl(truck) : "";
+        const icon = L.divIcon({
+          className: `rc-leaflet-pin${isLive ? " is-live" : ""}`,
+          iconSize: [36, 36],
+          iconAnchor: [18, 18],
+          html: `<div class="rc-marker${isLive ? " rc-marker--live" : " rc-marker--ghost"}" style="--rc-color:${color}">${
+            thumb
+              ? `<img src="${escapeHtml(thumb)}" alt="" />`
+              : `<span class="rc-marker__core"></span>`
+          }</div>`,
+        });
         const popupHtml = `
           <div class="rc-popup">
             <strong>${escapeHtml(name)}</strong>
@@ -260,27 +215,19 @@ export default function CommandCenter() {
             ${truck?.id ? `<a class="rc-popup__link" href="/trucks/${encodeURIComponent(truck.id)}">Open truck →</a>` : ""}
           </div>
         `;
-
-        const marker = new maplibregl.Marker({ element: el, anchor: "center" })
-          .setLngLat([sighting.longitude, sighting.latitude])
-          .setPopup(new maplibregl.Popup({ offset: 18, closeButton: false }).setHTML(popupHtml))
+        const marker = L.marker([sighting.latitude, sighting.longitude], { icon })
+          .bindPopup(popupHtml)
           .addTo(mapRef.current);
         markersRef.current.push(marker);
+        latlngs.push([sighting.latitude, sighting.longitude]);
       });
 
-      if (visible.length === 1) {
-        mapRef.current.easeTo({
-          center: [visible[0].sighting.longitude, visible[0].sighting.latitude],
-          zoom: 12,
-          duration: 600,
-        });
-      } else if (visible.length > 1) {
-        const bounds = new maplibregl.LngLatBounds();
-        visible.forEach(({ sighting }) => bounds.extend([sighting.longitude, sighting.latitude]));
-        mapRef.current.fitBounds(bounds, { padding: 80, maxZoom: 12, duration: 600 });
-      } else {
-        mapRef.current.fitBounds(CA_BOUNDS, { padding: 24, duration: 400 });
+      if (latlngs.length === 1) {
+        mapRef.current.setView(latlngs[0], 12);
+      } else if (latlngs.length > 1) {
+        mapRef.current.fitBounds(latlngs, { padding: [60, 60], maxZoom: 12 });
       }
+      mapRef.current.invalidateSize();
     })();
 
     return () => {
@@ -370,9 +317,12 @@ export default function CommandCenter() {
               href={truck?.id ? `/trucks/${encodeURIComponent(truck.id)}` : "/fleet"}
               className="rc-contact"
             >
-              <span className={`rc-contact__pulse${isLive ? " is-live" : ""}`} />
+              {truck ? <TruckThumb truck={truck} /> : <span className={`rc-contact__pulse${isLive ? " is-live" : ""}`} />}
               <span className="rc-contact__body">
-                <strong>{truck?.name || "Unmatched ping"}</strong>
+                <strong>
+                  {truck?.name || "Unmatched ping"}
+                  {isLive && <i className="rc-live-dot" />}
+                </strong>
                 <small>
                   {truck?.cuisine_type || "Unknown cuisine"} · {relativeTime(sighting.timestamp)}
                 </small>
@@ -383,13 +333,7 @@ export default function CommandCenter() {
           <div className="rc-kicker rc-kicker--gap">Fleet</div>
           {filteredFleet.slice(0, 18).map((truck) => (
             <Link key={truck.id} href={`/trucks/${encodeURIComponent(truck.id)}`} className="rc-contact rc-contact--fleet">
-              <img
-                src={avatarUrl(truck)}
-                alt=""
-                onError={(e) => {
-                  e.currentTarget.style.visibility = "hidden";
-                }}
-              />
+              <TruckThumb truck={truck} />
               <span className="rc-contact__body">
                 <strong>{truck.name}</strong>
                 <small>

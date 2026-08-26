@@ -101,21 +101,33 @@ button, input, textarea { font-family: inherit; }
   width: 100%;
   background: #0a1220;
 }
-.rc-map, .rc-map .maplibregl-map, .rc-map .maplibregl-canvas-container, .rc-map .maplibregl-canvas {
+.rc-map, .rc-map.leaflet-container {
+  position: absolute;
+  inset: 0;
   width: 100%;
   height: 100%;
+  background: #0a1220;
+  z-index: 1;
 }
-.rc-map { position: absolute; inset: 0; }
-.rc-map .maplibregl-ctrl-bottom-right { bottom: 12px; }
-.rc-map .maplibregl-popup-content {
+.leaflet-container { font-family: inherit; }
+.rc-leaflet-pin { background: transparent !important; border: 0 !important; }
+.rc-marker img {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  object-fit: cover;
+  border: 2px solid var(--rc-color, var(--accent));
+  box-shadow: 0 0 16px var(--rc-color, var(--accent));
+}
+.leaflet-popup-content-wrapper {
   background: #0c1422;
   color: var(--text);
   border: 1px solid var(--line);
   border-radius: 12px;
-  padding: 12px 14px;
   box-shadow: var(--shadow);
 }
-.rc-map .maplibregl-popup-tip { border-top-color: #0c1422; border-bottom-color: #0c1422; }
+.leaflet-popup-tip { background: #0c1422; }
+.leaflet-popup-content { margin: 12px 14px; }
 
 .rc-map-boot {
   position: absolute;

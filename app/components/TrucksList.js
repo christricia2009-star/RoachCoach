@@ -2,38 +2,8 @@
 
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
-import {
-  REGION_ORDER,
-  avatarUrl,
-  hasSocialPresence,
-  truckRegion,
-} from "../lib/trucks";
-
-function TruckThumb({ truck }) {
-  const src = avatarUrl(truck);
-  const [failed, setFailed] = useState(false);
-  if (!src || failed) {
-    return (
-      <span className="rc-thumb rc-thumb--fallback" aria-hidden="true">
-        <svg viewBox="0 0 24 24">
-          <path
-            fill="currentColor"
-            d="M3 7.5A1.5 1.5 0 0 1 4.5 6h9A1.5 1.5 0 0 1 15 7.5V9h2.2c.5 0 .96.24 1.25.64l1.9 2.6c.2.27.3.6.3.94V16a1.5 1.5 0 0 1-1.5 1.5h-.6a2.5 2.5 0 0 1-4.8 0h-4.4a2.5 2.5 0 0 1-4.8 0H3.5A1.5 1.5 0 0 1 2 16V7.5H3Z"
-          />
-        </svg>
-      </span>
-    );
-  }
-  return (
-    <img
-      className="rc-thumb"
-      src={src}
-      alt=""
-      loading="lazy"
-      onError={() => setFailed(true)}
-    />
-  );
-}
+import { REGION_ORDER, hasSocialPresence, truckRegion } from "../lib/trucks";
+import TruckThumb from "./TruckThumb";
 
 export default function TrucksList() {
   const [trucks, setTrucks] = useState([]);
