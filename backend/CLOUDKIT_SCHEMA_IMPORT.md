@@ -31,6 +31,8 @@ Then still use Console → **Deploy Schema Changes** to push Development → Pro
 
 Existing `Truck` / `Sighting` types are additive here (`region`, `instagramHandle`, menu/order types). Nothing is renamed or type-changed.
 
+If Console says **cannot remove field X which exists in production**, the import file was missing a field that Production already has. CloudKit treats a missing field as a delete, which production blocks. Add that field to `schema.ckdb` and import again. `reportedByUserId` on Sighting is already included for that reason.
+
 ## After deploy
 
 1. Run the GitHub Action once so starter menus can write.

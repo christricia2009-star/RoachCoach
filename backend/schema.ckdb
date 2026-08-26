@@ -19,6 +19,7 @@ DEFINE SCHEMA
         "___recordID" REFERENCE QUERYABLE,
         "___createTime" TIMESTAMP QUERYABLE SORTABLE,
         truckId STRING QUERYABLE,
+        reportedByUserId STRING QUERYABLE,
         latitude DOUBLE,
         longitude DOUBLE,
         note STRING SEARCHABLE,
