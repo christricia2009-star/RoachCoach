@@ -1283,7 +1283,8 @@ def _starter_menu_for_truck(truck_id: str) -> list[MenuItemOut]:
         recipes = rows.get(handle) if handle else None
         if recipes:
             return _recipes_to_menu(truck_id, handle or "truck", recipes)
-        key = f"_cuisine_{(cuisine or 'other').strip().lower().replace(' ', '_')}"
+        cuisine_token = re.split(r"[/\s,&]+", (cuisine or "other").strip().lower())[0]
+        key = f"_cuisine_{cuisine_token}"
         recipes = rows.get(key) or rows.get("_cuisine_other") or []
         return _recipes_to_menu(truck_id, key.strip("_") or "other", recipes)
     except Exception:
@@ -1328,10 +1329,16 @@ def get_truck_menu(truck_id: str, available_only: bool = False):
         )
 
         items = [_record_to_menu_item(r) for r in records]
-        real = [i for i in items if i.name and i.name != "Untitled Item" and i.price_cents > 0]
-        if real:
+        real = [
+            i for i in items
+            if i.name and i.name not in ("Untitled Item", "Chef's plate", "PAY-DIAG-TEST-ITEM") and i.price_cents > 0
+        ]
+        starter = _starter_menu_for_truck(truck_id)
+        if len(real) >= 3:
             return real
-        return _starter_menu_for_truck(truck_id)
+        if starter and len(starter) > len(real):
+            return starter
+        return real or starter
 
     except Exception as e:
         starter = _starter_menu_for_truck(truck_id)
