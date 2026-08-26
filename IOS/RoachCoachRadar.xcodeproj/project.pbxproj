@@ -78,6 +78,7 @@
 			);
 			name = RoachCoachRadar;
 			packageProductDependencies = (
+				7C88E1A12B4D4F6A9C1E3F51 /* StripePaymentSheet */,
 			);
 			productName = RoachCoachRadar;
 			productReference = 226F6EA2303A6F6C0049C08D /* RoachCoachRadar.app */;
@@ -107,6 +108,9 @@
 			);
 			mainGroup = 226F6E99303A6F6C0049C08D;
 			minimizedProjectReferenceProxies = 1;
+			packageReferences = (
+				7C88E1A02B4D4F6A9C1E3F50 /* XCRemoteSwiftPackageReference "stripe-ios" */,
+			);
 			preferredProjectObjectVersion = 77;
 			productRefGroup = 226F6EA3303A6F6C0049C08D /* Products */;
 			projectDirPath = "";
@@ -266,7 +270,7 @@
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
 				CODE_SIGN_ENTITLEMENTS = RoachCoachRadar/RoachCoachRadar.entitlements;
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 21;
+				CURRENT_PROJECT_VERSION = 26;
 				DEVELOPMENT_TEAM = 6989P4J9RG;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
@@ -306,7 +310,7 @@
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
 				CODE_SIGN_ENTITLEMENTS = RoachCoachRadar/RoachCoachRadar.entitlements;
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 21;
+				CURRENT_PROJECT_VERSION = 26;
 				DEVELOPMENT_TEAM = 6989P4J9RG;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
@@ -361,6 +365,25 @@
 			defaultConfigurationName = Release;
 		};
 /* End XCConfigurationList section */
+
+/* Begin XCRemoteSwiftPackageReference section */
+		7C88E1A02B4D4F6A9C1E3F50 /* XCRemoteSwiftPackageReference "stripe-ios" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/stripe/stripe-ios";
+			requirement = {
+				kind = exactVersion;
+				version = 26.8.0;
+			};
+		};
+/* End XCRemoteSwiftPackageReference section */
+
+/* Begin XCSwiftPackageProductDependency section */
+		7C88E1A12B4D4F6A9C1E3F51 /* StripePaymentSheet */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 7C88E1A02B4D4F6A9C1E3F50 /* XCRemoteSwiftPackageReference "stripe-ios" */;
+			productName = StripePaymentSheet;
+		};
+/* End XCSwiftPackageProductDependency section */
 	};
 	rootObject = 226F6E9A303A6F6C0049C08D /* Project object */;
 }
