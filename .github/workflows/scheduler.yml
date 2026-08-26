@@ -23,11 +23,13 @@ jobs:
       - name: Install dependencies
         run: |
           cd backend
-          pip install -r requirements.txt
+          pip install -r requirements-scheduler.txt
 
       - name: Reconstruct CloudKit private key from secret
         run: |
-          echo "${{ secrets.CLOUDKIT_PRIVATE_KEY_B64 }}" | base64 --decode > /tmp/cloudkit_key.pem
+          if [ -n "${{ secrets.CLOUDKIT_PRIVATE_KEY_B64 }}" ]; then
+            echo "${{ secrets.CLOUDKIT_PRIVATE_KEY_B64 }}" | base64 --decode > /tmp/cloudkit_key.pem
+          fi
 
       - name: Run signal pipeline once
         env:

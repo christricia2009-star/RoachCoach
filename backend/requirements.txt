@@ -18,6 +18,7 @@ cryptography==43.0.1
 boto3==1.35.24
 apscheduler==3.10.4
 
-# Phase 5: payments
+# Phase 5: payments. Stripe is live. Do not pin squareup here —
+# 38.1.0.20241120 was never published and pip-fails the GitHub Action.
+# Square stays optional in payments.py (ImportError -> PaymentError).
 stripe==11.1.1
-squareup==38.1.0.20241120

@@ -1,0 +1,11 @@
+# GitHub Actions signal pipeline only (python3 scheduler.py --once).
+# Keep this free of payment/web pins so a bad Square/Stripe version
+# cannot stop Instagram polling.
+python-dotenv==1.0.1
+requests==2.32.3
+cryptography==43.0.1
+anthropic==0.34.2
+openai==1.51.0
+httpx<0.28
+apscheduler==3.10.4
+boto3==1.35.24
