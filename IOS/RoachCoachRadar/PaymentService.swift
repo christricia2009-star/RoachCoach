@@ -1,5 +1,6 @@
 import Foundation
 import SwiftUI
+import Combine
 
 #if canImport(StripePaymentSheet)
 import StripePaymentSheet
@@ -44,8 +45,8 @@ final class PaymentService: ObservableObject {
 
     private let api: APIServicing
 
-    init(api: APIServicing = LiveAPIService.shared) {
-        self.api = api
+    init(api: APIServicing? = nil) {
+        self.api = api ?? LiveAPIService.shared
     }
 
     /// Loads provider config, then (for Stripe) creates the PaymentIntent

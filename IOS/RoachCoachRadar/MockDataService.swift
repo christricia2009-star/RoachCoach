@@ -77,7 +77,7 @@ final class MockDataService {
             MenuItem(truckId: trucks[0].id.uuidString, name: "Scallion Pancake", category: .side, priceCents: 400, sortOrder: 2),
             MenuItem(truckId: trucks[1].id.uuidString, name: "Al Pastor Tacos (3)", description: "Marinated pork, pineapple, cilantro, onion", category: .entree, priceCents: 1050, sortOrder: 0, modifiers: [MenuItemModifier(name: "Extra tortilla"), MenuItemModifier(name: "Extra spicy")]),
             MenuItem(truckId: trucks[1].id.uuidString, name: "Elote", category: .side, priceCents: 600, sortOrder: 1),
-            MenuItem(truckId: trucks[1].id.uuidString, name: "Horchata", category: .drink, priceCents: 450, sortOrder: 2, isAvailable: false)
+            MenuItem(truckId: trucks[1].id.uuidString, name: "Horchata", category: .drink, priceCents: 450, isAvailable: false, sortOrder: 2)
         ]
     }()
 
