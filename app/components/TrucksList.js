@@ -128,106 +128,89 @@ export default function TrucksList() {
   }, [filtered, spotted, regions]);
 
   return (
-    <div className="rc-trucks">
-      <div className="rc-search-wrap">
-        <span className="rc-search-icon" aria-hidden="true">
-          ⌕
-        </span>
+    <div className="rc-fleet">
+      <header className="rc-fleet-hero">
+        <p className="rc-kicker">California fleet</p>
+        <h1>Every truck we track.</h1>
+        <p>Same directory as the app — Instagram/Facebook-backed, grouped by region, ready to order ahead.</p>
+      </header>
+
+      <div className="rc-hud-search rc-hud-search--wide">
+        <span>Filter fleet</span>
         <input
-          className="rc-ios-search"
-          placeholder="Search trucks, cuisine, region"
+          placeholder="Truck, cuisine, region"
           value={search}
           onChange={(e) => setSearch(e.target.value)}
         />
-        {search && (
-          <button type="button" className="rc-search-clear" onClick={() => setSearch("")} aria-label="Clear search">
-            ✕
-          </button>
-        )}
       </div>
 
-      <div className="rc-chips" role="toolbar" aria-label="Filters">
-        <button type="button" className={`rc-filter${region === "" ? " rc-filter--on" : ""}`} onClick={() => setRegion("")}>
-          All regions
+      <div className="rc-hud-filters">
+        <button type="button" className={!region ? "is-on" : ""} onClick={() => setRegion("")}>
+          All sectors
         </button>
         {regions.map((name) => (
-          <button
-            key={name}
-            type="button"
-            className={`rc-filter${region === name ? " rc-filter--on" : ""}`}
-            onClick={() => setRegion(region === name ? "" : name)}
-          >
+          <button key={name} type="button" className={region === name ? "is-on" : ""} onClick={() => setRegion(region === name ? "" : name)}>
             {name}
           </button>
         ))}
       </div>
-      {cuisines.length > 0 && (
-        <div className="rc-chips" role="toolbar" aria-label="Cuisines">
-          <button type="button" className={`rc-filter${cuisine === "" ? " rc-filter--on" : ""}`} onClick={() => setCuisine("")}>
-            All cuisines
+      <div className="rc-hud-filters">
+        <button type="button" className={!cuisine ? "is-on" : ""} onClick={() => setCuisine("")}>
+          All cuisines
+        </button>
+        {cuisines.slice(0, 14).map((name) => (
+          <button key={name} type="button" className={cuisine === name ? "is-on" : ""} onClick={() => setCuisine(cuisine === name ? "" : name)}>
+            {name}
           </button>
-          {cuisines.slice(0, 16).map((name) => (
-            <button
-              key={name}
-              type="button"
-              className={`rc-filter${cuisine === name ? " rc-filter--on" : ""}`}
-              onClick={() => setCuisine(cuisine === name ? "" : name)}
-            >
-              {name}
-            </button>
-          ))}
-        </div>
-      )}
+        ))}
+      </div>
 
-      <div className="rc-count">{listed.length} trucks</div>
+      <div className="rc-fleet-count">
+        {filtered.length} / {listed.length} trucks
+      </div>
 
-      {loading && <div className="rc-empty">Loading trucks…</div>}
+      {loading && <div className="rc-empty">Acquiring fleet…</div>}
       {loadError && <div className="rc-empty rc-empty--error">{loadError}</div>}
 
-      {!loading && !loadError && spotted.length > 0 && (
-        <section className="rc-group">
-          <h2>Spotted Recently</h2>
-          <div className="rc-card">
+      {!loading && spotted.length > 0 && (
+        <section className="rc-fleet-section">
+          <h2>Spotted recently</h2>
+          <div className="rc-fleet-grid">
             {spotted.map((truck) => (
-              <TruckRow key={truck.id} truck={truck} live />
+              <TruckCard key={truck.id} truck={truck} live />
             ))}
           </div>
         </section>
       )}
 
       {regionSections.map((section) => (
-        <section className="rc-group" key={section.name}>
+        <section className="rc-fleet-section" key={section.name}>
           <h2>{section.name}</h2>
-          <div className="rc-card">
+          <div className="rc-fleet-grid">
             {section.trucks.map((truck) => (
-              <TruckRow key={truck.id} truck={truck} live={liveIds.has(truck.id)} />
+              <TruckCard key={truck.id} truck={truck} live={liveIds.has(truck.id)} />
             ))}
           </div>
         </section>
       ))}
 
       {!loading && !loadError && filtered.length === 0 && (
-        <div className="rc-empty">No trucks match that search.</div>
+        <div className="rc-empty">No trucks in that sector.</div>
       )}
     </div>
   );
 }
 
-function TruckRow({ truck, live }) {
+function TruckCard({ truck, live }) {
   return (
-    <Link href={`/trucks/${encodeURIComponent(truck.id)}`} className="rc-row">
+    <Link href={`/trucks/${encodeURIComponent(truck.id)}`} className="rc-fleet-card">
       <TruckThumb truck={truck} />
-      <span className="rc-row__body">
-        <span className="rc-row__name">
+      <span>
+        <strong>
           {truck.name}
-          {live && <span className="rc-live-dot" title="Spotted recently" />}
-        </span>
-        <span className="rc-row__meta">
-          {[truck.cuisine_type, truckRegion(truck)].filter(Boolean).join(" · ")}
-        </span>
-      </span>
-      <span className="rc-chevron" aria-hidden="true">
-        ›
+          {live && <i className="rc-live-dot" />}
+        </strong>
+        <small>{[truck.cuisine_type, truckRegion(truck)].filter(Boolean).join(" · ")}</small>
       </span>
     </Link>
   );

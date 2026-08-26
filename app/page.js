@@ -1,7 +1,7 @@
 "use client";
 
-import TrucksList from "./components/TrucksList";
+import CommandCenter from "./components/CommandCenter";
 
 export default function Home() {
-  return <TrucksList />;
+  return <CommandCenter />;
 }

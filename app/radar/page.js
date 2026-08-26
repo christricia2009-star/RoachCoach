@@ -1,7 +1,7 @@
 "use client";
 
-import RadarMap from "../components/RadarMap";
+import CommandCenter from "../components/CommandCenter";
 
 export default function RadarPage() {
-  return <RadarMap />;
+  return <CommandCenter />;
 }
