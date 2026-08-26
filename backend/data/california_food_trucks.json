@@ -1,51 +1,769 @@
 [
-  {"name": "Drewski's Hot Rod Kitchen", "cuisine": "American", "instagram": "drewskis", "facebook": "drewskisfoodtrucks", "x": "drewskishotrod", "region": "Sacramento"},
-  {"name": "Buckhorn BBQ Truck", "cuisine": "BBQ", "instagram": "thebuckhornbbqtruck", "facebook": "thebuckhornbbqtruck", "region": "Sacramento"},
-  {"name": "SactoMoFo", "cuisine": "Events", "instagram": "sactomofo", "facebook": "sactomofo", "x": "SactoMoFo", "region": "Sacramento"},
-  {"name": "Krush Burger", "cuisine": "Burgers", "instagram": "krushroseville", "facebook": "krushroseville", "region": "Sacramento"},
-  {"name": "Krush Burger", "cuisine": "Burgers", "instagram": "krushburger", "region": "Sacramento"},
-  {"name": "Potato Patoto", "cuisine": "Loaded Tots", "instagram": "the_potato_truck", "facebook": "the_potato_truck", "region": "Sacramento"},
-  {"name": "Alameda Tacos Food Truck", "cuisine": "Mexican", "instagram": "alamedatacossac", "facebook": "alamedatacossac", "region": "Sacramento"},
-  {"name": "Mucho Nachos Sacramento", "cuisine": "Mexican", "instagram": "muchonachossacramento", "facebook": "muchonachossacramento", "region": "Sacramento"},
-  {"name": "The Pop Up Truck", "cuisine": "Grilled Cheese", "instagram": "sactopopuptruck", "facebook": "sactopopuptruck", "region": "Sacramento"},
-  {"name": "SanTacos", "cuisine": "Mexican", "instagram": "santacosmx", "facebook": "santacosmx", "region": "Sacramento"},
-  {"name": "Tacoa Sacramento", "cuisine": "Mexican", "instagram": "tacoasac", "facebook": "tacoasac", "region": "Sacramento"},
-  {"name": "Tacos GTO", "cuisine": "Mexican", "instagram": "tacos_gto_", "facebook": "tacos_gto_", "region": "Sacramento"},
-  {"name": "Tacomiendo Food Truck", "cuisine": "Mexican", "instagram": "tacomiendofoodtruck", "facebook": "tacomiendofoodtruck", "region": "Sacramento"},
-  {"name": "Sac Tacos Foodtruck", "cuisine": "Mexican", "instagram": "sactacosfoodtruck", "facebook": "sactacosfoodtruck", "region": "Sacramento"},
-  {"name": "The Lumpia Truck", "cuisine": "Filipino", "instagram": "thelumpiatruck", "facebook": "thelumpiatruck", "x": "TheLumpiaTruck", "region": "Sacramento"},
-  {"name": "Hefty Gyros", "cuisine": "Greek", "instagram": "heftygyros", "region": "Sacramento"},
-  {"name": "Chando's Tacos", "cuisine": "Mexican", "instagram": "chandostacos", "region": "Sacramento"},
-  {"name": "Local Kine Shave Ice", "cuisine": "Hawaiian", "instagram": "localkineshaveice", "region": "Sacramento"},
-  {"name": "West Coast Taco Bar", "cuisine": "Mexican", "instagram": "westcoasttacobar", "region": "Sacramento"},
-  {"name": "The Philly Foodtruck", "cuisine": "Sandwiches", "instagram": "thephillyfoodtruck", "region": "Sacramento"},
-  {"name": "Kado's Asian Grill", "cuisine": "Asian", "instagram": "kadosasiangrill", "region": "Sacramento"},
-  {"name": "Laopino Kitchen", "cuisine": "Lao", "instagram": "laopinokitchen", "region": "Sacramento"},
-  {"name": "PalBQ Smokehouse", "cuisine": "BBQ", "instagram": "palbqsmokehouse", "region": "Sacramento"},
-  {"name": "Smokinewe BBQ", "cuisine": "BBQ", "instagram": "smokinewebbq", "region": "Sacramento"},
-  {"name": "Birria Boys", "cuisine": "Mexican", "instagram": "birriaboys", "region": "Sacramento"},
-  {"name": "Authentic Street Taco", "cuisine": "Mexican", "instagram": "authenticstreettaco", "region": "Sacramento"},
-  {"name": "Senor Sisig", "cuisine": "Filipino", "instagram": "senorsisig", "region": "Bay Area"},
-  {"name": "The Chairman Truck", "cuisine": "Taiwanese", "instagram": "chairmantruck", "region": "Bay Area"},
-  {"name": "Curry Up Now", "cuisine": "Indian Fusion", "instagram": "curryupnow", "region": "Bay Area"},
-  {"name": "KoJa Kitchen", "cuisine": "Korean Japanese", "instagram": "koja_kitchen", "region": "Bay Area"},
-  {"name": "Liba Falafel", "cuisine": "Middle Eastern", "instagram": "libafalafel", "region": "Bay Area"},
-  {"name": "Adobo Bite", "cuisine": "Filipino", "instagram": "adobobite", "region": "Bay Area"},
-  {"name": "Hons Wonton Pantry", "cuisine": "Chinese", "instagram": "honswontonpantry", "region": "Bay Area"},
-  {"name": "Kasa Indian", "cuisine": "Indian", "instagram": "kasaindian", "region": "Bay Area"},
-  {"name": "Cousins Maine Lobster", "cuisine": "Seafood", "instagram": "cousinsmainelobster", "region": "Bay Area"},
-  {"name": "Roli Roti", "cuisine": "Rotisserie", "instagram": "roliroti", "region": "Bay Area"},
-  {"name": "FroGo", "cuisine": "Dessert", "instagram": "frogofoodtruck", "region": "Bay Area"},
-  {"name": "Cochinita", "cuisine": "Yucatecan", "instagram": "cochinita.sf", "region": "Bay Area"},
-  {"name": "Da Poke Man", "cuisine": "Hawaiian", "instagram": "da_poke_man", "region": "Bay Area"},
-  {"name": "Meso Hungry", "cuisine": "Mexican", "instagram": "mesohungrytoo", "region": "Bay Area"},
-  {"name": "World Famous Corn Dogs", "cuisine": "American", "instagram": "worldfamouscorndogs", "region": "Bay Area"},
-  {"name": "La Churroteka", "cuisine": "Dessert", "instagram": "lachurroteka", "region": "Bay Area"},
-  {"name": "The Food Truck Mafia", "cuisine": "Events", "instagram": "thefoodtruckmafia", "region": "Bay Area"},
-  {"name": "Where's The Food", "cuisine": "Fusion", "instagram": "wtfwheresthefoodfresno", "region": "Central Valley"},
-  {"name": "Brickology Pizza", "cuisine": "Pizza", "instagram": "brickologypizza", "region": "Central Valley"},
-  {"name": "El Premio Mayor", "cuisine": "Mexican", "instagram": "elpremiomayor", "region": "Central Valley"},
-  {"name": "Tacos La Vaporera", "cuisine": "Mexican", "instagram": "tacos_lavaporera", "region": "Central Valley"},
-  {"name": "Sticky Rice on Wheels", "cuisine": "Lao", "instagram": "stickyriceonwheels_fresno", "region": "Central Valley"},
-  {"name": "Taco Pinto", "cuisine": "Mexican", "instagram": "tacopinto1", "region": "Central Valley"}
+  {
+    "name": "Drewski's Hot Rod Kitchen",
+    "cuisine": "American",
+    "instagram": "drewskis",
+    "region": "Sacramento",
+    "facebook": "drewskisfoodtrucks",
+    "x": "drewskishotrod"
+  },
+  {
+    "name": "Buckhorn BBQ Truck",
+    "cuisine": "BBQ",
+    "instagram": "thebuckhornbbqtruck",
+    "region": "Sacramento",
+    "facebook": "thebuckhornbbqtruck"
+  },
+  {
+    "name": "SactoMoFo",
+    "cuisine": "Events",
+    "instagram": "sactomofo",
+    "region": "Sacramento",
+    "facebook": "sactomofo",
+    "x": "SactoMoFo"
+  },
+  {
+    "name": "Krush Burger",
+    "cuisine": "Burgers",
+    "instagram": "krushroseville",
+    "region": "Sacramento",
+    "facebook": "krushroseville"
+  },
+  {
+    "name": "Krush Burger",
+    "cuisine": "Burgers",
+    "instagram": "krushburger",
+    "region": "Sacramento"
+  },
+  {
+    "name": "Potato Patoto",
+    "cuisine": "Loaded Tots",
+    "instagram": "the_potato_truck",
+    "region": "Sacramento",
+    "facebook": "the_potato_truck"
+  },
+  {
+    "name": "Alameda Tacos Food Truck",
+    "cuisine": "Mexican",
+    "instagram": "alamedatacossac",
+    "region": "Sacramento",
+    "facebook": "alamedatacossac"
+  },
+  {
+    "name": "Mucho Nachos Sacramento",
+    "cuisine": "Mexican",
+    "instagram": "muchonachossacramento",
+    "region": "Sacramento",
+    "facebook": "muchonachossacramento"
+  },
+  {
+    "name": "The Pop Up Truck",
+    "cuisine": "Grilled Cheese",
+    "instagram": "sactopopuptruck",
+    "region": "Sacramento",
+    "facebook": "sactopopuptruck"
+  },
+  {
+    "name": "SanTacos",
+    "cuisine": "Mexican",
+    "instagram": "santacosmx",
+    "region": "Sacramento",
+    "facebook": "santacosmx"
+  },
+  {
+    "name": "Tacoa Sacramento",
+    "cuisine": "Mexican",
+    "instagram": "tacoasac",
+    "region": "Sacramento",
+    "facebook": "tacoasac"
+  },
+  {
+    "name": "Tacos GTO",
+    "cuisine": "Mexican",
+    "instagram": "tacos_gto_",
+    "region": "Sacramento",
+    "facebook": "tacos_gto_"
+  },
+  {
+    "name": "Tacomiendo Food Truck",
+    "cuisine": "Mexican",
+    "instagram": "tacomiendofoodtruck",
+    "region": "Sacramento",
+    "facebook": "tacomiendofoodtruck"
+  },
+  {
+    "name": "Sac Tacos Foodtruck",
+    "cuisine": "Mexican",
+    "instagram": "sactacosfoodtruck",
+    "region": "Sacramento",
+    "facebook": "sactacosfoodtruck"
+  },
+  {
+    "name": "The Lumpia Truck",
+    "cuisine": "Filipino",
+    "instagram": "thelumpiatruck",
+    "region": "Sacramento",
+    "facebook": "thelumpiatruck",
+    "x": "TheLumpiaTruck"
+  },
+  {
+    "name": "Hefty Gyros",
+    "cuisine": "Greek",
+    "instagram": "heftygyros",
+    "region": "Sacramento"
+  },
+  {
+    "name": "Chando's Tacos",
+    "cuisine": "Mexican",
+    "instagram": "chandostacos",
+    "region": "Sacramento"
+  },
+  {
+    "name": "Local Kine Shave Ice",
+    "cuisine": "Hawaiian",
+    "instagram": "localkineshaveice",
+    "region": "Sacramento"
+  },
+  {
+    "name": "West Coast Taco Bar",
+    "cuisine": "Mexican",
+    "instagram": "westcoasttacobar",
+    "region": "Sacramento"
+  },
+  {
+    "name": "The Philly Foodtruck",
+    "cuisine": "Sandwiches",
+    "instagram": "thephillyfoodtruck",
+    "region": "Sacramento"
+  },
+  {
+    "name": "Kado's Asian Grill",
+    "cuisine": "Asian",
+    "instagram": "kadosasiangrill",
+    "region": "Sacramento"
+  },
+  {
+    "name": "Laopino Kitchen",
+    "cuisine": "Lao",
+    "instagram": "laopinokitchen",
+    "region": "Sacramento"
+  },
+  {
+    "name": "PalBQ Smokehouse",
+    "cuisine": "BBQ",
+    "instagram": "palbqsmokehouse",
+    "region": "Sacramento"
+  },
+  {
+    "name": "Smokinewe BBQ",
+    "cuisine": "BBQ",
+    "instagram": "smokinewebbq",
+    "region": "Sacramento"
+  },
+  {
+    "name": "Birria Boys",
+    "cuisine": "Mexican",
+    "instagram": "birriaboys",
+    "region": "Sacramento"
+  },
+  {
+    "name": "Authentic Street Taco",
+    "cuisine": "Mexican",
+    "instagram": "authenticstreettaco",
+    "region": "Sacramento"
+  },
+  {
+    "name": "Gondo Fusion",
+    "cuisine": "Fusion",
+    "instagram": "gondofusion",
+    "region": "Sacramento"
+  },
+  {
+    "name": "Gameday Grill",
+    "cuisine": "Burgers",
+    "instagram": "gamedaygrill_",
+    "region": "Sacramento"
+  },
+  {
+    "name": "Island Fin Poke",
+    "cuisine": "Hawaiian",
+    "instagram": "ifpcdeltashores",
+    "region": "Sacramento"
+  },
+  {
+    "name": "Bokhoking",
+    "cuisine": "Vietnamese",
+    "instagram": "bokhoking",
+    "region": "Sacramento"
+  },
+  {
+    "name": "Senor Sisig",
+    "cuisine": "Filipino",
+    "instagram": "senorsisig",
+    "region": "Bay Area"
+  },
+  {
+    "name": "The Chairman Truck",
+    "cuisine": "Taiwanese",
+    "instagram": "chairmantruck",
+    "region": "Bay Area"
+  },
+  {
+    "name": "Curry Up Now",
+    "cuisine": "Indian Fusion",
+    "instagram": "curryupnow",
+    "region": "Bay Area"
+  },
+  {
+    "name": "KoJa Kitchen",
+    "cuisine": "Korean Japanese",
+    "instagram": "koja_kitchen",
+    "region": "Bay Area"
+  },
+  {
+    "name": "Liba Falafel",
+    "cuisine": "Middle Eastern",
+    "instagram": "libafalafel",
+    "region": "Bay Area"
+  },
+  {
+    "name": "Adobo Bite",
+    "cuisine": "Filipino",
+    "instagram": "adobobite",
+    "region": "Bay Area"
+  },
+  {
+    "name": "Hons Wonton Pantry",
+    "cuisine": "Chinese",
+    "instagram": "honswontonpantry",
+    "region": "Bay Area"
+  },
+  {
+    "name": "Kasa Indian",
+    "cuisine": "Indian",
+    "instagram": "kasaindian",
+    "region": "Bay Area"
+  },
+  {
+    "name": "Cousins Maine Lobster",
+    "cuisine": "Seafood",
+    "instagram": "cousinsmainelobster",
+    "region": "Bay Area"
+  },
+  {
+    "name": "Roli Roti",
+    "cuisine": "Rotisserie",
+    "instagram": "roliroti",
+    "region": "Bay Area"
+  },
+  {
+    "name": "FroGo",
+    "cuisine": "Dessert",
+    "instagram": "frogofoodtruck",
+    "region": "Bay Area"
+  },
+  {
+    "name": "Cochinita",
+    "cuisine": "Yucatecan",
+    "instagram": "cochinita.sf",
+    "region": "Bay Area"
+  },
+  {
+    "name": "Da Poke Man",
+    "cuisine": "Hawaiian",
+    "instagram": "da_poke_man",
+    "region": "Bay Area"
+  },
+  {
+    "name": "Meso Hungry",
+    "cuisine": "Mexican",
+    "instagram": "mesohungrytoo",
+    "region": "Bay Area"
+  },
+  {
+    "name": "World Famous Corn Dogs",
+    "cuisine": "American",
+    "instagram": "worldfamouscorndogs",
+    "region": "Bay Area"
+  },
+  {
+    "name": "La Churroteka",
+    "cuisine": "Dessert",
+    "instagram": "lachurroteka",
+    "region": "Bay Area"
+  },
+  {
+    "name": "The Food Truck Mafia",
+    "cuisine": "Events",
+    "instagram": "thefoodtruckmafia",
+    "region": "Bay Area"
+  },
+  {
+    "name": "The Guzz Co",
+    "cuisine": "American",
+    "instagram": "theguzzco",
+    "region": "Bay Area"
+  },
+  {
+    "name": "Los Rockeros",
+    "cuisine": "Mexican",
+    "instagram": "losrockeros_foodtruck",
+    "region": "Bay Area"
+  },
+  {
+    "name": "Crazy Empanadas",
+    "cuisine": "Latin",
+    "instagram": "crazyempanadas",
+    "region": "Bay Area"
+  },
+  {
+    "name": "Charlie's Food Trailer",
+    "cuisine": "American",
+    "instagram": "charliesfoodtrailer",
+    "region": "Bay Area"
+  },
+  {
+    "name": "Baby O's Donuts",
+    "cuisine": "Dessert",
+    "instagram": "babyosdonuts",
+    "region": "Bay Area"
+  },
+  {
+    "name": "Bubble Hive",
+    "cuisine": "Dessert",
+    "instagram": "bubblehives",
+    "region": "Bay Area"
+  },
+  {
+    "name": "El Gran Taco Loco",
+    "cuisine": "Mexican",
+    "instagram": "elgrantacoloco",
+    "region": "Bay Area"
+  },
+  {
+    "name": "Bay Area Munchiez",
+    "cuisine": "American",
+    "instagram": "bayarea_munchiez",
+    "region": "Bay Area"
+  },
+  {
+    "name": "Capelo's Barbecue",
+    "cuisine": "BBQ",
+    "instagram": "capelosbarbecue",
+    "region": "Bay Area"
+  },
+  {
+    "name": "Wokitchen",
+    "cuisine": "Asian",
+    "instagram": "wokitchen_truck",
+    "region": "Bay Area"
+  },
+  {
+    "name": "Southern Comfort Kitchen",
+    "cuisine": "Cajun",
+    "instagram": "socokitchen",
+    "region": "Bay Area"
+  },
+  {
+    "name": "Korean Bobcha",
+    "cuisine": "Korean",
+    "instagram": "bobchasf",
+    "region": "Bay Area"
+  },
+  {
+    "name": "Respectable Bird",
+    "cuisine": "American",
+    "instagram": "respectablebird",
+    "region": "Bay Area"
+  },
+  {
+    "name": "Melina's Kitchen",
+    "cuisine": "Latin",
+    "instagram": "melinaskitchen_llc",
+    "region": "Bay Area"
+  },
+  {
+    "name": "Dominic's Food Truck",
+    "cuisine": "American",
+    "instagram": "dominicsfoodtruck",
+    "region": "Bay Area"
+  },
+  {
+    "name": "Golden Gate Gyro",
+    "cuisine": "Greek",
+    "instagram": "goldengategyro",
+    "region": "Bay Area"
+  },
+  {
+    "name": "Curveball Sliders",
+    "cuisine": "Burgers",
+    "instagram": "curveballmobile",
+    "region": "Bay Area"
+  },
+  {
+    "name": "Bombzies BBQ",
+    "cuisine": "BBQ",
+    "instagram": "bombziesbbq",
+    "region": "Bay Area"
+  },
+  {
+    "name": "Global Catering Express",
+    "cuisine": "Catering",
+    "instagram": "globalcateringexpress",
+    "region": "Bay Area"
+  },
+  {
+    "name": "Mozzeria",
+    "cuisine": "Pizza",
+    "instagram": "mozzeriasf",
+    "region": "Bay Area"
+  },
+  {
+    "name": "Rosie's Mexican Food",
+    "cuisine": "Mexican",
+    "instagram": "rosiesmexicanfood",
+    "region": "Bay Area"
+  },
+  {
+    "name": "Sam's ChowderMobile",
+    "cuisine": "Seafood",
+    "instagram": "samschowdermobile",
+    "region": "Bay Area"
+  },
+  {
+    "name": "Fresh Catch Poke",
+    "cuisine": "Hawaiian",
+    "instagram": "freshcatchpoke",
+    "region": "Bay Area"
+  },
+  {
+    "name": "Rincon del Cielo Taqueria",
+    "cuisine": "Mexican",
+    "instagram": "rincon_del_cielo_taqueria",
+    "region": "Bay Area"
+  },
+  {
+    "name": "Jolly's Tea and Cream",
+    "cuisine": "Dessert",
+    "instagram": "jollysteascream",
+    "region": "Bay Area"
+  },
+  {
+    "name": "El Gallo Giro",
+    "cuisine": "Mexican",
+    "instagram": "elgallogirotruck",
+    "region": "Bay Area"
+  },
+  {
+    "name": "Adam's Grub Truck",
+    "cuisine": "Burgers",
+    "instagram": "adamsgrubtruck",
+    "region": "Bay Area"
+  },
+  {
+    "name": "BunBao",
+    "cuisine": "Taiwanese",
+    "instagram": "bunbaoofficial",
+    "region": "Bay Area"
+  },
+  {
+    "name": "Hula Truck",
+    "cuisine": "Hawaiian",
+    "instagram": "hulatruck408",
+    "region": "Bay Area"
+  },
+  {
+    "name": "Jeepsilog",
+    "cuisine": "Filipino",
+    "instagram": "jeepsilog",
+    "region": "Bay Area"
+  },
+  {
+    "name": "La Santa Torta",
+    "cuisine": "Mexican",
+    "instagram": "santatortasf",
+    "region": "Bay Area"
+  },
+  {
+    "name": "Lobsta Truck SF",
+    "cuisine": "Seafood",
+    "instagram": "lobstatrucksf",
+    "region": "Bay Area"
+  },
+  {
+    "name": "MOMOlicious",
+    "cuisine": "Nepali",
+    "instagram": "momolicioussf",
+    "region": "Bay Area"
+  },
+  {
+    "name": "Sip n Slurp",
+    "cuisine": "Asian",
+    "instagram": "sipnslurpfoodtruck",
+    "region": "Bay Area"
+  },
+  {
+    "name": "Cielito Lindo",
+    "cuisine": "Mexican",
+    "instagram": "cielitolindomsk",
+    "region": "Bay Area"
+  },
+  {
+    "name": "Kabob Trolley",
+    "cuisine": "Mediterranean",
+    "instagram": "kabobtrolley",
+    "region": "Bay Area"
+  },
+  {
+    "name": "Daisy's Desserts",
+    "cuisine": "Dessert",
+    "instagram": "daisysdesserts",
+    "region": "Bay Area"
+  },
+  {
+    "name": "Get Rad Pizza",
+    "cuisine": "Pizza",
+    "instagram": "getradpizza",
+    "region": "North State"
+  },
+  {
+    "name": "Big C's Food Coma",
+    "cuisine": "BBQ",
+    "instagram": "bigcsfoodcoma",
+    "region": "North State"
+  },
+  {
+    "name": "Granny's Grill",
+    "cuisine": "Filipino",
+    "instagram": "grannysgrillfilipinofoodtruck",
+    "region": "North State"
+  },
+  {
+    "name": "Dos Amigos Taqueria",
+    "cuisine": "Mexican",
+    "instagram": "dosamigostaq",
+    "region": "North State"
+  },
+  {
+    "name": "Where's The Food",
+    "cuisine": "Fusion",
+    "instagram": "wtfwheresthefoodfresno",
+    "region": "Central Valley"
+  },
+  {
+    "name": "Brickology Pizza",
+    "cuisine": "Pizza",
+    "instagram": "brickologypizza",
+    "region": "Central Valley"
+  },
+  {
+    "name": "El Premio Mayor",
+    "cuisine": "Mexican",
+    "instagram": "elpremiomayor",
+    "region": "Central Valley"
+  },
+  {
+    "name": "Tacos La Vaporera",
+    "cuisine": "Mexican",
+    "instagram": "tacos_lavaporera",
+    "region": "Central Valley"
+  },
+  {
+    "name": "Sticky Rice on Wheels",
+    "cuisine": "Lao",
+    "instagram": "stickyriceonwheels_fresno",
+    "region": "Central Valley"
+  },
+  {
+    "name": "Taco Pinto",
+    "cuisine": "Mexican",
+    "instagram": "tacopinto1",
+    "region": "Central Valley"
+  },
+  {
+    "name": "Real Philly Cheesesteak",
+    "cuisine": "Sandwiches",
+    "instagram": "fresno_cheesesteak",
+    "region": "Central Valley"
+  },
+  {
+    "name": "Get Baked 559",
+    "cuisine": "Loaded Potatoes",
+    "instagram": "getbaked559",
+    "region": "Central Valley"
+  },
+  {
+    "name": "Sno Cafe",
+    "cuisine": "Dessert",
+    "instagram": "snocafe",
+    "region": "Central Valley"
+  },
+  {
+    "name": "The Rolling Donut",
+    "cuisine": "Dessert",
+    "instagram": "therollingdonutfresno",
+    "region": "Central Valley"
+  },
+  {
+    "name": "Tacos El Rey Azteca",
+    "cuisine": "Mexican",
+    "instagram": "tacos_el_rey_azteca",
+    "region": "Central Valley"
+  },
+  {
+    "name": "Nikki's Create-A-Bowl",
+    "cuisine": "Asian",
+    "instagram": "nikkiscreateabowl",
+    "region": "Central Valley"
+  },
+  {
+    "name": "Tacos La Palmita",
+    "cuisine": "Mexican",
+    "instagram": "tacoslapalmita209",
+    "region": "Central Valley"
+  },
+  {
+    "name": "Tacos La Unica",
+    "cuisine": "Mexican",
+    "instagram": "tacoslaunica",
+    "region": "Central Valley"
+  },
+  {
+    "name": "Birrieria Chito",
+    "cuisine": "Mexican",
+    "instagram": "birrieria_chito",
+    "region": "Central Valley"
+  },
+  {
+    "name": "Tortas Ahogadas El Cejarin",
+    "cuisine": "Mexican",
+    "instagram": "tortasahogadas_elcejarin",
+    "region": "Central Valley"
+  },
+  {
+    "name": "Food Fix",
+    "cuisine": "American",
+    "instagram": "foodfixtruck",
+    "region": "Central Valley"
+  },
+  {
+    "name": "Funk's Franks",
+    "cuisine": "American",
+    "instagram": "funksfranks",
+    "region": "Central Coast"
+  },
+  {
+    "name": "Happy Dog Hot Dogs",
+    "cuisine": "American",
+    "instagram": "happydog_hotdogs",
+    "region": "Central Coast"
+  },
+  {
+    "name": "Hot Birds",
+    "cuisine": "Fried Chicken",
+    "instagram": "hot_birds831",
+    "region": "Central Coast"
+  },
+  {
+    "name": "Sandwiches & Burgers",
+    "cuisine": "American",
+    "instagram": "snb_foodtruck",
+    "region": "Central Coast"
+  },
+  {
+    "name": "2 Chx",
+    "cuisine": "American",
+    "instagram": "two_chx",
+    "region": "Central Coast"
+  },
+  {
+    "name": "Adobo2Go",
+    "cuisine": "Filipino",
+    "instagram": "adobo2go",
+    "region": "Central Coast"
+  },
+  {
+    "name": "Holopono Food Truck",
+    "cuisine": "Hawaiian",
+    "instagram": "holoponosc",
+    "region": "Central Coast"
+  },
+  {
+    "name": "Masarap",
+    "cuisine": "Filipino",
+    "instagram": "masarapthehomie",
+    "region": "Central Coast"
+  },
+  {
+    "name": "Yakitori Toriman",
+    "cuisine": "Japanese",
+    "instagram": "yakitori_toriman",
+    "region": "Central Coast"
+  },
+  {
+    "name": "Mariposa Cuban Coffee",
+    "cuisine": "Cuban",
+    "instagram": "mariposacubancoffee",
+    "region": "Central Coast"
+  },
+  {
+    "name": "Dos Hermanos Pupuseria",
+    "cuisine": "Salvadoran",
+    "instagram": "dos_hermanos_pupuseria",
+    "region": "Central Coast"
+  },
+  {
+    "name": "El Rey Leon Mexican Food",
+    "cuisine": "Mexican",
+    "instagram": "elreyleon_mexicanfood",
+    "region": "Central Coast"
+  },
+  {
+    "name": "La Perrona Mexican Food",
+    "cuisine": "Mexican",
+    "instagram": "_laperrona",
+    "region": "Central Coast"
+  },
+  {
+    "name": "Miches & Ceviches",
+    "cuisine": "Seafood",
+    "instagram": "michesandceviches",
+    "region": "Central Coast"
+  },
+  {
+    "name": "The Real Taco",
+    "cuisine": "Mexican",
+    "instagram": "realtaco56",
+    "region": "Central Coast"
+  },
+  {
+    "name": "Tacos El Chuy",
+    "cuisine": "Mexican",
+    "instagram": "tacoselchuy",
+    "region": "Central Coast"
+  },
+  {
+    "name": "Tacos El Jerry",
+    "cuisine": "Mexican",
+    "instagram": "tacoseljerry",
+    "region": "Central Coast"
+  },
+  {
+    "name": "Taquizas Gabriel",
+    "cuisine": "Mexican",
+    "instagram": "taquizasgabriel",
+    "region": "Central Coast"
+  },
+  {
+    "name": "Huda",
+    "cuisine": "Mediterranean",
+    "instagram": "hudasantacruz",
+    "region": "Central Coast"
+  },
+  {
+    "name": "Mattia Pizza",
+    "cuisine": "Pizza",
+    "instagram": "mattiapizza04",
+    "region": "Central Coast"
+  }
 ]
