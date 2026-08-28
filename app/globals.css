@@ -386,6 +386,40 @@ button, input, textarea { font-family: inherit; }
 .rc-social__row:last-child { border-bottom: 0; }
 .rc-social__row small { color: var(--muted); display: block; }
 .rc-chevron { color: var(--muted); }
+.rc-spotting { padding: 16px; margin-bottom: 16px; }
+.rc-spotting__head { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-bottom: 8px; }
+.rc-spotting h2 { margin: 0; font-size: 18px; }
+.rc-spotting__last { margin: 0 0 12px; color: var(--muted); }
+.rc-spotting__actions { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; margin-bottom: 16px; }
+.rc-spotting__actions .rc-add-btn { width: auto; padding: 10px 16px; text-decoration: none; }
+.rc-spotting__share { color: var(--muted); font-size: 13px; font-weight: 600; }
+.rc-spotting__sub { margin: 0 0 8px; font-size: 12px; letter-spacing: 0.08em; text-transform: uppercase; color: var(--muted); }
+.rc-sight-list { list-style: none; margin: 0; padding: 0; display: grid; gap: 8px; }
+.rc-sight-list li {
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  gap: 10px;
+  align-items: center;
+  padding: 10px 0;
+  border-top: 1px solid var(--line);
+}
+.rc-sight-list__body { display: flex; flex-direction: column; gap: 2px; }
+.rc-sight-list__body small { color: var(--muted); }
+.rc-conf {
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  padding: 3px 8px;
+  border-radius: 999px;
+  background: rgba(255, 122, 26, 0.16);
+  color: var(--accent);
+}
+.rc-conf--high, .rc-conf--confirmed { background: rgba(62, 224, 197, 0.16); color: var(--ok); }
+.rc-conf--low, .rc-conf--possible { background: rgba(255, 77, 106, 0.16); color: var(--danger); }
+.rc-fleet-card small { display: block; }
+.rc-fleet-card__seen { color: var(--accent-2); }
+
 .rc-owner-link { margin: 0 0 18px; font-size: 13px; font-weight: 700; }
 .rc-owner-link a { text-decoration: none; color: var(--accent); }
 

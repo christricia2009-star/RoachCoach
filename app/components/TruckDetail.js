@@ -4,7 +4,14 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { notificationsSupported, notify, requestNotificationPermission, notificationPermission } from "../lib/notify";
 import Checkout from "./Checkout";
-import { socialLinks, truckRegion } from "../lib/trucks";
+import {
+  directionsUrl,
+  isSightingLive,
+  relativeTime,
+  socialLinks,
+  truckRegion,
+  uniqueRecentSightings,
+} from "../lib/trucks";
 import TruckThumb from "./TruckThumb";
 
 const PAID_STATUSES = new Set(["authorized", "captured"]);
@@ -50,6 +57,8 @@ export default function TruckDetail({ truckId }) {
   const [orderLive, setOrderLive] = useState(false);
   const prevStatusRef = useRef(null);
   const pollRef = useRef(null);
+
+  const [sightings, setSightings] = useState([]);
 
   // Live order tracking: SSE stream, falling back to polling if it's
   // unavailable or keeps failing. Notifies on meaningful status changes
@@ -125,22 +134,25 @@ export default function TruckDetail({ truckId }) {
 
     async function load() {
       try {
-        const [trucksRes, menuRes] = await Promise.all([
+        const [trucksRes, menuRes, sightingsRes] = await Promise.all([
           fetch("/api/trucks", { cache: "no-store" }),
           fetch(`/api/trucks/${encodeURIComponent(truckId)}/menu?available_only=true`, {
             cache: "no-store",
           }),
+          fetch(`/api/trucks/${encodeURIComponent(truckId)}/sightings`, { cache: "no-store" }),
         ]);
         if (!trucksRes.ok) throw new Error(`trucks ${trucksRes.status}`);
         if (!menuRes.ok) throw new Error(`menu ${menuRes.status}`);
 
         const trucks = await trucksRes.json();
         const items = await menuRes.json();
+        const pins = sightingsRes.ok ? await sightingsRes.json() : [];
         if (cancelled) return;
 
         const found = trucks.find((t) => t.id === truckId) || null;
         setTruck(found);
         setMenu(items.filter((i) => i.isAvailable !== false).sort((a, b) => (a.sortOrder ?? 0) - (b.sortOrder ?? 0)));
+        setSightings(Array.isArray(pins) ? pins : []);
         setLoadState("ready");
       } catch (err) {
         if (!cancelled) {
@@ -260,6 +272,9 @@ export default function TruckDetail({ truckId }) {
 
   const links = truck ? socialLinks(truck) : [];
   const region = truck ? truckRegion(truck) : "";
+  const recentPins = uniqueRecentSightings(sightings, 5);
+  const latestPin = recentPins.find((s) => isSightingLive(s)) || recentPins[0] || null;
+  const latestLive = latestPin ? isSightingLive(latestPin) : false;
 
   if (loadState === "loading") {
     return (
@@ -285,6 +300,11 @@ export default function TruckDetail({ truckId }) {
           <h1>{truck.name}</h1>
           {truck.cuisine_type && <p className="rc-detail-cuisine">{truck.cuisine_type}</p>}
           {region && region !== "Other" && <span className="rc-region-pill">{region}</span>}
+          {latestPin && (
+            <p className="rc-detail-highlights">
+              {latestLive ? "Spotted" : "Last seen"} {relativeTime(latestPin.timestamp)}
+            </p>
+          )}
           {truck.menu_highlights?.length > 0 && (
             <p className="rc-detail-highlights">{truck.menu_highlights.join(" · ")}</p>
           )}
@@ -304,6 +324,67 @@ export default function TruckDetail({ truckId }) {
           ))}
         </div>
       )}
+
+      <section className="rc-card rc-spotting">
+        <div className="rc-spotting__head">
+          <h2>Recent spotting</h2>
+          {latestLive && <span className="rc-pill rc-pill--ok">Live pin</span>}
+        </div>
+        {latestPin ? (
+          <>
+            <p className="rc-spotting__last">
+              Last seen {relativeTime(latestPin.timestamp)}
+              {latestPin.note ? ` · ${latestPin.note}` : ""}
+            </p>
+            <div className="rc-spotting__actions">
+              <a
+                className="rc-add-btn"
+                href={directionsUrl(latestPin.latitude, latestPin.longitude, truck.name)}
+                target="_blank"
+                rel="noreferrer"
+              >
+                Get directions
+              </a>
+              <a
+                className="rc-spotting__share"
+                href={`https://maps.google.com/?q=${latestPin.latitude},${latestPin.longitude}`}
+                target="_blank"
+                rel="noreferrer"
+              >
+                Open map pin
+              </a>
+            </div>
+          </>
+        ) : (
+          <p className="rc-detail-empty">No live pin yet — check Instagram or scan radar.</p>
+        )}
+
+        <h3 className="rc-spotting__sub">Last 5 sightings</h3>
+        {recentPins.length === 0 ? (
+          <p className="rc-detail-empty">No unique pins for this truck yet.</p>
+        ) : (
+          <ol className="rc-sight-list">
+            {recentPins.map((sighting) => (
+              <li key={sighting.id || `${sighting.timestamp}-${sighting.latitude}`}>
+                <span className={`rc-conf rc-conf--${String(sighting.confidenceLevel || "likely").toLowerCase()}`}>
+                  {sighting.confidenceLevel || "likely"}
+                </span>
+                <span className="rc-sight-list__body">
+                  <strong>{relativeTime(sighting.timestamp)}</strong>
+                  {sighting.note && <small>{sighting.note}</small>}
+                </span>
+                <a
+                  href={directionsUrl(sighting.latitude, sighting.longitude, truck.name)}
+                  target="_blank"
+                  rel="noreferrer"
+                >
+                  Map
+                </a>
+              </li>
+            ))}
+          </ol>
+        )}
+      </section>
 
       <div className="rc-owner-link">
         <Link href={`/trucks/${truckId}/owner`}>Owner order board</Link>

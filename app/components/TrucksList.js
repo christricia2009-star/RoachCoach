@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
-import { REGION_ORDER, hasSocialPresence, matchesTruckSearch, truckRegion } from "../lib/trucks";
+import { REGION_ORDER, hasSocialPresence, isSightingLive, matchesTruckSearch, relativeTime, truckRegion } from "../lib/trucks";
 import TruckThumb from "./TruckThumb";
 
 export default function TrucksList() {
@@ -44,15 +44,24 @@ export default function TrucksList() {
   const listed = useMemo(() => trucks.filter(hasSocialPresence), [trucks]);
 
   const liveIds = useMemo(() => {
-    const now = Date.now();
     const ids = new Set();
     for (const s of sightings) {
-      const expires = s.expiresAt ? new Date(s.expiresAt).getTime() : null;
-      if (expires !== null && expires < now) continue;
       const id = s.truckId ?? s.truck_id;
-      if (id) ids.add(id);
+      if (id && isSightingLive(s)) ids.add(id);
     }
     return ids;
+  }, [sightings]);
+
+  const lastSeenByTruck = useMemo(() => {
+    const latest = new Map();
+    for (const s of sightings) {
+      const id = s.truckId ?? s.truck_id;
+      if (!id) continue;
+      const ts = new Date(s.timestamp || 0).getTime();
+      const prev = latest.get(id);
+      if (!prev || ts > prev._ts) latest.set(id, { ...s, _ts: ts });
+    }
+    return latest;
   }, [sightings]);
 
   const regions = useMemo(() => {
@@ -145,7 +154,7 @@ export default function TrucksList() {
           <h2>Spotted recently</h2>
           <div className="rc-fleet-grid">
             {spotted.map((truck) => (
-              <TruckCard key={truck.id} truck={truck} live />
+              <TruckCard key={truck.id} truck={truck} live lastSeen={lastSeenByTruck.get(truck.id)} />
             ))}
           </div>
         </section>
@@ -156,7 +165,7 @@ export default function TrucksList() {
           <h2>{section.name}</h2>
           <div className="rc-fleet-grid">
             {section.trucks.map((truck) => (
-              <TruckCard key={truck.id} truck={truck} live={liveIds.has(truck.id)} />
+              <TruckCard key={truck.id} truck={truck} live={liveIds.has(truck.id)} lastSeen={lastSeenByTruck.get(truck.id)} />
             ))}
           </div>
         </section>
@@ -169,7 +178,7 @@ export default function TrucksList() {
   );
 }
 
-function TruckCard({ truck, live }) {
+function TruckCard({ truck, live, lastSeen }) {
   return (
     <Link href={`/trucks/${encodeURIComponent(truck.id)}`} className="rc-fleet-card">
       <TruckThumb truck={truck} />
@@ -179,6 +188,11 @@ function TruckCard({ truck, live }) {
           {live && <i className="rc-live-dot" />}
         </strong>
         <small>{[truck.cuisine_type, truckRegion(truck)].filter(Boolean).join(" · ")}</small>
+        {lastSeen?.timestamp && (
+          <small className="rc-fleet-card__seen">
+            {live ? "Spotted" : "Last seen"} {relativeTime(lastSeen.timestamp)}
+          </small>
+        )}
       </span>
     </Link>
   );

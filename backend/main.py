@@ -955,44 +955,54 @@ def get_truck_sightings(
 ):
 
     try:
-
-        records = _get_sighting_records()
-
-        now = datetime.now(timezone.utc)
+        cutoff_ms = int(
+            (datetime.now(timezone.utc) - timedelta(days=14)).timestamp() * 1000
+        )
+        records = []
+        try:
+            result = cloudkit_bridge.query_all_records(
+                "Sighting",
+                filters=[
+                    {
+                        "fieldName": "truckId",
+                        "comparator": "EQUALS",
+                        "fieldValue": {
+                            "value": str(truck_id),
+                            "type": "STRING",
+                        },
+                    },
+                    {
+                        "fieldName": "timestamp",
+                        "comparator": "GREATER_THAN",
+                        "fieldValue": {
+                            "value": cutoff_ms,
+                            "type": "TIMESTAMP",
+                        },
+                    },
+                ],
+                sort_by=[
+                    {
+                        "fieldName": "timestamp",
+                        "ascending": False,
+                    }
+                ],
+                max_records=50,
+            )
+            records = _cloudkit_records(result)
+        except Exception:
+            records = _get_sighting_records()
 
         results = []
-
         for record in records:
-
             record_truck_id = str(
-                _cloudkit_record_value(
-                    record,
-                    "truckId",
-                    "",
-                )
+                _cloudkit_record_value(record, "truckId", "")
             )
-
-            if record_truck_id != str(
-                truck_id
-            ):
+            if record_truck_id != str(truck_id):
                 continue
+            results.append(_record_to_sighting(record))
 
-            sighting = _record_to_sighting(
-                record
-            )
-
-            if sighting.expires_at > now:
-
-                results.append(
-                    sighting
-                )
-
-        results.sort(
-            key=lambda x: x.timestamp,
-            reverse=True,
-        )
-
-        return results
+        results.sort(key=lambda x: x.timestamp, reverse=True)
+        return results[:20]
 
     except Exception as e:
 
