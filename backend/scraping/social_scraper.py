@@ -54,6 +54,7 @@ class RawSocialPost:
 
     source: str
     # "instagram" | "x" | "facebook" | "partnership"
+    image_url: str = ""
 
 
 # =========================================================================
@@ -269,6 +270,22 @@ def resolve_instagram_account() -> Optional[dict]:
     return account
 
 
+def _image_url_from_media_item(item: dict) -> str:
+    if not isinstance(item, dict):
+        return ""
+    media_type = str(item.get("media_type") or "").upper()
+    url = str(item.get("media_url") or "").strip()
+    if media_type in ("IMAGE", "CAROUSEL_ALBUM", "") and url.startswith("http"):
+        return url
+    children = ((item.get("children") or {}).get("data")) or []
+    for child in children:
+        child_type = str((child or {}).get("media_type") or "").upper()
+        child_url = str((child or {}).get("media_url") or "").strip()
+        if child_type in ("IMAGE", "") and child_url.startswith("http"):
+            return child_url
+    return url if url.startswith("http") else ""
+
+
 def _posts_from_media_items(
     items: list,
     truck_handle: str,
@@ -284,6 +301,7 @@ def _posts_from_media_items(
                 ),
                 post_url=item.get("permalink") or "",
                 source="instagram",
+                image_url=_image_url_from_media_item(item),
             )
         )
     return posts
@@ -325,7 +343,7 @@ def fetch_recent_instagram_posts(
     response = requests.get(
         url,
         params={
-            "fields": "caption,timestamp,permalink,media_type",
+            "fields": "caption,timestamp,permalink,media_type,media_url,children{media_type,media_url}",
             "limit": 25,
             "access_token": token,
         },
@@ -368,7 +386,7 @@ def fetch_recent_instagram_posts_business_discovery(
         "fields": (
             "business_discovery.username("
             f"{username}"
-            "){username,id,profile_picture_url,media.limit(8){caption,timestamp,permalink}}"
+            "){username,id,profile_picture_url,media.limit(8){caption,timestamp,permalink,media_type,media_url,children{media_type,media_url}}}"
         ),
         "access_token": token,
     }
@@ -1125,8 +1143,12 @@ def register_trucks_for_fusion(catalog: list[dict] | None = None) -> int:
 
     catalog = catalog or load_live_truck_catalog()
     for item in catalog:
-        truck_id = (item.get("id") or "").strip()
         name = (item.get("search_name") or "").strip()
+        ig = (item.get("instagram") or "") or next(iter(item.get("instagram_all") or []), "")
+        truck_id = (item.get("id") or "").strip()
+        if not truck_id and ig:
+            truck_id = _deterministic_truck_uuid(str(ig).lower().lstrip("@"))
+            item["id"] = truck_id
         if not truck_id or not name:
             continue
         keys = {name.lower(), (item.get("key") or "").lower()}

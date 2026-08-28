@@ -19,11 +19,15 @@ Example output:
     }
 """
 
+import base64
 import json
 import os
 import re
+from datetime import datetime, timezone
 
-from llm_providers import complete
+import requests
+
+from llm_providers import complete, complete_with_image
 
 _STREET_RE = re.compile(
     r"\b\d{3,5}\s+[A-Za-z0-9.'\- ]{2,40}?\s"
@@ -92,6 +96,130 @@ If the caption doesn't mention a location or time at all, set confidence to \
 Caption:
 \"\"\"{caption}\"\"\"
 """
+
+
+SCHEDULE_IMAGE_PROMPT = """You read a food-truck Instagram photo. It is often a weekly
+schedule graphic, a flyer, a story screenshot, or a photo with location text
+overlaid. The caption may not repeat the address.
+
+Post caption:
+\"\"\"{caption}\"\"\"
+
+This post was published (UTC): {posted_at}
+Today's date in America/Los_Angeles: {today}
+
+Extract every OPEN stop. Skip days marked CLOSED.
+
+Respond ONLY with JSON (no markdown):
+{{
+  "confidence": "high" | "medium" | "low" | "none",
+  "slots": [
+    {{
+      "date": "YYYY-MM-DD",
+      "location_text": "place name, city",
+      "start_time": "HH:MM" or null,
+      "end_time": "HH:MM" or null,
+      "closed": false
+    }}
+  ]
+}}
+
+Resolve weekday + calendar day using the post's week. Example: a graphic
+showing "26 WED … Eufay Wood Spray Park, Plumas Lake" near a late-August 2026
+post is 2026-08-26.
+If the image is a single "we're here now" location, return one slot dated today.
+If there is no location, return {{"confidence":"none","slots":[]}}.
+"""
+
+
+def _parse_json_object(raw_text: str) -> dict:
+    cleaned = (raw_text or "").replace("```json", "").replace("```", "").strip()
+    if not cleaned:
+        return {}
+    try:
+        parsed = json.loads(cleaned)
+        return parsed if isinstance(parsed, dict) else {}
+    except json.JSONDecodeError:
+        start = cleaned.find("{")
+        end = cleaned.rfind("}")
+        if start >= 0 and end > start:
+            try:
+                parsed = json.loads(cleaned[start : end + 1])
+                return parsed if isinstance(parsed, dict) else {}
+            except json.JSONDecodeError:
+                return {}
+        return {}
+
+
+def extract_locations_from_image(
+    caption: str,
+    image_url: str,
+    posted_at: datetime | None = None,
+) -> dict:
+    """Vision pass for schedule graphics and flyers. Empty dict on failure."""
+    empty = {"confidence": "none", "slots": [], "location_text": None}
+    if not (image_url or "").strip() or not _llm_extract_enabled():
+        return empty
+    posted = posted_at or datetime.now(timezone.utc)
+    if posted.tzinfo is None:
+        posted = posted.replace(tzinfo=timezone.utc)
+    try:
+        from zoneinfo import ZoneInfo
+
+        today = datetime.now(ZoneInfo("America/Los_Angeles")).date().isoformat()
+    except Exception:
+        today = datetime.now().date().isoformat()
+    prompt = SCHEDULE_IMAGE_PROMPT.format(
+        caption=(caption or "")[:500],
+        posted_at=posted.isoformat(),
+        today=today,
+    )
+    vision_url = image_url
+    try:
+        img = requests.get(
+            image_url,
+            timeout=20,
+            headers={"User-Agent": "Mozilla/5.0 (compatible; RoachCoachRadar/1.0)"},
+        )
+        img.raise_for_status()
+        ctype = (img.headers.get("content-type") or "image/jpeg").split(";")[0]
+        if not ctype.startswith("image/"):
+            ctype = "image/jpeg"
+        vision_url = f"data:{ctype};base64,{base64.b64encode(img.content).decode('ascii')}"
+    except Exception as exc:
+        print(f"[llm_extract] image download failed, trying URL: {exc}")
+    try:
+        raw = complete_with_image(prompt, vision_url, max_tokens=800) or ""
+    except Exception as exc:
+        print(f"[llm_extract] vision failed: {exc}")
+        return empty
+    parsed = _parse_json_object(raw)
+    slots = parsed.get("slots") if isinstance(parsed.get("slots"), list) else []
+    usable = []
+    for slot in slots:
+        if not isinstance(slot, dict) or slot.get("closed"):
+            continue
+        place = (slot.get("location_text") or "").strip()
+        if len(place) < 4:
+            continue
+        usable.append(
+            {
+                "date": slot.get("date"),
+                "location_text": place,
+                "start_time": slot.get("start_time"),
+                "end_time": slot.get("end_time"),
+                "closed": False,
+            }
+        )
+    confidence = parsed.get("confidence") or ("high" if usable else "none")
+    location_text = usable[0]["location_text"] if usable else None
+    return {
+        "confidence": confidence if usable else "none",
+        "slots": usable,
+        "location_text": location_text,
+        "start_time": usable[0].get("start_time") if usable else None,
+        "end_time": usable[0].get("end_time") if usable else None,
+    }
 
 
 def extract_location_from_caption(caption: str) -> dict:

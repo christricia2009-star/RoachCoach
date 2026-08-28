@@ -315,7 +315,7 @@ def job_social_scraping():
         harvest_menus_from_posts,
         X_USERNAMES,
     )
-    from llm_extract import extract_location_from_caption
+    from llm_extract import extract_location_from_caption, extract_locations_from_image
     from geocoding import geocode, usable_location_text
 
     # KNOWN_TRUCK_NAMES already imported at module level (see the
@@ -370,9 +370,10 @@ def job_social_scraping():
         error_tracking.report("[menu] social menu harvest failed")
 
     lookback_hours = float(os.getenv("SOCIAL_LOOKBACK_HOURS") or "12")
-    cutoff = datetime.datetime.now(datetime.timezone.utc) - datetime.timedelta(
-        hours=lookback_hours
-    )
+    image_lookback_days = float(os.getenv("SOCIAL_IMAGE_LOOKBACK_DAYS") or "10")
+    now_utc = datetime.datetime.now(datetime.timezone.utc)
+    cutoff = now_utc - datetime.timedelta(hours=lookback_hours)
+    image_cutoff = now_utc - datetime.timedelta(days=image_lookback_days)
     recent_posts = []
     skipped_old = 0
     for post in posts:
@@ -381,11 +382,15 @@ def job_social_scraping():
             posted = posted.replace(tzinfo=datetime.timezone.utc)
         if posted >= cutoff:
             recent_posts.append(post)
+        elif getattr(post, "image_url", "") and posted >= image_cutoff:
+            recent_posts.append(post)
         else:
             skipped_old += 1
     print(
         f"[social] keeping {len(recent_posts)} post(s) from the last "
-        f"{lookback_hours:g}h; skipped {skipped_old} older post(s)"
+        f"{lookback_hours:g}h "
+        f"(plus image/schedule posts up to {image_lookback_days:g}d); "
+        f"skipped {skipped_old} older post(s)"
     )
     posts = recent_posts
 
@@ -394,6 +399,15 @@ def job_social_scraping():
     # ------------------------------------------------------------------
 
     located_handles: set[str] = set()
+    vision_budget = int(os.getenv("SOCIAL_VISION_MAX") or "40")
+    vision_seen: set[str] = set()
+    try:
+        from zoneinfo import ZoneInfo
+
+        pacific = ZoneInfo("America/Los_Angeles")
+    except Exception:
+        pacific = datetime.timezone.utc
+    today_local = datetime.datetime.now(pacific).date()
 
     def _mark_located(handle: str) -> None:
         key = (handle or "").lower().lstrip("@").strip()
@@ -401,6 +415,38 @@ def job_social_scraping():
             located_handles.add(key)
         for listing_key in listing_keys_for_handle(handle):
             located_handles.add(listing_key)
+
+    def _emit_located_pin(post, location_text: str, when, note: str, ttl_hours: float = 24) -> bool:
+        place = usable_location_text(location_text)
+        if not place:
+            return False
+        try:
+            geocoded = geocode(place)
+        except Exception:
+            error_tracking.report(f"[social] geocode failed for {post.truck_handle}")
+            geocoded = None
+        if not geocoded:
+            print(
+                f"[social] could not geocode '{place}' "
+                f"for {post.truck_handle} — skipping"
+            )
+            return False
+        posted = post.posted_at
+        if posted.tzinfo is None:
+            posted = posted.replace(tzinfo=datetime.timezone.utc)
+        detection = RawDetection(
+            source="social",
+            latitude=geocoded["latitude"],
+            longitude=geocoded["longitude"],
+            timestamp=when or posted,
+            raw_confidence=0.65,
+            text_hint=f"{post.truck_handle} {place}",
+            note=note or f"{place} -> {geocoded.get('display_name', place)}",
+            ttl_hours=ttl_hours,
+        )
+        _record_and_process(detection)
+        _mark_located(post.truck_handle)
+        return True
 
     for post in posts:
 
@@ -422,11 +468,89 @@ def job_social_scraping():
                 "location_text": None,
             }
 
+        handle_key = (post.truck_handle or "").lower().lstrip("@")
+        if (
+            extracted.get("confidence") not in ("high", "medium")
+            and getattr(post, "image_url", "")
+            and vision_budget > 0
+            and handle_key not in vision_seen
+        ):
+            try:
+                vision = extract_locations_from_image(
+                    post.caption,
+                    post.image_url,
+                    post.posted_at,
+                )
+                vision_budget -= 1
+                vision_seen.add(handle_key)
+                slot_n = len(vision.get("slots") or [])
+                print(
+                    f"[social] {post.truck_handle}: vision "
+                    f"confidence={vision.get('confidence')} slots={slot_n}"
+                )
+                if slot_n or vision.get("confidence") in ("high", "medium"):
+                    extracted = vision
+            except Exception:
+                error_tracking.report(
+                    f"[social] vision extract failed for {post.truck_handle}"
+                )
+                vision_budget -= 1
+                vision_seen.add(handle_key)
+
         print(
             f"[social] {post.truck_handle}: "
             f"confidence={extracted.get('confidence')} "
             f"location={extracted.get('location_text')!r}"
         )
+
+        slots = [
+            slot
+            for slot in (extracted.get("slots") or [])
+            if isinstance(slot, dict) and not slot.get("closed")
+        ]
+        if slots:
+            emitted = 0
+            seen_places: set[str] = set()
+            for slot in slots:
+                place = usable_location_text(slot.get("location_text"))
+                if not place or place.lower() in seen_places:
+                    continue
+                slot_date = None
+                raw_date = str(slot.get("date") or "").strip()
+                try:
+                    slot_date = datetime.date.fromisoformat(raw_date[:10])
+                except ValueError:
+                    slot_date = today_local
+                if slot_date < today_local - datetime.timedelta(days=1):
+                    continue
+                if slot_date > today_local + datetime.timedelta(days=8):
+                    continue
+                seen_places.add(place.lower())
+                start = str(slot.get("start_time") or "11:00")
+                end = str(slot.get("end_time") or "")
+                hours = f"{start}–{end}" if end else start
+                note = (
+                    f"Schedule {slot_date.isoformat()} {hours} at {place}"
+                )
+                when = datetime.datetime.now(datetime.timezone.utc)
+                if slot_date <= today_local:
+                    try:
+                        hh, mm = [int(p) for p in start.split(":")[:2]]
+                        when = datetime.datetime(
+                            slot_date.year, slot_date.month, slot_date.day,
+                            hh, mm, tzinfo=pacific,
+                        ).astimezone(datetime.timezone.utc)
+                    except Exception:
+                        when = datetime.datetime.now(datetime.timezone.utc)
+                if _emit_located_pin(post, place, when, note, ttl_hours=24):
+                    emitted += 1
+            if emitted:
+                continue
+            print(
+                f"[social] {post.truck_handle}: schedule image had "
+                "no geocodable slot for this week"
+            )
+            continue
 
         if extracted.get("confidence") not in (
             "high",

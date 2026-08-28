@@ -181,6 +181,34 @@ def _call_provider(provider: str, prompt: str, max_tokens: int) -> str:
         raise ValueError(f"Unknown provider '{provider}'.")
 
 
+def complete_with_image(prompt: str, image_url: str, max_tokens: int = 700) -> str:
+    """OpenRouter vision: caption-style extraction from an Instagram photo."""
+    if not _has_key("OPENROUTER_API_KEY"):
+        return ""
+    image_url = (image_url or "").strip()
+    if not image_url.startswith("http") and not image_url.startswith("data:"):
+        return ""
+    model = _env("LLM_VISION_MODEL") or _env("LLM_WEB_SEARCH_MODEL") or DEFAULT_WEB_SEARCH_MODEL
+    client = OpenAI(
+        api_key=os.getenv("OPENROUTER_API_KEY"),
+        base_url="https://openrouter.ai/api/v1",
+    )
+    response = client.chat.completions.create(
+        model=model,
+        max_tokens=max_tokens,
+        messages=[
+            {
+                "role": "user",
+                "content": [
+                    {"type": "text", "text": prompt},
+                    {"type": "image_url", "image_url": {"url": image_url}},
+                ],
+            }
+        ],
+    )
+    return _message_text(response)
+
+
 def complete(prompt: str, max_tokens: int = 300) -> str:
     """
     Sends a single-turn prompt using whichever strategy is configured:

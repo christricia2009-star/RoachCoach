@@ -95,6 +95,7 @@ class RawDetection:
     source_id: Optional[str] = None       # e.g. "uber:merchant_12345", used for DIRECT_ID_MAPPINGS
     text_hint: Optional[str] = None       # e.g. social caption text, used for name matching
     note: Optional[str] = None
+    ttl_hours: float = 3.0
 
 
 @dataclass
@@ -221,7 +222,8 @@ def process_detection(detection: RawDetection, recent_detections: list[RawDetect
         observed_at = detection.timestamp
         if observed_at.tzinfo is None:
             observed_at = observed_at.replace(tzinfo=datetime.timezone.utc)
-        expires_at = observed_at + datetime.timedelta(hours=3)
+        ttl = detection.ttl_hours if getattr(detection, "ttl_hours", None) else 3.0
+        expires_at = observed_at + datetime.timedelta(hours=max(1.0, float(ttl)))
         timestamp_ms = int(observed_at.timestamp() * 1000)
         expires_ms = int(expires_at.timestamp() * 1000)
         try:
@@ -271,7 +273,8 @@ def process_detection(detection: RawDetection, recent_detections: list[RawDetect
         observed_at = detection.timestamp
         if observed_at.tzinfo is None:
             observed_at = observed_at.replace(tzinfo=datetime.timezone.utc)
-        expires_at = observed_at + datetime.timedelta(hours=3)
+        ttl = detection.ttl_hours if getattr(detection, "ttl_hours", None) else 3.0
+        expires_at = observed_at + datetime.timedelta(hours=max(1.0, float(ttl)))
         try:
             cloudkit_bridge.save_unmatched_detection({
                 "id": str(uuid.uuid4()),
