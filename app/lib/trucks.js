@@ -139,6 +139,164 @@ export function isSightingLive(sighting, now = Date.now()) {
   return Number.isFinite(ts) && now - ts <= 3 * 60 * 60 * 1000;
 }
 
+const WEEKDAYS = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
+
+export function pacificYmd(date = new Date()) {
+  return new Intl.DateTimeFormat("en-CA", {
+    timeZone: "America/Los_Angeles",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  }).format(date);
+}
+
+function addDaysYmd(ymd, days) {
+  const [year, month, day] = String(ymd).split("-").map(Number);
+  const dt = new Date(Date.UTC(year, month - 1, day + days));
+  return dt.toISOString().slice(0, 10);
+}
+
+function monthDay(ymd) {
+  const [, month, day] = String(ymd).split("-");
+  return `${Number(month)}/${Number(day)}`;
+}
+
+function parseDayChunk(weekday, date, chunk) {
+  const text = String(chunk || "").trim();
+  if (!text || /^CLOSED\b/i.test(text) || text === "X") {
+    return { weekday, date, closed: true, hours: "", location: "", monthDay: monthDay(date) };
+  }
+  const at = text.match(/^(.*?)\s+@\s+(.+)$/);
+  if (at) {
+    return {
+      weekday,
+      date,
+      closed: false,
+      hours: at[1].trim(),
+      location: at[2].trim(),
+      monthDay: monthDay(date),
+    };
+  }
+  return {
+    weekday,
+    date,
+    closed: false,
+    hours: "",
+    location: text.replace(/^@\s*/, "").trim(),
+    monthDay: monthDay(date),
+  };
+}
+
+export function parseWeeklySchedule(note) {
+  const text = String(note || "").trim();
+  if (!text) return null;
+  const weekly = text.match(/^WEEKLY\s+(\d{4}-\d{2}-\d{2})\s*:?\s*(.*)$/is);
+  if (weekly) {
+    const weekStart = weekly[1];
+    const body = weekly[2] || "";
+    const chunks = body.split(/\s*;\s*/).map((part) => part.trim()).filter(Boolean);
+    const byWeekday = new Map();
+    for (const chunk of chunks) {
+      const match = chunk.match(/^(Mon|Tue|Wed|Thu|Fri|Sat|Sun)\s*(.*)$/i);
+      if (!match) continue;
+      const wd = match[1].slice(0, 3);
+      const titled = wd.charAt(0).toUpperCase() + wd.slice(1).toLowerCase();
+      byWeekday.set(titled, match[2].trim());
+    }
+    const days = WEEKDAYS.map((weekday, index) =>
+      parseDayChunk(weekday, addDaysYmd(weekStart, index), byWeekday.get(weekday) || "CLOSED")
+    );
+    return { weekStart, days, source: "weekly" };
+  }
+  const legacy = text.match(
+    /^Schedule\s+(\d{4}-\d{2}-\d{2})\s+(\S+)(?:\s+at\s+(.+))?$/i
+  );
+  if (legacy) {
+    const date = legacy[1];
+    const [year, month, day] = date.split("-").map(Number);
+    const jsDay = new Date(Date.UTC(year, month - 1, day)).getUTCDay();
+    const weekday = WEEKDAYS[jsDay === 0 ? 6 : jsDay - 1];
+    const hours = String(legacy[2] || "").replace("-", "–");
+    const location = String(legacy[3] || "").trim();
+    return {
+      weekStart: date,
+      days: [
+        {
+          weekday,
+          date,
+          closed: false,
+          hours,
+          location,
+          monthDay: monthDay(date),
+        },
+      ],
+      source: "legacy",
+    };
+  }
+  return null;
+}
+
+export function findWeeklySchedule(sightings) {
+  const sorted = [...(sightings || [])].sort(
+    (a, b) => new Date(b.timestamp || 0) - new Date(a.timestamp || 0)
+  );
+  let legacySighting = null;
+  const legacyDays = [];
+  for (const sighting of sorted) {
+    const parsed = parseWeeklySchedule(sighting.note);
+    if (!parsed) continue;
+    if (parsed.source === "weekly") {
+      return { ...parsed, sighting };
+    }
+    legacyDays.push(...parsed.days);
+    if (!legacySighting) legacySighting = sighting;
+  }
+  if (!legacyDays.length) return null;
+  const seen = new Set();
+  const days = [];
+  for (const day of legacyDays) {
+    if (seen.has(day.date)) continue;
+    seen.add(day.date);
+    days.push(day);
+  }
+  days.sort((a, b) => a.date.localeCompare(b.date));
+  return {
+    weekStart: days[0].date,
+    days,
+    sighting: legacySighting,
+    source: "legacy",
+  };
+}
+
+export function scheduleStatus(week, now = new Date()) {
+  if (!week?.days?.length) return null;
+  const today = pacificYmd(now);
+  const todayDay = week.days.find((day) => day.date === today) || null;
+  const nextOpen =
+    week.days.find((day) => !day.closed && day.location && day.date >= today) || null;
+  const lastOpen =
+    [...week.days].reverse().find((day) => !day.closed && day.location) || null;
+  const isOpenToday = Boolean(todayDay && !todayDay.closed && todayDay.location);
+  let headline = "";
+  if (isOpenToday) {
+    headline = `Today ${todayDay.hours ? `${todayDay.hours} ` : ""}at ${todayDay.location}`;
+  } else if (nextOpen) {
+    headline = `Next ${nextOpen.weekday} ${nextOpen.hours ? `${nextOpen.hours} ` : ""}at ${nextOpen.location}`;
+  } else if (lastOpen) {
+    headline = `Closed today · last stop ${lastOpen.weekday} ${lastOpen.hours ? `${lastOpen.hours} ` : ""}at ${lastOpen.location}`;
+  } else {
+    headline = "Hours on Instagram";
+  }
+  return {
+    today,
+    todayDay,
+    nextOpen,
+    isOpenToday,
+    headline: headline.replace(/\s+/g, " ").trim(),
+    directionsDay: nextOpen || lastOpen || null,
+  };
+}
+
 export function uniqueRecentSightings(sightings, limit = 5, meters = 150) {
   const sorted = [...(sightings || [])].sort(
     (a, b) => new Date(b.timestamp || 0) - new Date(a.timestamp || 0)

@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
-import { REGION_ORDER, hasSocialPresence, isSightingLive, matchesTruckSearch, relativeTime, truckRegion } from "../lib/trucks";
+import { REGION_ORDER, findWeeklySchedule, hasSocialPresence, isSightingLive, matchesTruckSearch, relativeTime, scheduleStatus, truckRegion } from "../lib/trucks";
 import TruckThumb from "./TruckThumb";
 
 export default function TrucksList() {
@@ -54,12 +54,24 @@ export default function TrucksList() {
 
   const lastSeenByTruck = useMemo(() => {
     const latest = new Map();
+    const byTruck = new Map();
     for (const s of sightings) {
       const id = s.truckId ?? s.truck_id;
       if (!id) continue;
+      const list = byTruck.get(id) || [];
+      list.push(s);
+      byTruck.set(id, list);
       const ts = new Date(s.timestamp || 0).getTime();
       const prev = latest.get(id);
       if (!prev || ts > prev._ts) latest.set(id, { ...s, _ts: ts });
+    }
+    for (const [id, list] of byTruck) {
+      const week = findWeeklySchedule(list);
+      const status = scheduleStatus(week);
+      if (status?.headline) {
+        const prev = latest.get(id) || {};
+        latest.set(id, { ...prev, _headline: status.headline, _open: status.isOpenToday });
+      }
     }
     return latest;
   }, [sightings]);
@@ -188,11 +200,13 @@ function TruckCard({ truck, live, lastSeen }) {
           {live && <i className="rc-live-dot" />}
         </strong>
         <small>{[truck.cuisine_type, truckRegion(truck)].filter(Boolean).join(" · ")}</small>
-        {lastSeen?.timestamp && (
+        {lastSeen?._headline ? (
+          <small className="rc-fleet-card__seen">{lastSeen._headline}</small>
+        ) : lastSeen?.timestamp ? (
           <small className="rc-fleet-card__seen">
             {live ? "Spotted" : "Last seen"} {relativeTime(lastSeen.timestamp)}
           </small>
-        )}
+        ) : null}
       </span>
     </Link>
   );

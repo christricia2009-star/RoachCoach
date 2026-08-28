@@ -6,8 +6,11 @@ import { notificationsSupported, notify, requestNotificationPermission, notifica
 import Checkout from "./Checkout";
 import {
   directionsUrl,
+  findWeeklySchedule,
   isSightingLive,
+  parseWeeklySchedule,
   relativeTime,
+  scheduleStatus,
   socialLinks,
   truckRegion,
   uniqueRecentSightings,
@@ -272,9 +275,21 @@ export default function TruckDetail({ truckId }) {
 
   const links = truck ? socialLinks(truck) : [];
   const region = truck ? truckRegion(truck) : "";
-  const recentPins = uniqueRecentSightings(sightings, 5);
-  const latestPin = recentPins.find((s) => isSightingLive(s)) || recentPins[0] || null;
-  const latestLive = latestPin ? isSightingLive(latestPin) : false;
+  const week = findWeeklySchedule(sightings);
+  const weekStatus = scheduleStatus(week);
+  const recentPins = uniqueRecentSightings(
+    sightings.filter((s) => {
+      if (parseWeeklySchedule(s.note)) return false;
+      if (week && /^Posted:/i.test(String(s.note || ""))) return false;
+      return true;
+    }),
+    5
+  );
+  const livePin = recentPins.find((s) => isSightingLive(s)) || null;
+  const schedulePin = week?.sighting || null;
+  const directionsPin = weekStatus?.directionsDay
+    ? schedulePin
+    : livePin || recentPins[0] || schedulePin || null;
 
   if (loadState === "loading") {
     return (
@@ -300,11 +315,17 @@ export default function TruckDetail({ truckId }) {
           <h1>{truck.name}</h1>
           {truck.cuisine_type && <p className="rc-detail-cuisine">{truck.cuisine_type}</p>}
           {region && region !== "Other" && <span className="rc-region-pill">{region}</span>}
-          {latestPin && (
+          {weekStatus?.headline ? (
+            <p className="rc-detail-highlights">{weekStatus.headline}</p>
+          ) : livePin ? (
             <p className="rc-detail-highlights">
-              {latestLive ? "Spotted" : "Last seen"} {relativeTime(latestPin.timestamp)}
+              Spotted {relativeTime(livePin.timestamp)}
             </p>
-          )}
+          ) : recentPins[0] ? (
+            <p className="rc-detail-highlights">
+              Last seen {relativeTime(recentPins[0].timestamp)}
+            </p>
+          ) : null}
           {truck.menu_highlights?.length > 0 && (
             <p className="rc-detail-highlights">{truck.menu_highlights.join(" · ")}</p>
           )}
@@ -325,33 +346,93 @@ export default function TruckDetail({ truckId }) {
         </div>
       )}
 
+      {week && weekStatus && (
+        <section className="rc-card rc-week">
+          <div className="rc-spotting__head">
+            <h2>This week</h2>
+            {weekStatus.isOpenToday ? (
+              <span className="rc-pill rc-pill--ok">Open today</span>
+            ) : (
+              <span className="rc-pill">Closed today</span>
+            )}
+          </div>
+          <p className="rc-week__headline">{weekStatus.headline}</p>
+          {directionsPin && weekStatus.directionsDay && (
+            <div className="rc-spotting__actions">
+              <a
+                className="rc-add-btn"
+                href={directionsUrl(directionsPin.latitude, directionsPin.longitude, weekStatus.directionsDay.location || truck.name)}
+                target="_blank"
+                rel="noreferrer"
+              >
+                Directions to {weekStatus.directionsDay.location}
+              </a>
+            </div>
+          )}
+          <ol className="rc-week-grid">
+            {week.days.map((day) => (
+              <li
+                key={day.date}
+                className={[
+                  day.date === weekStatus.today ? "is-today" : "",
+                  day.closed ? "is-closed" : "is-open",
+                ].filter(Boolean).join(" ")}
+              >
+                <span className="rc-week-grid__when">
+                  <strong>{day.weekday}</strong>
+                  <small>{day.monthDay}</small>
+                </span>
+                {day.closed ? (
+                  <span className="rc-week-grid__closed">CLOSED</span>
+                ) : (
+                  <span className="rc-week-grid__place">
+                    <strong>{day.hours || "Open"}</strong>
+                    <small>{day.location}</small>
+                  </span>
+                )}
+              </li>
+            ))}
+          </ol>
+        </section>
+      )}
+
+      {(livePin || recentPins.length > 0 || !week) && (
       <section className="rc-card rc-spotting">
         <div className="rc-spotting__head">
-          <h2>Recent spotting</h2>
-          {latestLive && <span className="rc-pill rc-pill--ok">Live pin</span>}
+          <h2>{week ? "Other sightings" : "Recent spotting"}</h2>
+          {livePin && <span className="rc-pill rc-pill--ok">Live pin</span>}
         </div>
-        {latestPin ? (
+        {livePin ? (
           <>
             <p className="rc-spotting__last">
-              Last seen {relativeTime(latestPin.timestamp)}
-              {latestPin.note ? ` · ${latestPin.note}` : ""}
+              Spotted {relativeTime(livePin.timestamp)}
+              {livePin.note ? ` · ${livePin.note}` : ""}
             </p>
             <div className="rc-spotting__actions">
               <a
                 className="rc-add-btn"
-                href={directionsUrl(latestPin.latitude, latestPin.longitude, truck.name)}
+                href={directionsUrl(livePin.latitude, livePin.longitude, truck.name)}
                 target="_blank"
                 rel="noreferrer"
               >
                 Get directions
               </a>
+            </div>
+          </>
+        ) : recentPins[0] ? (
+          <>
+            <p className="rc-spotting__last">
+              Last seen {relativeTime(recentPins[0].timestamp)}
+              {recentPins[0].note ? ` · ${recentPins[0].note}` : ""}
+            </p>
+            <div className="rc-spotting__actions">
               <a
-                className="rc-spotting__share"
-                href={`https://maps.google.com/?q=${latestPin.latitude},${latestPin.longitude}`}
+                className="rc-add-btn"
+                href={directionsUrl(recentPins[0].latitude, recentPins[0].longitude, truck.name)}
                 target="_blank"
                 rel="noreferrer"
               >
-                Open map pin
+                Get directions
               </a>
             </div>
           </>
@@ -385,6 +466,7 @@ export default function TruckDetail({ truckId }) {
           </ol>
         )}
       </section>
+      )}
 
       <div className="rc-owner-link">
         <Link href={`/trucks/${truckId}/owner`}>Owner order board</Link>

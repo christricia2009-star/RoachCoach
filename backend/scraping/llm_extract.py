@@ -99,8 +99,9 @@ Caption:
 
 
 SCHEDULE_IMAGE_PROMPT = """You read a food-truck Instagram photo. It is often a weekly
-schedule graphic, a flyer, a story screenshot, or a photo with location text
-overlaid. The caption may not repeat the address.
+schedule graphic (one row/column per weekday, CLOSED vs a park/address), a
+flyer, a story screenshot, or a photo with location text overlaid. The caption
+may not repeat the address.
 
 Post caption:
 \"\"\"{caption}\"\"\"
@@ -108,27 +109,33 @@ Post caption:
 This post was published (UTC): {posted_at}
 Today's date in America/Los_Angeles: {today}
 
-Extract every OPEN stop. Skip days marked CLOSED.
+If the image is a WEEKLY hours graphic, extract ALL 7 days (Mon–Sun), including
+days marked CLOSED. Do not skip closed days. Do not collapse the week into one
+stop. Keep the park/venue name, not just the city.
 
 Respond ONLY with JSON (no markdown):
 {{
   "confidence": "high" | "medium" | "low" | "none",
+  "kind": "weekly_schedule" | "here_now" | "other",
   "slots": [
     {{
       "date": "YYYY-MM-DD",
-      "location_text": "place name, city",
+      "weekday": "Mon",
+      "location_text": "place name, city" or null,
       "start_time": "HH:MM" or null,
       "end_time": "HH:MM" or null,
-      "closed": false
+      "closed": true
     }}
   ]
 }}
 
 Resolve weekday + calendar day using the post's week. Example: a graphic
 showing "26 WED … Eufay Wood Spray Park, Plumas Lake" near a late-August 2026
-post is 2026-08-26.
-If the image is a single "we're here now" location, return one slot dated today.
-If there is no location, return {{"confidence":"none","slots":[]}}.
+post is 2026-08-26, weekday Wed, closed=false.
+A row that only says CLOSED has closed=true and location_text=null.
+If the image is a single "we're here now" location, kind=here_now and one slot
+dated today.
+If there is no location, return {{"confidence":"none","kind":"other","slots":[]}}.
 """
 
 
@@ -189,7 +196,7 @@ def extract_locations_from_image(
     except Exception as exc:
         print(f"[llm_extract] image download failed, trying URL: {exc}")
     try:
-        raw = complete_with_image(prompt, vision_url, max_tokens=800) or ""
+        raw = complete_with_image(prompt, vision_url, max_tokens=1200) or ""
     except Exception as exc:
         print(f"[llm_extract] vision failed: {exc}")
         return empty
@@ -197,28 +204,40 @@ def extract_locations_from_image(
     slots = parsed.get("slots") if isinstance(parsed.get("slots"), list) else []
     usable = []
     for slot in slots:
-        if not isinstance(slot, dict) or slot.get("closed"):
+        if not isinstance(slot, dict):
             continue
-        place = (slot.get("location_text") or "").strip()
-        if len(place) < 4:
+        closed = bool(slot.get("closed"))
+        place = (slot.get("location_text") or "").strip() or None
+        if place and place.lower() in {"closed", "none", "n/a"}:
+            closed = True
+            place = None
+        if not closed and (not place or len(place) < 4):
             continue
         usable.append(
             {
                 "date": slot.get("date"),
-                "location_text": place,
+                "weekday": slot.get("weekday"),
+                "location_text": None if closed else place,
                 "start_time": slot.get("start_time"),
                 "end_time": slot.get("end_time"),
-                "closed": False,
+                "closed": closed,
             }
         )
+    open_slots = [slot for slot in usable if not slot["closed"]]
+    kind = parsed.get("kind") or (
+        "weekly_schedule"
+        if len(usable) >= 2 or any(slot["closed"] for slot in usable)
+        else ("here_now" if open_slots else "other")
+    )
     confidence = parsed.get("confidence") or ("high" if usable else "none")
-    location_text = usable[0]["location_text"] if usable else None
+    location_text = open_slots[0]["location_text"] if open_slots else None
     return {
         "confidence": confidence if usable else "none",
+        "kind": kind,
         "slots": usable,
         "location_text": location_text,
-        "start_time": usable[0].get("start_time") if usable else None,
-        "end_time": usable[0].get("end_time") if usable else None,
+        "start_time": open_slots[0].get("start_time") if open_slots else None,
+        "end_time": open_slots[0].get("end_time") if open_slots else None,
     }
 
 

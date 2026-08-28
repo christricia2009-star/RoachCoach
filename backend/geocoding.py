@@ -42,6 +42,29 @@ _UNUSABLE = {
     "today", "tonight", "now", "open", "closed",
 }
 
+# City / county names that must not become a map pin by themselves.
+# Neighborhood / park aliases (Eufay, Wheeler Ranch) stay geocodable.
+_CITY_ONLY = {
+    "plumas lake", "olivehurst", "marysville", "yuba city", "wheatland",
+    "linda", "live oak", "sutter", "yuba county", "sutter county",
+    "sacramento", "roseville", "elk grove", "folsom", "rancho cordova",
+    "citrus heights", "west sacramento", "davis", "woodland", "lincoln",
+    "rocklin", "san francisco", "oakland", "san jose", "berkeley",
+    "alameda", "santa clara", "daly city", "fremont", "palo alto",
+    "sunnyvale", "redding", "chico", "red bluff", "eureka", "arcata",
+    "humboldt", "shasta", "oroville", "paradise", "tahoe", "truckee",
+    "reno", "sparks", "south lake tahoe", "incline village", "kings beach",
+    "fresno", "stockton", "modesto", "bakersfield", "visalia", "clovis",
+    "merced", "turlock", "madera", "dinuba", "hanford", "santa cruz",
+    "monterey", "salinas", "watsonville", "capitola", "carmel",
+    "pacific grove", "seaside", "california", "ca", "norcal",
+    "greater sacramento", "sacramento county",
+}
+_CITY_STRIP = re.compile(
+    r",?\s*(ca|california|usa|united states)\s*$",
+    re.IGNORECASE,
+)
+
 _last_request_time = 0.0
 
 
@@ -59,6 +82,18 @@ def usable_location_text(location_text: str | None) -> str | None:
     if len(lowered) < 4 or lowered in _UNUSABLE:
         return None
     return text
+
+
+def is_city_only(location_text: str | None) -> bool:
+    """True when the text is just a city/county, not a park or street."""
+    text = usable_location_text(location_text)
+    if not text:
+        return True
+    lowered = _CITY_STRIP.sub("", text.lower()).strip(" .,;:-")
+    lowered = re.sub(r"\s+", " ", lowered)
+    if lowered in _CITY_ONLY:
+        return True
+    return False
 
 
 def _throttle() -> None:

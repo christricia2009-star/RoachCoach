@@ -2572,7 +2572,7 @@ def _run_social_source(
 
         from llm_extract import extract_location_from_caption
 
-        from geocoding import geocode
+        from geocoding import geocode, is_city_only
 
         instagram_configured = bool(
             os.getenv("INSTAGRAM_ACCESS_TOKEN")
@@ -2685,6 +2685,9 @@ def _run_social_source(
                 continue
 
             location_text = extracted.get("location_text")
+            if location_text and is_city_only(location_text):
+                skipped_no_location += 1
+                continue
 
             geocoded = (
                 geocode(location_text)

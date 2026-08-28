@@ -235,7 +235,7 @@ def process_detection(detection: RawDetection, recent_detections: list[RawDetect
             "truckId": truck_id,
             "latitude": detection.latitude,
             "longitude": detection.longitude,
-            "note": detection.note or f"Auto-detected via {detection.source} ({result.reason})",
+            "note": (detection.note or f"Auto-detected via {detection.source} ({result.reason})")[:255],
             "photoURL": "",
             "timestamp": timestamp_ms,
             "confidenceLevel": confidence_level,
@@ -286,7 +286,7 @@ def process_detection(detection: RawDetection, recent_detections: list[RawDetect
                 "rawConfidence": result.final_confidence,
                 "reason": result.reason,
                 "textHint": detection.text_hint or "",
-                "note": detection.note or "",
+                "note": (detection.note or "")[:255],
                 "status": "pending",
             })
             print(f"[fusion] queued for human review: {detection.source} detection ({result.reason})")

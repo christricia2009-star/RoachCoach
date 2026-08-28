@@ -316,7 +316,14 @@ def job_social_scraping():
         X_USERNAMES,
     )
     from llm_extract import extract_location_from_caption, extract_locations_from_image
-    from geocoding import geocode, usable_location_text
+    from geocoding import geocode, usable_location_text, is_city_only
+    from weekly_schedule import (
+        format_weekly_note,
+        normalize_week,
+        pick_schedule_pin,
+        slot_datetime,
+        week_end_datetime,
+    )
 
     # KNOWN_TRUCK_NAMES already imported at module level (see the
     # try/except import block near the top of this file) as
@@ -469,8 +476,14 @@ def job_social_scraping():
             }
 
         handle_key = (post.truck_handle or "").lower().lstrip("@")
-        if (
+        caption_place = usable_location_text(extracted.get("location_text"))
+        caption_weak = (
             extracted.get("confidence") not in ("high", "medium")
+            or not caption_place
+            or is_city_only(caption_place)
+        )
+        if (
+            caption_weak
             and getattr(post, "image_url", "")
             and vision_budget > 0
             and handle_key not in vision_seen
@@ -506,46 +519,81 @@ def job_social_scraping():
         slots = [
             slot
             for slot in (extracted.get("slots") or [])
-            if isinstance(slot, dict) and not slot.get("closed")
+            if isinstance(slot, dict)
         ]
-        if slots:
-            emitted = 0
-            seen_places: set[str] = set()
-            for slot in slots:
-                place = usable_location_text(slot.get("location_text"))
-                if not place or place.lower() in seen_places:
+        week_days = normalize_week(
+            slots,
+            today_local,
+            kind=str(extracted.get("kind") or ""),
+        )
+        if week_days:
+            weekly = len(week_days) >= 2 or any(
+                day.get("closed") for day in week_days
+            )
+            pin_day = pick_schedule_pin(week_days, today_local)
+            if weekly:
+                note = format_weekly_note(week_days)
+                candidates = []
+                if pin_day:
+                    candidates.append(pin_day)
+                for day in week_days:
+                    if day is pin_day:
+                        continue
+                    if not day.get("closed") and day.get("location_text"):
+                        candidates.append(day)
+                emitted = False
+                for candidate in candidates:
+                    place = usable_location_text(candidate.get("location_text"))
+                    if not place:
+                        continue
+                    when = slot_datetime(candidate, pacific).astimezone(
+                        datetime.timezone.utc
+                    )
+                    week_end = week_end_datetime(week_days, pacific).astimezone(
+                        datetime.timezone.utc
+                    )
+                    ttl_hours = max(
+                        24.0,
+                        (week_end - when).total_seconds() / 3600.0,
+                    )
+                    if _emit_located_pin(
+                        post, place, when, note, ttl_hours=ttl_hours
+                    ):
+                        print(
+                            f"[social] {post.truck_handle}: weekly schedule "
+                            f"-> {place} ({note})"
+                        )
+                        emitted = True
+                        break
+                if emitted:
                     continue
-                slot_date = None
-                raw_date = str(slot.get("date") or "").strip()
-                try:
-                    slot_date = datetime.date.fromisoformat(raw_date[:10])
-                except ValueError:
-                    slot_date = today_local
-                if slot_date < today_local - datetime.timedelta(days=1):
-                    continue
-                if slot_date > today_local + datetime.timedelta(days=8):
-                    continue
-                seen_places.add(place.lower())
-                start = str(slot.get("start_time") or "11:00")
-                end = str(slot.get("end_time") or "")
-                hours = f"{start}–{end}" if end else start
-                note = (
-                    f"Schedule {slot_date.isoformat()} {hours} at {place}"
+                print(
+                    f"[social] {post.truck_handle}: weekly schedule "
+                    "had no geocodable park"
                 )
-                when = datetime.datetime.now(datetime.timezone.utc)
-                if slot_date <= today_local:
-                    try:
-                        hh, mm = [int(p) for p in start.split(":")[:2]]
-                        when = datetime.datetime(
-                            slot_date.year, slot_date.month, slot_date.day,
-                            hh, mm, tzinfo=pacific,
-                        ).astimezone(datetime.timezone.utc)
-                    except Exception:
-                        when = datetime.datetime.now(datetime.timezone.utc)
-                if _emit_located_pin(post, place, when, note, ttl_hours=24):
-                    emitted += 1
-            if emitted:
                 continue
+            if not weekly and pin_day:
+                place = usable_location_text(pin_day.get("location_text"))
+                slot_date = datetime.date.fromisoformat(pin_day["date"])
+                if (
+                    place
+                    and today_local - datetime.timedelta(days=1)
+                    <= slot_date
+                    <= today_local + datetime.timedelta(days=8)
+                ):
+                    start = str(pin_day.get("start_time") or "11:00")
+                    end = str(pin_day.get("end_time") or "")
+                    hours = f"{start}–{end}" if end else start
+                    note = (
+                        f"Schedule {pin_day['date']} {hours} at {place}"
+                    )
+                    when = slot_datetime(pin_day, pacific).astimezone(
+                        datetime.timezone.utc
+                    )
+                    if _emit_located_pin(
+                        post, place, when, note, ttl_hours=24
+                    ):
+                        continue
             print(
                 f"[social] {post.truck_handle}: schedule image had "
                 "no geocodable slot for this week"
@@ -577,6 +625,12 @@ def job_social_scraping():
         location_text = usable_location_text(
             extracted.get("location_text")
         )
+        if location_text and is_city_only(location_text):
+            print(
+                f"[social] {post.truck_handle}: skipped city-only "
+                f"location {location_text!r}"
+            )
+            continue
 
         try:
             geocoded = (
@@ -681,6 +735,12 @@ def job_social_scraping():
                         "location_text": usable_location_text(post.caption),
                     }
                     location_text = extracted.get("location_text")
+                    if location_text and is_city_only(location_text):
+                        print(
+                            f"[social] OpenRouter fallback skipped "
+                            f"city-only {post.truck_handle}: {location_text!r}"
+                        )
+                        continue
                     try:
                         geocoded = geocode(location_text) if location_text else None
                     except Exception:

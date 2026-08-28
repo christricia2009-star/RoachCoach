@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import "leaflet/dist/leaflet.css";
-import { REGION_ORDER, hasSocialPresence, matchesTruckSearch, truckRegion } from "../lib/trucks";
+import { REGION_ORDER, hasSocialPresence, matchesTruckSearch, parseWeeklySchedule, scheduleStatus, truckRegion } from "../lib/trucks";
 import TruckThumb from "./TruckThumb";
 
 const DEFAULT_CENTER = [38.5816, -121.4944];
@@ -200,14 +200,21 @@ export default function CommandCenter() {
             <span class="rc-pin__needle"></span>
           </div>`,
         });
+        const week = parseWeeklySchedule(sighting.note);
+        const status = scheduleStatus(week ? { ...week, sighting } : null);
+        const noteHtml = status?.headline
+          ? `<div class="rc-popup__note">${escapeHtml(status.headline)}</div>`
+          : sighting.note
+            ? `<div class="rc-popup__note">${escapeHtml(sighting.note)}</div>`
+            : "";
         const popupHtml = `
           <div class="rc-popup">
             <strong>${escapeHtml(name)}</strong>
             <div class="rc-popup__meta">${escapeHtml(truck?.cuisine_type || "Signal contact")}</div>
             <div class="rc-popup__conf" style="color:${color}">
-              ${escapeHtml(String(sighting.confidenceLevel || "likely"))} · ${isLive ? "active" : "last known"}
+              ${escapeHtml(String(sighting.confidenceLevel || "likely"))} · ${status?.isOpenToday || isLive ? "open / active" : status?.headline ? "this week's stop" : "last known"}
             </div>
-            ${sighting.note ? `<div class="rc-popup__note">${escapeHtml(sighting.note)}</div>` : ""}
+            ${noteHtml}
             ${truck?.id ? `<a class="rc-popup__link" href="/trucks/${encodeURIComponent(truck.id)}">Open truck →</a>` : ""}
           </div>
         `;
