@@ -161,12 +161,19 @@ function monthDay(ymd) {
   return `${Number(month)}/${Number(day)}`;
 }
 
-function parseDayChunk(weekday, date, chunk) {
+function mondayOfYmd(ymd) {
+  const [year, month, day] = String(ymd).split("-").map(Number);
+  const dow = new Date(Date.UTC(year, month - 1, day)).getUTCDay();
+  const offset = dow === 0 ? 6 : dow - 1;
+  return addDaysYmd(ymd, -offset);
+}
+
+function parseDayChunk(weekday, date, chunk, sharedPlace = "") {
   const text = String(chunk || "").trim();
   if (!text || /^CLOSED\b/i.test(text) || text === "X") {
     return { weekday, date, closed: true, hours: "", location: "", monthDay: monthDay(date) };
   }
-  const at = text.match(/^(.*?)\s+@\s+(.+)$/);
+  const at = text.match(/^(.*?)\s+@\s*(.+)$/);
   if (at) {
     return {
       weekday,
@@ -177,12 +184,13 @@ function parseDayChunk(weekday, date, chunk) {
       monthDay: monthDay(date),
     };
   }
+  const hours = text.replace(/^OPEN\b/i, "").trim();
   return {
     weekday,
     date,
     closed: false,
-    hours: "",
-    location: text.replace(/^@\s*/, "").trim(),
+    hours,
+    location: sharedPlace,
     monthDay: monthDay(date),
   };
 }
@@ -190,10 +198,13 @@ function parseDayChunk(weekday, date, chunk) {
 export function parseWeeklySchedule(note) {
   const text = String(note || "").trim();
   if (!text) return null;
-  const weekly = text.match(/^WEEKLY\s+(\d{4}-\d{2}-\d{2})\s*:?\s*(.*)$/is);
+  const weekly = text.match(
+    /^WEEKLY\s+(\d{4}-\d{2}-\d{2})(?:\s+@\s+([^:]+))?\s*:?\s*(.*)$/is
+  );
   if (weekly) {
-    const weekStart = weekly[1];
-    const body = weekly[2] || "";
+    const weekStart = mondayOfYmd(weekly[1]);
+    const sharedPlace = String(weekly[2] || "").trim();
+    const body = weekly[3] || "";
     const chunks = body.split(/\s*;\s*/).map((part) => part.trim()).filter(Boolean);
     const byWeekday = new Map();
     for (const chunk of chunks) {
@@ -203,9 +214,15 @@ export function parseWeeklySchedule(note) {
       const titled = wd.charAt(0).toUpperCase() + wd.slice(1).toLowerCase();
       byWeekday.set(titled, match[2].trim());
     }
-    const days = WEEKDAYS.map((weekday, index) =>
-      parseDayChunk(weekday, addDaysYmd(weekStart, index), byWeekday.get(weekday) || "CLOSED")
-    );
+    const listedClosed = [...byWeekday.values()].some((value) => /^CLOSED\b|^X$/i.test(value));
+    const days = WEEKDAYS.map((weekday, index) => {
+      const date = addDaysYmd(weekStart, index);
+      if (!byWeekday.has(weekday)) {
+        if (listedClosed) return parseDayChunk(weekday, date, "CLOSED", sharedPlace);
+        return null;
+      }
+      return parseDayChunk(weekday, date, byWeekday.get(weekday), sharedPlace);
+    }).filter(Boolean);
     return { weekStart, days, source: "weekly" };
   }
   const legacy = text.match(

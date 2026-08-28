@@ -99,9 +99,9 @@ Caption:
 
 
 SCHEDULE_IMAGE_PROMPT = """You read a food-truck Instagram photo. It is often a weekly
-schedule graphic (one row/column per weekday, CLOSED vs a park/address), a
-flyer, a story screenshot, or a photo with location text overlaid. The caption
-may not repeat the address.
+schedule graphic (one row per calendar day: CLOSED vs hours + park), a flyer,
+a story screenshot, or a photo with location text overlaid. The caption may
+not repeat the address.
 
 Post caption:
 \"\"\"{caption}\"\"\"
@@ -109,9 +109,20 @@ Post caption:
 This post was published (UTC): {posted_at}
 Today's date in America/Los_Angeles: {today}
 
-If the image is a WEEKLY hours graphic, extract ALL 7 days (Mon–Sun), including
-days marked CLOSED. Do not skip closed days. Do not collapse the week into one
-stop. Keep the park/venue name, not just the city.
+If the image is a WEEKLY hours graphic, return ALL 7 days (Mon–Sun).
+Same park on four days is FOUR slots, not one. Do not collapse by location.
+Include CLOSED rows. Keep the park/venue name, not just the city.
+
+Worked example — Blue Tulip "Weekly Schedule" for 24–30 Aug 2026:
+24 MON CLOSED
+25 TUE CLOSED
+26 WED 7-10 AM Eufay Wood Spray Park, Plumas Lake
+27 THU 7-10 AM Eufay Wood Spray Park, Plumas Lake
+28 FRI 7-10 AM Eufay Wood Spray Park, Plumas Lake
+29 SAT 7:30-10 AM Eufay Wood Spray Park, Plumas Lake
+30 SUN CLOSED
+That is 7 slots. Wednesday through Saturday are four separate dates even
+though the park is the same. Saturday hours are 07:30-10:00, not 07:00.
 
 Respond ONLY with JSON (no markdown):
 {{
@@ -129,10 +140,7 @@ Respond ONLY with JSON (no markdown):
   ]
 }}
 
-Resolve weekday + calendar day using the post's week. Example: a graphic
-showing "26 WED … Eufay Wood Spray Park, Plumas Lake" near a late-August 2026
-post is 2026-08-26, weekday Wed, closed=false.
-A row that only says CLOSED has closed=true and location_text=null.
+A CLOSED row: closed=true, location_text=null, start_time=null, end_time=null.
 If the image is a single "we're here now" location, kind=here_now and one slot
 dated today.
 If there is no location, return {{"confidence":"none","kind":"other","slots":[]}}.
@@ -196,7 +204,7 @@ def extract_locations_from_image(
     except Exception as exc:
         print(f"[llm_extract] image download failed, trying URL: {exc}")
     try:
-        raw = complete_with_image(prompt, vision_url, max_tokens=1200) or ""
+        raw = complete_with_image(prompt, vision_url, max_tokens=1600) or ""
     except Exception as exc:
         print(f"[llm_extract] vision failed: {exc}")
         return empty

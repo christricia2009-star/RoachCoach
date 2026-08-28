@@ -101,6 +101,20 @@ def monday_of(day: datetime.date) -> datetime.date:
     return day - datetime.timedelta(days=day.weekday())
 
 
+def looks_like_schedule_caption(caption: str | None) -> bool:
+    text = (caption or "").lower()
+    return any(
+        token in text
+        for token in (
+            "schedule",
+            "weekly",
+            "this week",
+            "hours this week",
+            "weekly hours",
+        )
+    )
+
+
 def _clean_place(raw) -> Optional[str]:
     text = " ".join(str(raw or "").split()).strip(" ,.-")
     if len(text) < 4:
@@ -180,6 +194,10 @@ def normalize_week(
             }
         ]
 
+    # Only mark a missing day CLOSED when the graphic itself listed CLOSED
+    # rows. Never invent CLOSED for Thursday-Saturday just because vision
+    # only returned Wednesday at the same park.
+    fill_closed = any(row.get("closed") for row in by_offset.values())
     days = []
     for offset, weekday in enumerate(WEEKDAYS):
         day = week_monday + datetime.timedelta(days=offset)
@@ -195,7 +213,7 @@ def normalize_week(
                     "end_time": row.get("end_time"),
                 }
             )
-        else:
+        elif fill_closed:
             days.append(
                 {
                     "date": day.isoformat(),
@@ -212,7 +230,15 @@ def normalize_week(
 def format_weekly_note(days: list[dict]) -> str:
     if not days:
         return ""
-    week_start = days[0]["date"]
+    first = datetime.date.fromisoformat(days[0]["date"])
+    week_start = monday_of(first).isoformat()
+    places = [
+        day["location_text"]
+        for day in days
+        if not day.get("closed") and day.get("location_text")
+    ]
+    unique_places = list(dict.fromkeys(places))
+    shared = unique_places[0] if len(unique_places) == 1 else None
     parts = []
     for day in days:
         wd = day["weekday"]
@@ -221,24 +247,24 @@ def format_weekly_note(days: list[dict]) -> str:
             continue
         hours = format_hours(day.get("start_time"), day.get("end_time"))
         place = day["location_text"]
-        if hours:
+        if shared:
+            parts.append(f"{wd} {hours}" if hours else f"{wd} OPEN")
+        elif hours:
             parts.append(f"{wd} {hours} @ {place}")
         else:
             parts.append(f"{wd} @ {place}")
-    note = f"WEEKLY {week_start}: " + "; ".join(parts)
+    prefix = f"WEEKLY {week_start}"
+    if shared:
+        prefix += f" @ {shared}"
+    note = prefix + ": " + "; ".join(parts)
     if len(note) <= CLOUDKIT_STRING_MAX:
         return note
-    short_parts = []
-    for day in days:
-        wd = day["weekday"]
-        if day.get("closed") or not day.get("location_text"):
-            short_parts.append(f"{wd} X")
-            continue
-        hours = format_hours(day.get("start_time"), day.get("end_time"))
-        place = day["location_text"].split(",")[0][:28]
-        bit = f"{wd} {hours} @{place}" if hours else f"{wd} @{place}"
-        short_parts.append(bit)
-    note = f"WEEKLY {week_start}: " + "; ".join(short_parts)
+    if shared:
+        shared = shared.split(",")[0][:28]
+        prefix = f"WEEKLY {week_start} @ {shared}"
+        note = prefix + ": " + "; ".join(parts)
+        if len(note) <= CLOUDKIT_STRING_MAX:
+            return note
     return note[:CLOUDKIT_STRING_MAX]
 
 

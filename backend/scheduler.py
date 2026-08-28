@@ -319,6 +319,7 @@ def job_social_scraping():
     from geocoding import geocode, usable_location_text, is_city_only
     from weekly_schedule import (
         format_weekly_note,
+        looks_like_schedule_caption,
         normalize_week,
         pick_schedule_pin,
         slot_datetime,
@@ -399,7 +400,18 @@ def job_social_scraping():
         f"(plus image/schedule posts up to {image_lookback_days:g}d); "
         f"skipped {skipped_old} older post(s)"
     )
-    posts = recent_posts
+    def _post_sort_key(post):
+        posted = post.posted_at
+        if posted is None:
+            ts = 0.0
+        else:
+            if posted.tzinfo is None:
+                posted = posted.replace(tzinfo=datetime.timezone.utc)
+            ts = posted.timestamp()
+        schedule_first = 0 if looks_like_schedule_caption(post.caption) else 1
+        return (schedule_first, -ts)
+
+    posts = sorted(recent_posts, key=_post_sort_key)
 
     # ------------------------------------------------------------------
     # PROCESS POSTS
@@ -407,7 +419,8 @@ def job_social_scraping():
 
     located_handles: set[str] = set()
     vision_budget = int(os.getenv("SOCIAL_VISION_MAX") or "40")
-    vision_seen: set[str] = set()
+    vision_tries: dict[str, int] = {}
+    vision_got_week: set[str] = set()
     try:
         from zoneinfo import ZoneInfo
 
@@ -482,11 +495,14 @@ def job_social_scraping():
             or not caption_place
             or is_city_only(caption_place)
         )
+        looks_schedule = looks_like_schedule_caption(post.caption)
+        tries = vision_tries.get(handle_key, 0)
         if (
-            caption_weak
+            handle_key not in vision_got_week
+            and (caption_weak or looks_schedule)
             and getattr(post, "image_url", "")
             and vision_budget > 0
-            and handle_key not in vision_seen
+            and tries < 3
         ):
             try:
                 vision = extract_locations_from_image(
@@ -495,20 +511,32 @@ def job_social_scraping():
                     post.posted_at,
                 )
                 vision_budget -= 1
-                vision_seen.add(handle_key)
+                vision_tries[handle_key] = tries + 1
                 slot_n = len(vision.get("slots") or [])
                 print(
                     f"[social] {post.truck_handle}: vision "
-                    f"confidence={vision.get('confidence')} slots={slot_n}"
+                    f"confidence={vision.get('confidence')} "
+                    f"kind={vision.get('kind')} slots={slot_n}"
                 )
                 if slot_n or vision.get("confidence") in ("high", "medium"):
                     extracted = vision
+                open_n = sum(
+                    1
+                    for slot in (vision.get("slots") or [])
+                    if isinstance(slot, dict) and not slot.get("closed")
+                )
+                if (
+                    str(vision.get("kind") or "") == "weekly_schedule"
+                    or open_n >= 2
+                    or slot_n >= 2
+                ):
+                    vision_got_week.add(handle_key)
             except Exception:
                 error_tracking.report(
                     f"[social] vision extract failed for {post.truck_handle}"
                 )
                 vision_budget -= 1
-                vision_seen.add(handle_key)
+                vision_tries[handle_key] = tries + 1
 
         print(
             f"[social] {post.truck_handle}: "
