@@ -19,6 +19,7 @@ import hashlib
 import json
 import os
 import re
+import time
 import uuid
 
 import requests
@@ -79,6 +80,7 @@ _IG_ACCOUNT_CACHE: Optional[dict] = None
 _IG_ACCOUNT_CACHE_TAIL = ""
 _IG_TOKEN_REFRESHED = False
 _IG_BD_UNSUPPORTED_REASON: Optional[str] = None
+_IG_BD_RATE_LIMITED = False
 
 
 def _instagram_access_token() -> str:
@@ -367,9 +369,9 @@ def fetch_recent_instagram_posts_business_discovery(
     not expose this field, or a single-account failure all return
     an empty list instead of raising.
     """
-    global _IG_BD_UNSUPPORTED_REASON
+    global _IG_BD_UNSUPPORTED_REASON, _IG_BD_RATE_LIMITED
 
-    if _IG_BD_UNSUPPORTED_REASON:
+    if _IG_BD_UNSUPPORTED_REASON or _IG_BD_RATE_LIMITED:
         return []
 
     token, business_account_id, graph_base = _business_discovery_credentials()
@@ -396,6 +398,18 @@ def fetch_recent_instagram_posts_business_discovery(
         body = response.text or ""
         if response.status_code >= 400:
             lowered = body.lower()
+            if (
+                "(#4)" in body
+                or "request limit reached" in lowered
+                or "application request limit" in lowered
+            ):
+                _IG_BD_RATE_LIMITED = True
+                print(
+                    "[instagram] Meta rate limit (#4) — stopping Business "
+                    "Discovery for the rest of this run. Remaining handles "
+                    "will be tried on the next scheduled scan."
+                )
+                return []
             if (
                 "nonexisting field" in lowered
                 or (
@@ -1797,11 +1811,29 @@ def fetch_all_known_trucks(
     bd_token, bd_id, bd_host = _business_discovery_credentials()
     if bd_token and bd_id and instagram_business_discovery_usernames:
         kind = "Facebook Login" if bd_token.upper().startswith("EAA") else "Instagram Login"
+        handles = [
+            (h or "").lstrip("@").strip()
+            for h in (instagram_business_discovery_usernames or [])
+            if (h or "").strip()
+        ]
+        if handles:
+            # Rotate so Sacramento isn't always first and later regions
+            # don't get starved when Meta (#4) rate-limits mid-run.
+            now = datetime.datetime.now(datetime.timezone.utc)
+            start = (now.hour * 60 + now.minute) % len(handles)
+            handles = handles[start:] + handles[:start]
+        cap = int(os.getenv("SOCIAL_IG_BD_MAX") or "45")
+        if cap > 0:
+            handles = handles[:cap]
+        delay = float(os.getenv("SOCIAL_IG_BD_DELAY_SEC") or "0.6")
         print(
             f"[instagram] attempting Business Discovery via {kind} "
-            f"for {len(instagram_business_discovery_usernames)} handle(s)."
+            f"for {len(handles)} handle(s) this run "
+            f"(delay {delay}s)."
         )
-        for username in instagram_business_discovery_usernames or []:
+        for username in handles:
+            if _IG_BD_RATE_LIMITED or _IG_BD_UNSUPPORTED_REASON:
+                break
             try:
                 all_posts.extend(
                     fetch_recent_instagram_posts_business_discovery(username)
@@ -1811,6 +1843,8 @@ def fetch_all_known_trucks(
                     "[instagram] Business Discovery "
                     f"failed for @{username}: {e}"
                 )
+            if delay > 0:
+                time.sleep(delay)
     elif instagram_business_discovery_usernames:
         print(
             "[instagram] Business Discovery unavailable — need a "
