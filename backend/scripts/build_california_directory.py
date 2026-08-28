@@ -8,6 +8,43 @@ from pathlib import Path
 
 # Handles come from public Instagram tags, tourism pages, or association
 # pages that publish the same @handle. Do not slug-guess names.
+#
+# `areas` are cities/neighborhoods people type in search (Plumas Lake,
+# Marysville, etc.). Every row also inherits REGION_AREAS[region].
+REGION_AREAS = {
+    "Sacramento": [
+        "Sacramento", "Roseville", "Elk Grove", "Folsom", "Rancho Cordova",
+        "Citrus Heights", "Natomas", "Midtown", "West Sacramento", "Davis",
+        "Woodland", "Lincoln", "Rocklin", "South Sac", "Arden",
+    ],
+    "Yuba-Sutter": [
+        "Plumas Lake", "Olivehurst", "Marysville", "Yuba City", "Wheatland",
+        "Linda", "Live Oak", "Sutter", "Yuba County", "Sutter County",
+        "Eufay", "Wheeler Ranch", "Hallwood",
+    ],
+    "Bay Area": [
+        "San Francisco", "Oakland", "San Jose", "Berkeley", "Alameda",
+        "Peninsula", "East Bay", "South Bay", "Marin", "Santa Clara",
+        "Daly City", "Fremont", "Palo Alto", "Sunnyvale",
+    ],
+    "North State": [
+        "Redding", "Chico", "Red Bluff", "Eureka", "Arcata", "Humboldt",
+        "Shasta", "Oroville", "Paradise",
+    ],
+    "Sierra": [
+        "Tahoe", "Truckee", "Reno", "Sparks", "South Lake Tahoe",
+        "Incline Village", "Kings Beach",
+    ],
+    "Central Valley": [
+        "Fresno", "Stockton", "Modesto", "Bakersfield", "Visalia", "Clovis",
+        "Merced", "Turlock", "Madera", "Dinuba", "Hanford",
+    ],
+    "Central Coast": [
+        "Santa Cruz", "Monterey", "Salinas", "Watsonville", "Capitola",
+        "Carmel", "Pacific Grove", "Seaside",
+    ],
+}
+
 TRUCKS = [
     # Sacramento
     ("Drewski's Hot Rod Kitchen", "American", "drewskis", "drewskisfoodtrucks", "drewskishotrod", "Sacramento"),
@@ -40,6 +77,25 @@ TRUCKS = [
     ("Gameday Grill", "Burgers", "gamedaygrill_", "", "", "Sacramento"),
     ("Island Fin Poke", "Hawaiian", "ifpcdeltashores", "", "", "Sacramento"),
     ("Bokhoking", "Vietnamese", "bokhoking", "", "", "Sacramento"),
+    ("Delicious Dishez", "Soul Food", "delicious.dishez", "", "", "Sacramento"),
+    ("Bangin' Bowls", "Latin Fusion", "labanginbowls", "Labanginbowls", "", "Sacramento"),
+    ("The Fry Boys", "Burgers", "thefryboysnorcal", "TheFryBoysNorCal", "", "Sacramento"),
+    ("Flores Munchies", "Dessert", "flores_munchies", "", "", "Sacramento"),
+    ("Zazu Crepes & Coffee", "Coffee Trailer", "zazucrepes", "", "", "Sacramento"),
+    ("Sama Coffee", "Coffee Cart", "samacoffeeco", "", "", "Sacramento"),
+    ("Luna Cafe Sac", "Coffee Trailer", "lunacafesac", "", "", "Sacramento"),
+    ("Sweet Treats by Jas", "Coffee Trailer", "sweet.treats.by_jas", "", "", "Sacramento"),
+    ("Gyro Corner", "Greek", "gyrocorner_", "", "", "Sacramento"),
+    # Yuba-Sutter — Plumas Lake, Olivehurst, Marysville, Yuba City, Wheatland
+    # (Facebook group "Plumas Lake Food Trucks" + posted Instagram handles)
+    ("Rosie's Sno Biz", "Shaved Ice", "rosies_snobiz", "", "", "Yuba-Sutter"),
+    ("Copper Penny Carnivore Caravan", "Burgers", "pennycarnivore", "", "", "Yuba-Sutter"),
+    ("Blue Tulip Coffee Company", "Coffee Trailer", "bluetulipcoffee", "", "", "Yuba-Sutter"),
+    ("Lami Fusion", "Island Fusion", "lamifusion_", "lamifusion", "", "Yuba-Sutter"),
+    ("Supreme Gyros", "Greek", "supremegyros", "SupremeGyros", "", "Yuba-Sutter"),
+    ("Kiki's Chicken", "Fried Chicken", "kikischicken530", "", "", "Yuba-Sutter"),
+    ("Quenchies & Munchies", "Dessert", "quenchiesmunchies", "", "", "Yuba-Sutter"),
+    ("Kona Ice of Yuba City", "Shaved Ice", "konaiceyuba", "", "", "Yuba-Sutter"),
     # Bay Area — Off the Grid tagged handles + published IG
     ("Senor Sisig", "Filipino", "senorsisig", "", "", "Bay Area"),
     ("The Chairman Truck", "Taiwanese", "chairmantruck", "", "", "Bay Area"),
@@ -95,6 +151,8 @@ TRUCKS = [
     ("Cielito Lindo", "Mexican", "cielitolindomsk", "", "", "Bay Area"),
     ("Kabob Trolley", "Mediterranean", "kabobtrolley", "", "", "Bay Area"),
     ("Daisy's Desserts", "Dessert", "daisysdesserts", "", "", "Bay Area"),
+    ("Smoothielicious", "Coffee Trailer", "smoothieliciousbayarea", "", "", "Bay Area"),
+    ("The Last Drip", "Coffee Cart", "thelastdrip.coffee", "", "", "Bay Area"),
     # North State — Redding through Humboldt / Siskiyou to the Oregon border
     ("Big C's Food Coma", "BBQ", "bigcsfoodcoma", "", "", "North State"),
     ("Granny's Grill", "Filipino", "grannysgrillfilipinofoodtruck", "", "", "North State"),
@@ -122,6 +180,9 @@ TRUCKS = [
     ("Birrieria Chito", "Mexican", "birrieria_chito", "", "", "Central Valley"),
     ("Tortas Ahogadas El Cejarin", "Mexican", "tortasahogadas_elcejarin", "", "", "Central Valley"),
     ("Food Fix", "American", "foodfixtruck", "", "", "Central Valley"),
+    ("Jitters Coffee Truck", "Coffee Trailer", "jitterscoffeetruck", "", "", "Central Valley"),
+    ("Sunflowers & Grace", "Coffee Trailer", "sunflowersandgracecoffee", "", "", "Central Valley"),
+    ("Hora de Cafe", "Coffee Trailer", "_horadecafe", "", "", "Central Valley"),
     # Central Coast
     ("Funk's Franks", "American", "funksfranks", "", "", "Central Coast"),
     ("Happy Dog Hot Dogs", "American", "happydog_hotdogs", "", "", "Central Coast"),
@@ -159,6 +220,9 @@ def main() -> None:
             row["facebook"] = facebook
         if x:
             row["x"] = x
+        areas = REGION_AREAS.get(region) or []
+        if areas:
+            row["areas"] = areas
         rows.append(row)
 
     payload = json.dumps(rows, indent=2) + "\n"

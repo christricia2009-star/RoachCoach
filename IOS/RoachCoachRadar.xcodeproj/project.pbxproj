@@ -6,8 +6,60 @@
 	objectVersion = 77;
 	objects = {
 
+/* Begin PBXBuildFile section */
+		7C88E1F20B4D4F6A9C1E3F01 /* Vendor/StripeXCFrameworks/StripePaymentSheet.xcframework in Frameworks */ = {isa = PBXBuildFile; fileRef = 7C88E1F10B4D4F6A9C1E3F01 /* Vendor/StripeXCFrameworks/StripePaymentSheet.xcframework */; };
+		7C88E1F20B4D4F6A9C1E3F02 /* Vendor/StripeXCFrameworks/StripePayments.xcframework in Frameworks */ = {isa = PBXBuildFile; fileRef = 7C88E1F10B4D4F6A9C1E3F02 /* Vendor/StripeXCFrameworks/StripePayments.xcframework */; };
+		7C88E1F20B4D4F6A9C1E3F03 /* Vendor/StripeXCFrameworks/StripePaymentsUI.xcframework in Frameworks */ = {isa = PBXBuildFile; fileRef = 7C88E1F10B4D4F6A9C1E3F03 /* Vendor/StripeXCFrameworks/StripePaymentsUI.xcframework */; };
+		7C88E1F20B4D4F6A9C1E3F04 /* Vendor/StripeXCFrameworks/StripeCore.xcframework in Frameworks */ = {isa = PBXBuildFile; fileRef = 7C88E1F10B4D4F6A9C1E3F04 /* Vendor/StripeXCFrameworks/StripeCore.xcframework */; };
+		7C88E1F20B4D4F6A9C1E3F05 /* Vendor/StripeXCFrameworks/StripeUICore.xcframework in Frameworks */ = {isa = PBXBuildFile; fileRef = 7C88E1F10B4D4F6A9C1E3F05 /* Vendor/StripeXCFrameworks/StripeUICore.xcframework */; };
+		7C88E1F20B4D4F6A9C1E3F06 /* Vendor/StripeXCFrameworks/StripeApplePay.xcframework in Frameworks */ = {isa = PBXBuildFile; fileRef = 7C88E1F10B4D4F6A9C1E3F06 /* Vendor/StripeXCFrameworks/StripeApplePay.xcframework */; };
+		7C88E1F20B4D4F6A9C1E3F07 /* Vendor/StripeXCFrameworks/Stripe3DS2.xcframework in Frameworks */ = {isa = PBXBuildFile; fileRef = 7C88E1F10B4D4F6A9C1E3F07 /* Vendor/StripeXCFrameworks/Stripe3DS2.xcframework */; };
+		7C88E1F20B4D4F6A9C1E3F08 /* Vendor/StripeXCFrameworks/StripeFinancialConnections.xcframework in Frameworks */ = {isa = PBXBuildFile; fileRef = 7C88E1F10B4D4F6A9C1E3F08 /* Vendor/StripeXCFrameworks/StripeFinancialConnections.xcframework */; };
+		7C88E1F20B4D4F6A9C1E3F09 /* Vendor/StripeXCFrameworks/StripeFinancialConnectionsLite.xcframework in Frameworks */ = {isa = PBXBuildFile; fileRef = 7C88E1F10B4D4F6A9C1E3F09 /* Vendor/StripeXCFrameworks/StripeFinancialConnectionsLite.xcframework */; };
+		7C88E1F30B4D4F6A9C1E3F01 /* Vendor/StripeXCFrameworks/StripePaymentSheet.xcframework in Embed Frameworks */ = {isa = PBXBuildFile; fileRef = 7C88E1F10B4D4F6A9C1E3F01 /* Vendor/StripeXCFrameworks/StripePaymentSheet.xcframework */; settings = {ATTRIBUTES = (CodeSignOnCopy, RemoveHeadersOnCopy, ); }; };
+		7C88E1F30B4D4F6A9C1E3F02 /* Vendor/StripeXCFrameworks/StripePayments.xcframework in Embed Frameworks */ = {isa = PBXBuildFile; fileRef = 7C88E1F10B4D4F6A9C1E3F02 /* Vendor/StripeXCFrameworks/StripePayments.xcframework */; settings = {ATTRIBUTES = (CodeSignOnCopy, RemoveHeadersOnCopy, ); }; };
+		7C88E1F30B4D4F6A9C1E3F03 /* Vendor/StripeXCFrameworks/StripePaymentsUI.xcframework in Embed Frameworks */ = {isa = PBXBuildFile; fileRef = 7C88E1F10B4D4F6A9C1E3F03 /* Vendor/StripeXCFrameworks/StripePaymentsUI.xcframework */; settings = {ATTRIBUTES = (CodeSignOnCopy, RemoveHeadersOnCopy, ); }; };
+		7C88E1F30B4D4F6A9C1E3F04 /* Vendor/StripeXCFrameworks/StripeCore.xcframework in Embed Frameworks */ = {isa = PBXBuildFile; fileRef = 7C88E1F10B4D4F6A9C1E3F04 /* Vendor/StripeXCFrameworks/StripeCore.xcframework */; settings = {ATTRIBUTES = (CodeSignOnCopy, RemoveHeadersOnCopy, ); }; };
+		7C88E1F30B4D4F6A9C1E3F05 /* Vendor/StripeXCFrameworks/StripeUICore.xcframework in Embed Frameworks */ = {isa = PBXBuildFile; fileRef = 7C88E1F10B4D4F6A9C1E3F05 /* Vendor/StripeXCFrameworks/StripeUICore.xcframework */; settings = {ATTRIBUTES = (CodeSignOnCopy, RemoveHeadersOnCopy, ); }; };
+		7C88E1F30B4D4F6A9C1E3F06 /* Vendor/StripeXCFrameworks/StripeApplePay.xcframework in Embed Frameworks */ = {isa = PBXBuildFile; fileRef = 7C88E1F10B4D4F6A9C1E3F06 /* Vendor/StripeXCFrameworks/StripeApplePay.xcframework */; settings = {ATTRIBUTES = (CodeSignOnCopy, RemoveHeadersOnCopy, ); }; };
+		7C88E1F30B4D4F6A9C1E3F07 /* Vendor/StripeXCFrameworks/Stripe3DS2.xcframework in Embed Frameworks */ = {isa = PBXBuildFile; fileRef = 7C88E1F10B4D4F6A9C1E3F07 /* Vendor/StripeXCFrameworks/Stripe3DS2.xcframework */; settings = {ATTRIBUTES = (CodeSignOnCopy, RemoveHeadersOnCopy, ); }; };
+		7C88E1F30B4D4F6A9C1E3F08 /* Vendor/StripeXCFrameworks/StripeFinancialConnections.xcframework in Embed Frameworks */ = {isa = PBXBuildFile; fileRef = 7C88E1F10B4D4F6A9C1E3F08 /* Vendor/StripeXCFrameworks/StripeFinancialConnections.xcframework */; settings = {ATTRIBUTES = (CodeSignOnCopy, RemoveHeadersOnCopy, ); }; };
+		7C88E1F30B4D4F6A9C1E3F09 /* Vendor/StripeXCFrameworks/StripeFinancialConnectionsLite.xcframework in Embed Frameworks */ = {isa = PBXBuildFile; fileRef = 7C88E1F10B4D4F6A9C1E3F09 /* Vendor/StripeXCFrameworks/StripeFinancialConnectionsLite.xcframework */; settings = {ATTRIBUTES = (CodeSignOnCopy, RemoveHeadersOnCopy, ); }; };
+/* End PBXBuildFile section */
+
+/* Begin PBXCopyFilesBuildPhase section */
+		7C88E1F40B4D4F6A9C1E3F00 /* Embed Frameworks */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 2147483647;
+			dstPath = "";
+			dstSubfolderSpec = 10;
+			files = (
+				7C88E1F30B4D4F6A9C1E3F01 /* Vendor/StripeXCFrameworks/StripePaymentSheet.xcframework in Embed Frameworks */,
+				7C88E1F30B4D4F6A9C1E3F02 /* Vendor/StripeXCFrameworks/StripePayments.xcframework in Embed Frameworks */,
+				7C88E1F30B4D4F6A9C1E3F03 /* Vendor/StripeXCFrameworks/StripePaymentsUI.xcframework in Embed Frameworks */,
+				7C88E1F30B4D4F6A9C1E3F04 /* Vendor/StripeXCFrameworks/StripeCore.xcframework in Embed Frameworks */,
+				7C88E1F30B4D4F6A9C1E3F05 /* Vendor/StripeXCFrameworks/StripeUICore.xcframework in Embed Frameworks */,
+				7C88E1F30B4D4F6A9C1E3F06 /* Vendor/StripeXCFrameworks/StripeApplePay.xcframework in Embed Frameworks */,
+				7C88E1F30B4D4F6A9C1E3F07 /* Vendor/StripeXCFrameworks/Stripe3DS2.xcframework in Embed Frameworks */,
+				7C88E1F30B4D4F6A9C1E3F08 /* Vendor/StripeXCFrameworks/StripeFinancialConnections.xcframework in Embed Frameworks */,
+				7C88E1F30B4D4F6A9C1E3F09 /* Vendor/StripeXCFrameworks/StripeFinancialConnectionsLite.xcframework in Embed Frameworks */,
+			);
+			name = "Embed Frameworks";
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXCopyFilesBuildPhase section */
+
 /* Begin PBXFileReference section */
 		226F6EA2303A6F6C0049C08D /* RoachCoachRadar.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = RoachCoachRadar.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		7C88E1F10B4D4F6A9C1E3F01 /* Vendor/StripeXCFrameworks/StripePaymentSheet.xcframework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.xcframework; path = Vendor/StripeXCFrameworks/StripePaymentSheet.xcframework; sourceTree = SOURCE_ROOT; };
+		7C88E1F10B4D4F6A9C1E3F02 /* Vendor/StripeXCFrameworks/StripePayments.xcframework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.xcframework; path = Vendor/StripeXCFrameworks/StripePayments.xcframework; sourceTree = SOURCE_ROOT; };
+		7C88E1F10B4D4F6A9C1E3F03 /* Vendor/StripeXCFrameworks/StripePaymentsUI.xcframework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.xcframework; path = Vendor/StripeXCFrameworks/StripePaymentsUI.xcframework; sourceTree = SOURCE_ROOT; };
+		7C88E1F10B4D4F6A9C1E3F04 /* Vendor/StripeXCFrameworks/StripeCore.xcframework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.xcframework; path = Vendor/StripeXCFrameworks/StripeCore.xcframework; sourceTree = SOURCE_ROOT; };
+		7C88E1F10B4D4F6A9C1E3F05 /* Vendor/StripeXCFrameworks/StripeUICore.xcframework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.xcframework; path = Vendor/StripeXCFrameworks/StripeUICore.xcframework; sourceTree = SOURCE_ROOT; };
+		7C88E1F10B4D4F6A9C1E3F06 /* Vendor/StripeXCFrameworks/StripeApplePay.xcframework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.xcframework; path = Vendor/StripeXCFrameworks/StripeApplePay.xcframework; sourceTree = SOURCE_ROOT; };
+		7C88E1F10B4D4F6A9C1E3F07 /* Vendor/StripeXCFrameworks/Stripe3DS2.xcframework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.xcframework; path = Vendor/StripeXCFrameworks/Stripe3DS2.xcframework; sourceTree = SOURCE_ROOT; };
+		7C88E1F10B4D4F6A9C1E3F08 /* Vendor/StripeXCFrameworks/StripeFinancialConnections.xcframework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.xcframework; path = Vendor/StripeXCFrameworks/StripeFinancialConnections.xcframework; sourceTree = SOURCE_ROOT; };
+		7C88E1F10B4D4F6A9C1E3F09 /* Vendor/StripeXCFrameworks/StripeFinancialConnectionsLite.xcframework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.xcframework; path = Vendor/StripeXCFrameworks/StripeFinancialConnectionsLite.xcframework; sourceTree = SOURCE_ROOT; };
 /* End PBXFileReference section */
 
 /* Begin PBXFileSystemSynchronizedBuildFileExceptionSet section */
@@ -36,6 +88,15 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				7C88E1F20B4D4F6A9C1E3F01 /* Vendor/StripeXCFrameworks/StripePaymentSheet.xcframework in Frameworks */,
+				7C88E1F20B4D4F6A9C1E3F02 /* Vendor/StripeXCFrameworks/StripePayments.xcframework in Frameworks */,
+				7C88E1F20B4D4F6A9C1E3F03 /* Vendor/StripeXCFrameworks/StripePaymentsUI.xcframework in Frameworks */,
+				7C88E1F20B4D4F6A9C1E3F04 /* Vendor/StripeXCFrameworks/StripeCore.xcframework in Frameworks */,
+				7C88E1F20B4D4F6A9C1E3F05 /* Vendor/StripeXCFrameworks/StripeUICore.xcframework in Frameworks */,
+				7C88E1F20B4D4F6A9C1E3F06 /* Vendor/StripeXCFrameworks/StripeApplePay.xcframework in Frameworks */,
+				7C88E1F20B4D4F6A9C1E3F07 /* Vendor/StripeXCFrameworks/Stripe3DS2.xcframework in Frameworks */,
+				7C88E1F20B4D4F6A9C1E3F08 /* Vendor/StripeXCFrameworks/StripeFinancialConnections.xcframework in Frameworks */,
+				7C88E1F20B4D4F6A9C1E3F09 /* Vendor/StripeXCFrameworks/StripeFinancialConnectionsLite.xcframework in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -46,6 +107,7 @@
 			isa = PBXGroup;
 			children = (
 				226F6EA4303A6F6C0049C08D /* RoachCoachRadar */,
+				7C88E1F00B4D4F6A9C1E3F00 /* StripeXCFrameworks */,
 				226F6EA3303A6F6C0049C08D /* Products */,
 			);
 			sourceTree = "<group>";
@@ -58,6 +120,22 @@
 			name = Products;
 			sourceTree = "<group>";
 		};
+		7C88E1F00B4D4F6A9C1E3F00 /* StripeXCFrameworks */ = {
+			isa = PBXGroup;
+			children = (
+				7C88E1F10B4D4F6A9C1E3F01 /* Vendor/StripeXCFrameworks/StripePaymentSheet.xcframework */,
+				7C88E1F10B4D4F6A9C1E3F02 /* Vendor/StripeXCFrameworks/StripePayments.xcframework */,
+				7C88E1F10B4D4F6A9C1E3F03 /* Vendor/StripeXCFrameworks/StripePaymentsUI.xcframework */,
+				7C88E1F10B4D4F6A9C1E3F04 /* Vendor/StripeXCFrameworks/StripeCore.xcframework */,
+				7C88E1F10B4D4F6A9C1E3F05 /* Vendor/StripeXCFrameworks/StripeUICore.xcframework */,
+				7C88E1F10B4D4F6A9C1E3F06 /* Vendor/StripeXCFrameworks/StripeApplePay.xcframework */,
+				7C88E1F10B4D4F6A9C1E3F07 /* Vendor/StripeXCFrameworks/Stripe3DS2.xcframework */,
+				7C88E1F10B4D4F6A9C1E3F08 /* Vendor/StripeXCFrameworks/StripeFinancialConnections.xcframework */,
+				7C88E1F10B4D4F6A9C1E3F09 /* Vendor/StripeXCFrameworks/StripeFinancialConnectionsLite.xcframework */,
+			);
+			name = StripeXCFrameworks;
+			sourceTree = "<group>";
+		};
 /* End PBXGroup section */
 
 /* Begin PBXNativeTarget section */
@@ -68,6 +146,7 @@
 				226F6E9E303A6F6C0049C08D /* Sources */,
 				226F6E9F303A6F6C0049C08D /* Frameworks */,
 				226F6EA0303A6F6C0049C08D /* Resources */,
+				7C88E1F40B4D4F6A9C1E3F00 /* Embed Frameworks */,
 			);
 			buildRules = (
 			);
@@ -78,7 +157,6 @@
 			);
 			name = RoachCoachRadar;
 			packageProductDependencies = (
-				7C88E1A12B4D4F6A9C1E3F51 /* StripePaymentSheet */,
 			);
 			productName = RoachCoachRadar;
 			productReference = 226F6EA2303A6F6C0049C08D /* RoachCoachRadar.app */;
@@ -108,9 +186,6 @@
 			);
 			mainGroup = 226F6E99303A6F6C0049C08D;
 			minimizedProjectReferenceProxies = 1;
-			packageReferences = (
-				7C88E1A02B4D4F6A9C1E3F50 /* XCRemoteSwiftPackageReference "stripe-ios" */,
-			);
 			preferredProjectObjectVersion = 77;
 			productRefGroup = 226F6EA3303A6F6C0049C08D /* Products */;
 			projectDirPath = "";
@@ -270,13 +345,19 @@
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
 				CODE_SIGN_ENTITLEMENTS = RoachCoachRadar/RoachCoachRadar.entitlements;
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 26;
+				CURRENT_PROJECT_VERSION = 32;
 				DEVELOPMENT_TEAM = 6989P4J9RG;
 				ENABLE_PREVIEWS = YES;
+				FRAMEWORK_SEARCH_PATHS = (
+					"$(inherited)",
+					"$(PROJECT_DIR)/Vendor/StripeXCFrameworks",
+				);
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = RoachCoachRadar/Info.plist;
 				INFOPLIST_KEY_CFBundleDisplayName = "Roach Coach Radar";
 				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.food-and-drink";
+				INFOPLIST_KEY_NSCameraUsageDescription = "Roach Coach Radar uses the camera to scan payment cards at checkout.";
+				INFOPLIST_KEY_NSContactsUsageDescription = "Roach Coach Radar uses contacts only to autofill billing details at checkout.";
 				INFOPLIST_KEY_NSLocationAlwaysAndWhenInUseUsageDescription = "Roach Coach Radar uses your location to detect nearby food trucks, including while the app is in the background.";
 				INFOPLIST_KEY_NSLocationWhenInUseUsageDescription = "We use your location to show nearby food trucks.";
 				INFOPLIST_KEY_NSPhotoLibraryUsageDescription = "Add a photo when reporting a food truck sighting.";
@@ -310,13 +391,19 @@
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
 				CODE_SIGN_ENTITLEMENTS = RoachCoachRadar/RoachCoachRadar.entitlements;
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 26;
+				CURRENT_PROJECT_VERSION = 32;
 				DEVELOPMENT_TEAM = 6989P4J9RG;
 				ENABLE_PREVIEWS = YES;
+				FRAMEWORK_SEARCH_PATHS = (
+					"$(inherited)",
+					"$(PROJECT_DIR)/Vendor/StripeXCFrameworks",
+				);
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = RoachCoachRadar/Info.plist;
 				INFOPLIST_KEY_CFBundleDisplayName = "Roach Coach Radar";
 				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.food-and-drink";
+				INFOPLIST_KEY_NSCameraUsageDescription = "Roach Coach Radar uses the camera to scan payment cards at checkout.";
+				INFOPLIST_KEY_NSContactsUsageDescription = "Roach Coach Radar uses contacts only to autofill billing details at checkout.";
 				INFOPLIST_KEY_NSLocationAlwaysAndWhenInUseUsageDescription = "Roach Coach Radar uses your location to detect nearby food trucks, including while the app is in the background.";
 				INFOPLIST_KEY_NSLocationWhenInUseUsageDescription = "We use your location to show nearby food trucks.";
 				INFOPLIST_KEY_NSPhotoLibraryUsageDescription = "Add a photo when reporting a food truck sighting.";
@@ -365,25 +452,6 @@
 			defaultConfigurationName = Release;
 		};
 /* End XCConfigurationList section */
-
-/* Begin XCRemoteSwiftPackageReference section */
-		7C88E1A02B4D4F6A9C1E3F50 /* XCRemoteSwiftPackageReference "stripe-ios" */ = {
-			isa = XCRemoteSwiftPackageReference;
-			repositoryURL = "https://github.com/stripe/stripe-ios";
-			requirement = {
-				kind = exactVersion;
-				version = 26.8.0;
-			};
-		};
-/* End XCRemoteSwiftPackageReference section */
-
-/* Begin XCSwiftPackageProductDependency section */
-		7C88E1A12B4D4F6A9C1E3F51 /* StripePaymentSheet */ = {
-			isa = XCSwiftPackageProductDependency;
-			package = 7C88E1A02B4D4F6A9C1E3F50 /* XCRemoteSwiftPackageReference "stripe-ios" */;
-			productName = StripePaymentSheet;
-		};
-/* End XCSwiftPackageProductDependency section */
 	};
 	rootObject = 226F6E9A303A6F6C0049C08D /* Project object */;
 }

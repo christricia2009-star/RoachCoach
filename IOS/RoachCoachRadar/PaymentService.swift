@@ -8,13 +8,13 @@ import StripePaymentSheet
 
 /// Phase 5: on-device payment flow, paired with backend/payments.py.
 ///
-/// Setup required once, in Xcode (not doable from source alone):
-///   File > Add Package Dependencies… > https://github.com/stripe/stripe-ios
-///   and add the "StripePaymentSheet" product to the RoachCoachRadar target.
+/// StripePaymentSheet is linked as local xcframeworks under
+/// IOS/Vendor/StripeXCFrameworks (run scripts/fetch_stripe_ios.sh if missing).
+/// Do not add github.com/stripe/stripe-ios via SPM — that clones ~6GB of git
+/// history and hangs Xcode on "Updating stripe-ios".
 ///
-/// Until that package is added, everything here still compiles — the
-/// `#if canImport(StripePaymentSheet)` guards mean CheckoutView shows a
-/// "payments not configured" placeholder instead of failing the build.
+/// `#if canImport(StripePaymentSheet)` still guards CheckoutView if the
+/// binaries are not present.
 ///
 /// Square: the In-App Payments SDK (SQIPCardEntry) issues a one-time
 /// `sourceId` nonce from a native card-entry screen, which is then sent

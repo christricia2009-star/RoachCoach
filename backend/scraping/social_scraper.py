@@ -918,6 +918,7 @@ def _merge_california_directory() -> None:
                 "address": row.get("address") or "",
                 "region": row.get("region") or "",
                 "cuisine": row.get("cuisine") or "",
+                "areas": row.get("areas") or [],
             }
         )
         known.add(ig)
@@ -1022,6 +1023,7 @@ def load_live_truck_catalog(*, refresh: bool = False) -> list[dict]:
             "x": (item.get("x") or "").strip(),
             "region": item.get("region") or "",
             "cuisine": item.get("cuisine") or "",
+            "areas": item.get("areas") or [],
         })
 
     json_paths = [

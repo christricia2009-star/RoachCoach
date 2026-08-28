@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import "leaflet/dist/leaflet.css";
-import { avatarUrl, hasSocialPresence, truckRegion } from "../lib/trucks";
+import { avatarUrl, hasSocialPresence, matchesTruckSearch, truckRegion } from "../lib/trucks";
 import TruckThumb from "./TruckThumb";
 
 const DEFAULT_CENTER = [38.5816, -121.4944];
@@ -163,17 +163,19 @@ export default function CommandCenter() {
     };
   }, []);
 
-  const q = search.trim().toLowerCase();
   const visible = useMemo(() => {
     return contacts.filter(({ truck, sighting }) => {
-      const cuisine = truck?.cuisine_type || "";
-      const name = truck?.name || sighting.note || "";
-      const hay = `${name} ${cuisine} ${truckRegion(truck || {})}`.toLowerCase();
-      if (q && !hay.includes(q)) return false;
+      const probe = truck || { name: sighting.note || "", cuisine_type: "", region: "" };
+      if (!matchesTruckSearch(probe, search) && search.trim()) {
+        const hay = `${sighting.note || ""} ${sighting.address || ""}`.toLowerCase();
+        if (!search.trim().toLowerCase().split(/\s+/).every((token) => hay.includes(token))) {
+          return false;
+        }
+      }
       if (region && truckRegion(truck || {}) !== region) return false;
       return true;
     });
-  }, [contacts, q, region]);
+  }, [contacts, search, region]);
 
   useEffect(() => {
     const map = mapRef.current;
@@ -285,7 +287,7 @@ export default function CommandCenter() {
             <input
               value={search}
               onChange={(e) => setSearch(e.target.value)}
-              placeholder="Truck, cuisine, region"
+              placeholder="Name or city — Plumas Lake, Blue Tulip…"
             />
           </label>
           <div className="rc-hud-filters">

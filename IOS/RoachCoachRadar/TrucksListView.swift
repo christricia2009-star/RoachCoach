@@ -32,10 +32,7 @@ struct TrucksListView: View {
 
     private var filtered: [Truck] {
         listedTrucks.filter { truck in
-            let matchesSearch = searchText.isEmpty
-                || truck.name.localizedCaseInsensitiveContains(searchText)
-                || truck.cuisineType.localizedCaseInsensitiveContains(searchText)
-                || truck.region.localizedCaseInsensitiveContains(searchText)
+            let matchesSearch = truck.matchesSearch(searchText)
             let matchesCuisine = selectedCuisine == nil || truck.cuisineType == selectedCuisine
             let matchesRegion = selectedRegion == nil || truck.region == selectedRegion
             return matchesSearch && matchesCuisine && matchesRegion
@@ -89,7 +86,7 @@ struct TrucksListView: View {
                     .listStyle(.insetGrouped)
                 }
             }
-            .searchable(text: $searchText, prompt: "Search trucks, cuisine, region…")
+            .searchable(text: $searchText, prompt: "Name or city — Plumas Lake, coffee, Rosie's…")
             .navigationTitle("Trucks")
             .toolbar {
                 ToolbarItem(placement: .topBarLeading) {

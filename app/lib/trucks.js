@@ -1,5 +1,6 @@
 export const REGION_ORDER = [
   "Sacramento",
+  "Yuba-Sutter",
   "Bay Area",
   "North State",
   "Sierra",
@@ -7,6 +8,67 @@ export const REGION_ORDER = [
   "Central Coast",
   "Other",
 ];
+
+export const REGION_AREAS = {
+  Sacramento: [
+    "Sacramento", "Roseville", "Elk Grove", "Folsom", "Rancho Cordova",
+    "Citrus Heights", "Natomas", "Midtown", "West Sacramento", "Davis",
+    "Woodland", "Lincoln", "Rocklin", "South Sac", "Arden",
+  ],
+  "Yuba-Sutter": [
+    "Plumas Lake", "Olivehurst", "Marysville", "Yuba City", "Wheatland",
+    "Linda", "Live Oak", "Sutter", "Yuba County", "Sutter County",
+    "Eufay", "Wheeler Ranch", "Hallwood",
+  ],
+  "Bay Area": [
+    "San Francisco", "Oakland", "San Jose", "Berkeley", "Alameda",
+    "Peninsula", "East Bay", "South Bay", "Marin", "Santa Clara",
+    "Daly City", "Fremont", "Palo Alto", "Sunnyvale",
+  ],
+  "North State": [
+    "Redding", "Chico", "Red Bluff", "Eureka", "Arcata", "Humboldt",
+    "Shasta", "Oroville", "Paradise",
+  ],
+  Sierra: [
+    "Tahoe", "Truckee", "Reno", "Sparks", "South Lake Tahoe",
+    "Incline Village", "Kings Beach",
+  ],
+  "Central Valley": [
+    "Fresno", "Stockton", "Modesto", "Bakersfield", "Visalia", "Clovis",
+    "Merced", "Turlock", "Madera", "Dinuba", "Hanford",
+  ],
+  "Central Coast": [
+    "Santa Cruz", "Monterey", "Salinas", "Watsonville", "Capitola",
+    "Carmel", "Pacific Grove", "Seaside",
+  ],
+};
+
+export function truckAreas(truck) {
+  const region = truckRegion(truck);
+  const extra = Array.isArray(truck?.areas) ? truck.areas : [];
+  return [...new Set([...extra, ...(REGION_AREAS[region] || []), region].filter(Boolean))];
+}
+
+export function truckSearchHaystack(truck) {
+  return [
+    truck?.name,
+    truck?.cuisine_type,
+    truckRegion(truck),
+    instagramHandle(truck),
+    facebookHandle(truck),
+    ...truckAreas(truck),
+  ]
+    .filter(Boolean)
+    .join(" ")
+    .toLowerCase();
+}
+
+export function matchesTruckSearch(truck, query) {
+  const q = String(query || "").trim().toLowerCase();
+  if (!q) return true;
+  const hay = truckSearchHaystack(truck);
+  return q.split(/\s+/).every((token) => hay.includes(token));
+}
 
 export function instagramHandle(truck) {
   const links = Array.isArray(truck?.social_links) ? truck.social_links : [];

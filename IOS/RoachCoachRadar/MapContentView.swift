@@ -46,8 +46,11 @@ struct MapContentView: View {
                 guard truck?.cuisineType == selectedCuisine else { return false }
             }
             if searchText.isEmpty { return true }
-            let haystack = "\(truck?.name ?? "") \(truck?.cuisineType ?? "") \(sighting.note ?? "")"
-            return haystack.localizedCaseInsensitiveContains(searchText)
+            if let truck, truck.matchesSearch(searchText) { return true }
+            let haystack = "\(truck?.name ?? "") \(truck?.cuisineType ?? "") \(truck?.region ?? "") \((truck?.areas ?? []).joined(separator: " ")) \(sighting.note ?? "")"
+            return searchText.split(whereSeparator: { $0.isWhitespace }).allSatisfy { token in
+                haystack.localizedCaseInsensitiveContains(String(token))
+            }
         }
     }
 
@@ -101,7 +104,7 @@ struct MapContentView: View {
                 VStack(spacing: 8) {
                     HStack(spacing: 8) {
                         Image(systemName: "magnifyingglass").foregroundStyle(.secondary)
-                        TextField("Search…", text: $searchText)
+                        TextField("Name or city…", text: $searchText)
                         if !searchText.isEmpty {
                             Button { searchText = "" } label: { Image(systemName: "xmark.circle.fill") }
                                 .foregroundStyle(.secondary)

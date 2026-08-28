@@ -13,6 +13,7 @@ struct Truck: Identifiable, Codable, Hashable {
     var rating: Double
     var averageWaitMinutes: Int
     var region: String
+    var areas: [String]
 
     // Backend (backend/main.py TruckOut) has no alias_generator, so it
     // serializes plain Python snake_case field names — cuisine_type,
@@ -37,6 +38,7 @@ struct Truck: Identifiable, Codable, Hashable {
         case rating
         case averageWaitMinutes = "average_wait_minutes"
         case region
+        case areas
     }
 
     init(from decoder: Decoder) throws {
@@ -51,6 +53,8 @@ struct Truck: Identifiable, Codable, Hashable {
         rating = try container.decodeIfPresent(Double.self, forKey: .rating) ?? 4.5
         averageWaitMinutes = try container.decodeIfPresent(Int.self, forKey: .averageWaitMinutes) ?? 8
         region = try container.decodeIfPresent(String.self, forKey: .region) ?? TruckSocialDirectory.region(forName: name)
+        areas = try container.decodeIfPresent([String].self, forKey: .areas)
+            ?? TruckSocialDirectory.areas(forRegion: region)
     }
 
     func encode(to encoder: Encoder) throws {
@@ -65,6 +69,7 @@ struct Truck: Identifiable, Codable, Hashable {
         try container.encode(rating, forKey: .rating)
         try container.encode(averageWaitMinutes, forKey: .averageWaitMinutes)
         try container.encode(region, forKey: .region)
+        try container.encode(areas, forKey: .areas)
     }
 
     init(
@@ -77,7 +82,8 @@ struct Truck: Identifiable, Codable, Hashable {
         imageURL: String? = nil,
         rating: Double = 4.5,
         averageWaitMinutes: Int = 8,
-        region: String = ""
+        region: String = "",
+        areas: [String] = []
     ) {
         self.id = id
         self.name = name
@@ -89,6 +95,21 @@ struct Truck: Identifiable, Codable, Hashable {
         self.rating = rating
         self.averageWaitMinutes = averageWaitMinutes
         self.region = region.isEmpty ? TruckSocialDirectory.region(forName: name) : region
+        self.areas = areas.isEmpty ? TruckSocialDirectory.areas(forRegion: self.region) : areas
+    }
+
+    var searchHaystack: String {
+        ([name, cuisineType, region, instagramHandle ?? ""] + areas)
+            .joined(separator: " ")
+    }
+
+    func matchesSearch(_ query: String) -> Bool {
+        let q = query.trimmingCharacters(in: .whitespacesAndNewlines)
+        if q.isEmpty { return true }
+        let hay = searchHaystack
+        return q.split(whereSeparator: { $0.isWhitespace }).allSatisfy { token in
+            hay.localizedCaseInsensitiveContains(String(token))
+        }
     }
 
     var instagramHandle: String? {
@@ -148,7 +169,21 @@ enum TruckSocialDirectory {
         let region: String
     }
 
-    static let regionOrder = ["Sacramento", "Bay Area", "North State", "Sierra", "Central Valley", "Central Coast", "Other"]
+    static let regionOrder = ["Sacramento", "Yuba-Sutter", "Bay Area", "North State", "Sierra", "Central Valley", "Central Coast", "Other"]
+
+    static let regionAreas: [String: [String]] = [
+        "Sacramento": ["Sacramento", "Roseville", "Elk Grove", "Folsom", "Rancho Cordova", "Citrus Heights", "Natomas", "Midtown", "West Sacramento", "Davis", "Woodland", "Lincoln", "Rocklin", "South Sac", "Arden"],
+        "Yuba-Sutter": ["Plumas Lake", "Olivehurst", "Marysville", "Yuba City", "Wheatland", "Linda", "Live Oak", "Sutter", "Yuba County", "Sutter County", "Eufay", "Wheeler Ranch", "Hallwood"],
+        "Bay Area": ["San Francisco", "Oakland", "San Jose", "Berkeley", "Alameda", "Peninsula", "East Bay", "South Bay", "Marin", "Santa Clara", "Daly City", "Fremont", "Palo Alto", "Sunnyvale"],
+        "North State": ["Redding", "Chico", "Red Bluff", "Eureka", "Arcata", "Humboldt", "Shasta", "Oroville", "Paradise"],
+        "Sierra": ["Tahoe", "Truckee", "Reno", "Sparks", "South Lake Tahoe", "Incline Village", "Kings Beach"],
+        "Central Valley": ["Fresno", "Stockton", "Modesto", "Bakersfield", "Visalia", "Clovis", "Merced", "Turlock", "Madera", "Dinuba", "Hanford"],
+        "Central Coast": ["Santa Cruz", "Monterey", "Salinas", "Watsonville", "Capitola", "Carmel", "Pacific Grove", "Seaside"],
+    ]
+
+    static func areas(forRegion region: String) -> [String] {
+        regionAreas[region] ?? []
+    }
 
     private struct DirectoryRow: Codable {
         var name: String
@@ -157,6 +192,7 @@ enum TruckSocialDirectory {
         var region: String
         var facebook: String?
         var x: String?
+        var areas: [String]?
     }
 
     /// Same UUID the scheduler uses when it creates a CloudKit Truck from a handle.
@@ -205,7 +241,8 @@ enum TruckSocialDirectory {
                     cuisineType: row.cuisine,
                     socialLinks: links,
                     averageConfidenceScore: 0.8,
-                    region: row.region
+                    region: row.region,
+                    areas: row.areas ?? areas(forRegion: row.region)
                 )
             )
         }
@@ -227,6 +264,7 @@ enum TruckSocialDirectory {
                 if copy.socialLinks.isEmpty { copy.socialLinks = extra.socialLinks }
                 if copy.cuisineType.isEmpty { copy.cuisineType = extra.cuisineType }
                 if copy.region.isEmpty || copy.region == "Other" { copy.region = extra.region }
+                if copy.areas.isEmpty { copy.areas = extra.areas }
             }
             return copy
         }
@@ -272,6 +310,24 @@ enum TruckSocialDirectory {
         .init(match: "gameday grill", instagram: "gamedaygrill_", x: nil, facebook: nil, website: nil, region: "Sacramento"),
         .init(match: "island fin", instagram: "ifpcdeltashores", x: nil, facebook: nil, website: nil, region: "Sacramento"),
         .init(match: "bokhoking", instagram: "bokhoking", x: nil, facebook: nil, website: nil, region: "Sacramento"),
+        .init(match: "delicious dishez", instagram: "delicious.dishez", x: nil, facebook: nil, website: nil, region: "Sacramento"),
+        .init(match: "bangin", instagram: "labanginbowls", x: nil, facebook: "Labanginbowls", website: nil, region: "Sacramento"),
+        .init(match: "fry boys", instagram: "thefryboysnorcal", x: nil, facebook: "TheFryBoysNorCal", website: nil, region: "Sacramento"),
+        .init(match: "flores munchies", instagram: "flores_munchies", x: nil, facebook: nil, website: nil, region: "Sacramento"),
+        .init(match: "rosie's sno", instagram: "rosies_snobiz", x: nil, facebook: nil, website: nil, region: "Yuba-Sutter"),
+        .init(match: "penny carnivore", instagram: "pennycarnivore", x: nil, facebook: nil, website: nil, region: "Yuba-Sutter"),
+        .init(match: "copper penny", instagram: "pennycarnivore", x: nil, facebook: nil, website: nil, region: "Yuba-Sutter"),
+        .init(match: "blue tulip", instagram: "bluetulipcoffee", x: nil, facebook: nil, website: nil, region: "Yuba-Sutter"),
+        .init(match: "lami fusion", instagram: "lamifusion_", x: nil, facebook: "lamifusion", website: nil, region: "Yuba-Sutter"),
+        .init(match: "supreme gyro", instagram: "supremegyros", x: nil, facebook: "SupremeGyros", website: nil, region: "Yuba-Sutter"),
+        .init(match: "kiki's chicken", instagram: "kikischicken530", x: nil, facebook: nil, website: nil, region: "Yuba-Sutter"),
+        .init(match: "quenchies", instagram: "quenchiesmunchies", x: nil, facebook: nil, website: nil, region: "Yuba-Sutter"),
+        .init(match: "kona ice", instagram: "konaiceyuba", x: nil, facebook: nil, website: nil, region: "Yuba-Sutter"),
+        .init(match: "zazu", instagram: "zazucrepes", x: nil, facebook: nil, website: nil, region: "Sacramento"),
+        .init(match: "sama coffee", instagram: "samacoffeeco", x: nil, facebook: nil, website: nil, region: "Sacramento"),
+        .init(match: "luna cafe", instagram: "lunacafesac", x: nil, facebook: nil, website: nil, region: "Sacramento"),
+        .init(match: "sweet treats by jas", instagram: "sweet.treats.by_jas", x: nil, facebook: nil, website: nil, region: "Sacramento"),
+        .init(match: "gyro corner", instagram: "gyrocorner_", x: nil, facebook: nil, website: nil, region: "Sacramento"),
         .init(match: "senor sisig", instagram: "senorsisig", x: nil, facebook: nil, website: nil, region: "Bay Area"),
         .init(match: "chairman", instagram: "chairmantruck", x: nil, facebook: nil, website: nil, region: "Bay Area"),
         .init(match: "curry up", instagram: "curryupnow", x: nil, facebook: nil, website: nil, region: "Bay Area"),
@@ -309,7 +365,7 @@ enum TruckSocialDirectory {
         .init(match: "bombzies bbq", instagram: "bombziesbbq", x: nil, facebook: nil, website: nil, region: "Bay Area"),
         .init(match: "global catering", instagram: "globalcateringexpress", x: nil, facebook: nil, website: nil, region: "Bay Area"),
         .init(match: "mozzeria", instagram: "mozzeriasf", x: nil, facebook: nil, website: nil, region: "Bay Area"),
-        .init(match: "rosie", instagram: "rosiesmexicanfood", x: nil, facebook: nil, website: nil, region: "Bay Area"),
+        .init(match: "rosie's mexican", instagram: "rosiesmexicanfood", x: nil, facebook: nil, website: nil, region: "Bay Area"),
         .init(match: "chowder", instagram: "samschowdermobile", x: nil, facebook: nil, website: nil, region: "Bay Area"),
         .init(match: "fresh catch", instagram: "freshcatchpoke", x: nil, facebook: nil, website: nil, region: "Bay Area"),
         .init(match: "rincon del", instagram: "rincon_del_cielo_taqueria", x: nil, facebook: nil, website: nil, region: "Bay Area"),
@@ -326,6 +382,8 @@ enum TruckSocialDirectory {
         .init(match: "cielito lindo", instagram: "cielitolindomsk", x: nil, facebook: nil, website: nil, region: "Bay Area"),
         .init(match: "kabob trolley", instagram: "kabobtrolley", x: nil, facebook: nil, website: nil, region: "Bay Area"),
         .init(match: "daisy", instagram: "daisysdesserts", x: nil, facebook: nil, website: nil, region: "Bay Area"),
+        .init(match: "smoothielicious", instagram: "smoothieliciousbayarea", x: nil, facebook: nil, website: nil, region: "Bay Area"),
+        .init(match: "last drip", instagram: "thelastdrip.coffee", x: nil, facebook: nil, website: nil, region: "Bay Area"),
         .init(match: "get rad", instagram: "getradpizza", x: nil, facebook: nil, website: nil, region: "Sierra"),
         .init(match: "reno street", instagram: "foodtruckfridayreno", x: nil, facebook: nil, website: nil, region: "Sierra"),
         .init(match: "daddy", instagram: "daddystacosnv", x: nil, facebook: nil, website: nil, region: "Sierra"),
@@ -350,6 +408,9 @@ enum TruckSocialDirectory {
         .init(match: "birrieria chito", instagram: "birrieria_chito", x: nil, facebook: nil, website: nil, region: "Central Valley"),
         .init(match: "tortas ahogadas", instagram: "tortasahogadas_elcejarin", x: nil, facebook: nil, website: nil, region: "Central Valley"),
         .init(match: "food fix", instagram: "foodfixtruck", x: nil, facebook: nil, website: nil, region: "Central Valley"),
+        .init(match: "jitters", instagram: "jitterscoffeetruck", x: nil, facebook: nil, website: nil, region: "Central Valley"),
+        .init(match: "sunflowers", instagram: "sunflowersandgracecoffee", x: nil, facebook: nil, website: nil, region: "Central Valley"),
+        .init(match: "hora de cafe", instagram: "_horadecafe", x: nil, facebook: nil, website: nil, region: "Central Valley"),
         .init(match: "funk", instagram: "funksfranks", x: nil, facebook: nil, website: nil, region: "Central Coast"),
         .init(match: "happy dog", instagram: "happydog_hotdogs", x: nil, facebook: nil, website: nil, region: "Central Coast"),
         .init(match: "hot birds", instagram: "hot_birds831", x: nil, facebook: nil, website: nil, region: "Central Coast"),

@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
-import { REGION_ORDER, hasSocialPresence, truckRegion } from "../lib/trucks";
+import { REGION_ORDER, hasSocialPresence, matchesTruckSearch, truckRegion } from "../lib/trucks";
 import TruckThumb from "./TruckThumb";
 
 export default function TrucksList() {
@@ -71,11 +71,9 @@ export default function TrucksList() {
   );
 
   const filtered = useMemo(() => {
-    const q = search.trim().toLowerCase();
     return listed
       .filter((truck) => {
-        const hay = `${truck.name || ""} ${truck.cuisine_type || ""} ${truckRegion(truck)}`.toLowerCase();
-        if (q && !hay.includes(q)) return false;
+        if (!matchesTruckSearch(truck, search)) return false;
         if (region && truckRegion(truck) !== region) return false;
         if (cuisine && truck.cuisine_type !== cuisine) return false;
         return true;
@@ -108,7 +106,7 @@ export default function TrucksList() {
       <div className="rc-hud-search rc-hud-search--wide">
         <span>Filter fleet</span>
         <input
-          placeholder="Truck, cuisine, region"
+          placeholder="Name, city, cuisine — Plumas Lake, coffee, Rosie's…"
           value={search}
           onChange={(e) => setSearch(e.target.value)}
         />

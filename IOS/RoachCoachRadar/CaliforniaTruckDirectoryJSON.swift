@@ -8,14 +8,48 @@ enum CaliforniaTruckDirectoryJSON {
         "instagram": "drewskis",
         "region": "Sacramento",
         "facebook": "drewskisfoodtrucks",
-        "x": "drewskishotrod"
+        "x": "drewskishotrod",
+        "areas": [
+          "Sacramento",
+          "Roseville",
+          "Elk Grove",
+          "Folsom",
+          "Rancho Cordova",
+          "Citrus Heights",
+          "Natomas",
+          "Midtown",
+          "West Sacramento",
+          "Davis",
+          "Woodland",
+          "Lincoln",
+          "Rocklin",
+          "South Sac",
+          "Arden"
+        ]
       },
       {
         "name": "Buckhorn BBQ Truck",
         "cuisine": "BBQ",
         "instagram": "thebuckhornbbqtruck",
         "region": "Sacramento",
-        "facebook": "thebuckhornbbqtruck"
+        "facebook": "thebuckhornbbqtruck",
+        "areas": [
+          "Sacramento",
+          "Roseville",
+          "Elk Grove",
+          "Folsom",
+          "Rancho Cordova",
+          "Citrus Heights",
+          "Natomas",
+          "Midtown",
+          "West Sacramento",
+          "Davis",
+          "Woodland",
+          "Lincoln",
+          "Rocklin",
+          "South Sac",
+          "Arden"
+        ]
       },
       {
         "name": "SactoMoFo",
@@ -23,83 +57,287 @@ enum CaliforniaTruckDirectoryJSON {
         "instagram": "sactomofo",
         "region": "Sacramento",
         "facebook": "sactomofo",
-        "x": "SactoMoFo"
+        "x": "SactoMoFo",
+        "areas": [
+          "Sacramento",
+          "Roseville",
+          "Elk Grove",
+          "Folsom",
+          "Rancho Cordova",
+          "Citrus Heights",
+          "Natomas",
+          "Midtown",
+          "West Sacramento",
+          "Davis",
+          "Woodland",
+          "Lincoln",
+          "Rocklin",
+          "South Sac",
+          "Arden"
+        ]
       },
       {
         "name": "Krush Burger",
         "cuisine": "Burgers",
         "instagram": "krushroseville",
         "region": "Sacramento",
-        "facebook": "krushroseville"
+        "facebook": "krushroseville",
+        "areas": [
+          "Sacramento",
+          "Roseville",
+          "Elk Grove",
+          "Folsom",
+          "Rancho Cordova",
+          "Citrus Heights",
+          "Natomas",
+          "Midtown",
+          "West Sacramento",
+          "Davis",
+          "Woodland",
+          "Lincoln",
+          "Rocklin",
+          "South Sac",
+          "Arden"
+        ]
       },
       {
         "name": "Krush Burger",
         "cuisine": "Burgers",
         "instagram": "krushburger",
-        "region": "Sacramento"
+        "region": "Sacramento",
+        "areas": [
+          "Sacramento",
+          "Roseville",
+          "Elk Grove",
+          "Folsom",
+          "Rancho Cordova",
+          "Citrus Heights",
+          "Natomas",
+          "Midtown",
+          "West Sacramento",
+          "Davis",
+          "Woodland",
+          "Lincoln",
+          "Rocklin",
+          "South Sac",
+          "Arden"
+        ]
       },
       {
         "name": "Potato Patoto",
         "cuisine": "Loaded Tots",
         "instagram": "the_potato_truck",
         "region": "Sacramento",
-        "facebook": "the_potato_truck"
+        "facebook": "the_potato_truck",
+        "areas": [
+          "Sacramento",
+          "Roseville",
+          "Elk Grove",
+          "Folsom",
+          "Rancho Cordova",
+          "Citrus Heights",
+          "Natomas",
+          "Midtown",
+          "West Sacramento",
+          "Davis",
+          "Woodland",
+          "Lincoln",
+          "Rocklin",
+          "South Sac",
+          "Arden"
+        ]
       },
       {
         "name": "Alameda Tacos Food Truck",
         "cuisine": "Mexican",
         "instagram": "alamedatacossac",
         "region": "Sacramento",
-        "facebook": "alamedatacossac"
+        "facebook": "alamedatacossac",
+        "areas": [
+          "Sacramento",
+          "Roseville",
+          "Elk Grove",
+          "Folsom",
+          "Rancho Cordova",
+          "Citrus Heights",
+          "Natomas",
+          "Midtown",
+          "West Sacramento",
+          "Davis",
+          "Woodland",
+          "Lincoln",
+          "Rocklin",
+          "South Sac",
+          "Arden"
+        ]
       },
       {
         "name": "Mucho Nachos Sacramento",
         "cuisine": "Mexican",
         "instagram": "muchonachossacramento",
         "region": "Sacramento",
-        "facebook": "muchonachossacramento"
+        "facebook": "muchonachossacramento",
+        "areas": [
+          "Sacramento",
+          "Roseville",
+          "Elk Grove",
+          "Folsom",
+          "Rancho Cordova",
+          "Citrus Heights",
+          "Natomas",
+          "Midtown",
+          "West Sacramento",
+          "Davis",
+          "Woodland",
+          "Lincoln",
+          "Rocklin",
+          "South Sac",
+          "Arden"
+        ]
       },
       {
         "name": "The Pop Up Truck",
         "cuisine": "Grilled Cheese",
         "instagram": "sactopopuptruck",
         "region": "Sacramento",
-        "facebook": "sactopopuptruck"
+        "facebook": "sactopopuptruck",
+        "areas": [
+          "Sacramento",
+          "Roseville",
+          "Elk Grove",
+          "Folsom",
+          "Rancho Cordova",
+          "Citrus Heights",
+          "Natomas",
+          "Midtown",
+          "West Sacramento",
+          "Davis",
+          "Woodland",
+          "Lincoln",
+          "Rocklin",
+          "South Sac",
+          "Arden"
+        ]
       },
       {
         "name": "SanTacos",
         "cuisine": "Mexican",
         "instagram": "santacosmx",
         "region": "Sacramento",
-        "facebook": "santacosmx"
+        "facebook": "santacosmx",
+        "areas": [
+          "Sacramento",
+          "Roseville",
+          "Elk Grove",
+          "Folsom",
+          "Rancho Cordova",
+          "Citrus Heights",
+          "Natomas",
+          "Midtown",
+          "West Sacramento",
+          "Davis",
+          "Woodland",
+          "Lincoln",
+          "Rocklin",
+          "South Sac",
+          "Arden"
+        ]
       },
       {
         "name": "Tacoa Sacramento",
         "cuisine": "Mexican",
         "instagram": "tacoasac",
         "region": "Sacramento",
-        "facebook": "tacoasac"
+        "facebook": "tacoasac",
+        "areas": [
+          "Sacramento",
+          "Roseville",
+          "Elk Grove",
+          "Folsom",
+          "Rancho Cordova",
+          "Citrus Heights",
+          "Natomas",
+          "Midtown",
+          "West Sacramento",
+          "Davis",
+          "Woodland",
+          "Lincoln",
+          "Rocklin",
+          "South Sac",
+          "Arden"
+        ]
       },
       {
         "name": "Tacos GTO",
         "cuisine": "Mexican",
         "instagram": "tacos_gto_",
         "region": "Sacramento",
-        "facebook": "tacos_gto_"
+        "facebook": "tacos_gto_",
+        "areas": [
+          "Sacramento",
+          "Roseville",
+          "Elk Grove",
+          "Folsom",
+          "Rancho Cordova",
+          "Citrus Heights",
+          "Natomas",
+          "Midtown",
+          "West Sacramento",
+          "Davis",
+          "Woodland",
+          "Lincoln",
+          "Rocklin",
+          "South Sac",
+          "Arden"
+        ]
       },
       {
         "name": "Tacomiendo Food Truck",
         "cuisine": "Mexican",
         "instagram": "tacomiendofoodtruck",
         "region": "Sacramento",
-        "facebook": "tacomiendofoodtruck"
+        "facebook": "tacomiendofoodtruck",
+        "areas": [
+          "Sacramento",
+          "Roseville",
+          "Elk Grove",
+          "Folsom",
+          "Rancho Cordova",
+          "Citrus Heights",
+          "Natomas",
+          "Midtown",
+          "West Sacramento",
+          "Davis",
+          "Woodland",
+          "Lincoln",
+          "Rocklin",
+          "South Sac",
+          "Arden"
+        ]
       },
       {
         "name": "Sac Tacos Foodtruck",
         "cuisine": "Mexican",
         "instagram": "sactacosfoodtruck",
         "region": "Sacramento",
-        "facebook": "sactacosfoodtruck"
+        "facebook": "sactacosfoodtruck",
+        "areas": [
+          "Sacramento",
+          "Roseville",
+          "Elk Grove",
+          "Folsom",
+          "Rancho Cordova",
+          "Citrus Heights",
+          "Natomas",
+          "Midtown",
+          "West Sacramento",
+          "Davis",
+          "Woodland",
+          "Lincoln",
+          "Rocklin",
+          "South Sac",
+          "Arden"
+        ]
       },
       {
         "name": "The Lumpia Truck",
@@ -107,685 +345,2791 @@ enum CaliforniaTruckDirectoryJSON {
         "instagram": "thelumpiatruck",
         "region": "Sacramento",
         "facebook": "thelumpiatruck",
-        "x": "TheLumpiaTruck"
+        "x": "TheLumpiaTruck",
+        "areas": [
+          "Sacramento",
+          "Roseville",
+          "Elk Grove",
+          "Folsom",
+          "Rancho Cordova",
+          "Citrus Heights",
+          "Natomas",
+          "Midtown",
+          "West Sacramento",
+          "Davis",
+          "Woodland",
+          "Lincoln",
+          "Rocklin",
+          "South Sac",
+          "Arden"
+        ]
       },
       {
         "name": "Hefty Gyros",
         "cuisine": "Greek",
         "instagram": "heftygyros",
-        "region": "Sacramento"
+        "region": "Sacramento",
+        "areas": [
+          "Sacramento",
+          "Roseville",
+          "Elk Grove",
+          "Folsom",
+          "Rancho Cordova",
+          "Citrus Heights",
+          "Natomas",
+          "Midtown",
+          "West Sacramento",
+          "Davis",
+          "Woodland",
+          "Lincoln",
+          "Rocklin",
+          "South Sac",
+          "Arden"
+        ]
       },
       {
         "name": "Chando's Tacos",
         "cuisine": "Mexican",
         "instagram": "chandostacos",
-        "region": "Sacramento"
+        "region": "Sacramento",
+        "areas": [
+          "Sacramento",
+          "Roseville",
+          "Elk Grove",
+          "Folsom",
+          "Rancho Cordova",
+          "Citrus Heights",
+          "Natomas",
+          "Midtown",
+          "West Sacramento",
+          "Davis",
+          "Woodland",
+          "Lincoln",
+          "Rocklin",
+          "South Sac",
+          "Arden"
+        ]
       },
       {
         "name": "Local Kine Shave Ice",
         "cuisine": "Hawaiian",
         "instagram": "localkineshaveice",
-        "region": "Sacramento"
+        "region": "Sacramento",
+        "areas": [
+          "Sacramento",
+          "Roseville",
+          "Elk Grove",
+          "Folsom",
+          "Rancho Cordova",
+          "Citrus Heights",
+          "Natomas",
+          "Midtown",
+          "West Sacramento",
+          "Davis",
+          "Woodland",
+          "Lincoln",
+          "Rocklin",
+          "South Sac",
+          "Arden"
+        ]
       },
       {
         "name": "West Coast Taco Bar",
         "cuisine": "Mexican",
         "instagram": "westcoasttacobar",
-        "region": "Sacramento"
+        "region": "Sacramento",
+        "areas": [
+          "Sacramento",
+          "Roseville",
+          "Elk Grove",
+          "Folsom",
+          "Rancho Cordova",
+          "Citrus Heights",
+          "Natomas",
+          "Midtown",
+          "West Sacramento",
+          "Davis",
+          "Woodland",
+          "Lincoln",
+          "Rocklin",
+          "South Sac",
+          "Arden"
+        ]
       },
       {
         "name": "The Philly Foodtruck",
         "cuisine": "Sandwiches",
         "instagram": "thephillyfoodtruck",
-        "region": "Sacramento"
+        "region": "Sacramento",
+        "areas": [
+          "Sacramento",
+          "Roseville",
+          "Elk Grove",
+          "Folsom",
+          "Rancho Cordova",
+          "Citrus Heights",
+          "Natomas",
+          "Midtown",
+          "West Sacramento",
+          "Davis",
+          "Woodland",
+          "Lincoln",
+          "Rocklin",
+          "South Sac",
+          "Arden"
+        ]
       },
       {
         "name": "Kado's Asian Grill",
         "cuisine": "Asian",
         "instagram": "kadosasiangrill",
-        "region": "Sacramento"
+        "region": "Sacramento",
+        "areas": [
+          "Sacramento",
+          "Roseville",
+          "Elk Grove",
+          "Folsom",
+          "Rancho Cordova",
+          "Citrus Heights",
+          "Natomas",
+          "Midtown",
+          "West Sacramento",
+          "Davis",
+          "Woodland",
+          "Lincoln",
+          "Rocklin",
+          "South Sac",
+          "Arden"
+        ]
       },
       {
         "name": "Laopino Kitchen",
         "cuisine": "Lao",
         "instagram": "laopinokitchen",
-        "region": "Sacramento"
+        "region": "Sacramento",
+        "areas": [
+          "Sacramento",
+          "Roseville",
+          "Elk Grove",
+          "Folsom",
+          "Rancho Cordova",
+          "Citrus Heights",
+          "Natomas",
+          "Midtown",
+          "West Sacramento",
+          "Davis",
+          "Woodland",
+          "Lincoln",
+          "Rocklin",
+          "South Sac",
+          "Arden"
+        ]
       },
       {
         "name": "PalBQ Smokehouse",
         "cuisine": "BBQ",
         "instagram": "palbqsmokehouse",
-        "region": "Sacramento"
+        "region": "Sacramento",
+        "areas": [
+          "Sacramento",
+          "Roseville",
+          "Elk Grove",
+          "Folsom",
+          "Rancho Cordova",
+          "Citrus Heights",
+          "Natomas",
+          "Midtown",
+          "West Sacramento",
+          "Davis",
+          "Woodland",
+          "Lincoln",
+          "Rocklin",
+          "South Sac",
+          "Arden"
+        ]
       },
       {
         "name": "Smokinewe BBQ",
         "cuisine": "BBQ",
         "instagram": "smokinewebbq",
-        "region": "Sacramento"
+        "region": "Sacramento",
+        "areas": [
+          "Sacramento",
+          "Roseville",
+          "Elk Grove",
+          "Folsom",
+          "Rancho Cordova",
+          "Citrus Heights",
+          "Natomas",
+          "Midtown",
+          "West Sacramento",
+          "Davis",
+          "Woodland",
+          "Lincoln",
+          "Rocklin",
+          "South Sac",
+          "Arden"
+        ]
       },
       {
         "name": "Birria Boys",
         "cuisine": "Mexican",
         "instagram": "birriaboys",
-        "region": "Sacramento"
+        "region": "Sacramento",
+        "areas": [
+          "Sacramento",
+          "Roseville",
+          "Elk Grove",
+          "Folsom",
+          "Rancho Cordova",
+          "Citrus Heights",
+          "Natomas",
+          "Midtown",
+          "West Sacramento",
+          "Davis",
+          "Woodland",
+          "Lincoln",
+          "Rocklin",
+          "South Sac",
+          "Arden"
+        ]
       },
       {
         "name": "Authentic Street Taco",
         "cuisine": "Mexican",
         "instagram": "authenticstreettaco",
-        "region": "Sacramento"
+        "region": "Sacramento",
+        "areas": [
+          "Sacramento",
+          "Roseville",
+          "Elk Grove",
+          "Folsom",
+          "Rancho Cordova",
+          "Citrus Heights",
+          "Natomas",
+          "Midtown",
+          "West Sacramento",
+          "Davis",
+          "Woodland",
+          "Lincoln",
+          "Rocklin",
+          "South Sac",
+          "Arden"
+        ]
       },
       {
         "name": "Gondo Fusion",
         "cuisine": "Fusion",
         "instagram": "gondofusion",
-        "region": "Sacramento"
+        "region": "Sacramento",
+        "areas": [
+          "Sacramento",
+          "Roseville",
+          "Elk Grove",
+          "Folsom",
+          "Rancho Cordova",
+          "Citrus Heights",
+          "Natomas",
+          "Midtown",
+          "West Sacramento",
+          "Davis",
+          "Woodland",
+          "Lincoln",
+          "Rocklin",
+          "South Sac",
+          "Arden"
+        ]
       },
       {
         "name": "Gameday Grill",
         "cuisine": "Burgers",
         "instagram": "gamedaygrill_",
-        "region": "Sacramento"
+        "region": "Sacramento",
+        "areas": [
+          "Sacramento",
+          "Roseville",
+          "Elk Grove",
+          "Folsom",
+          "Rancho Cordova",
+          "Citrus Heights",
+          "Natomas",
+          "Midtown",
+          "West Sacramento",
+          "Davis",
+          "Woodland",
+          "Lincoln",
+          "Rocklin",
+          "South Sac",
+          "Arden"
+        ]
       },
       {
         "name": "Island Fin Poke",
         "cuisine": "Hawaiian",
         "instagram": "ifpcdeltashores",
-        "region": "Sacramento"
+        "region": "Sacramento",
+        "areas": [
+          "Sacramento",
+          "Roseville",
+          "Elk Grove",
+          "Folsom",
+          "Rancho Cordova",
+          "Citrus Heights",
+          "Natomas",
+          "Midtown",
+          "West Sacramento",
+          "Davis",
+          "Woodland",
+          "Lincoln",
+          "Rocklin",
+          "South Sac",
+          "Arden"
+        ]
       },
       {
         "name": "Bokhoking",
         "cuisine": "Vietnamese",
         "instagram": "bokhoking",
-        "region": "Sacramento"
+        "region": "Sacramento",
+        "areas": [
+          "Sacramento",
+          "Roseville",
+          "Elk Grove",
+          "Folsom",
+          "Rancho Cordova",
+          "Citrus Heights",
+          "Natomas",
+          "Midtown",
+          "West Sacramento",
+          "Davis",
+          "Woodland",
+          "Lincoln",
+          "Rocklin",
+          "South Sac",
+          "Arden"
+        ]
+      },
+      {
+        "name": "Delicious Dishez",
+        "cuisine": "Soul Food",
+        "instagram": "delicious.dishez",
+        "region": "Sacramento",
+        "areas": [
+          "Sacramento",
+          "Roseville",
+          "Elk Grove",
+          "Folsom",
+          "Rancho Cordova",
+          "Citrus Heights",
+          "Natomas",
+          "Midtown",
+          "West Sacramento",
+          "Davis",
+          "Woodland",
+          "Lincoln",
+          "Rocklin",
+          "South Sac",
+          "Arden"
+        ]
+      },
+      {
+        "name": "Bangin' Bowls",
+        "cuisine": "Latin Fusion",
+        "instagram": "labanginbowls",
+        "region": "Sacramento",
+        "facebook": "Labanginbowls",
+        "areas": [
+          "Sacramento",
+          "Roseville",
+          "Elk Grove",
+          "Folsom",
+          "Rancho Cordova",
+          "Citrus Heights",
+          "Natomas",
+          "Midtown",
+          "West Sacramento",
+          "Davis",
+          "Woodland",
+          "Lincoln",
+          "Rocklin",
+          "South Sac",
+          "Arden"
+        ]
+      },
+      {
+        "name": "The Fry Boys",
+        "cuisine": "Burgers",
+        "instagram": "thefryboysnorcal",
+        "region": "Sacramento",
+        "facebook": "TheFryBoysNorCal",
+        "areas": [
+          "Sacramento",
+          "Roseville",
+          "Elk Grove",
+          "Folsom",
+          "Rancho Cordova",
+          "Citrus Heights",
+          "Natomas",
+          "Midtown",
+          "West Sacramento",
+          "Davis",
+          "Woodland",
+          "Lincoln",
+          "Rocklin",
+          "South Sac",
+          "Arden"
+        ]
+      },
+      {
+        "name": "Flores Munchies",
+        "cuisine": "Dessert",
+        "instagram": "flores_munchies",
+        "region": "Sacramento",
+        "areas": [
+          "Sacramento",
+          "Roseville",
+          "Elk Grove",
+          "Folsom",
+          "Rancho Cordova",
+          "Citrus Heights",
+          "Natomas",
+          "Midtown",
+          "West Sacramento",
+          "Davis",
+          "Woodland",
+          "Lincoln",
+          "Rocklin",
+          "South Sac",
+          "Arden"
+        ]
+      },
+      {
+        "name": "Zazu Crepes & Coffee",
+        "cuisine": "Coffee Trailer",
+        "instagram": "zazucrepes",
+        "region": "Sacramento",
+        "areas": [
+          "Sacramento",
+          "Roseville",
+          "Elk Grove",
+          "Folsom",
+          "Rancho Cordova",
+          "Citrus Heights",
+          "Natomas",
+          "Midtown",
+          "West Sacramento",
+          "Davis",
+          "Woodland",
+          "Lincoln",
+          "Rocklin",
+          "South Sac",
+          "Arden"
+        ]
+      },
+      {
+        "name": "Sama Coffee",
+        "cuisine": "Coffee Cart",
+        "instagram": "samacoffeeco",
+        "region": "Sacramento",
+        "areas": [
+          "Sacramento",
+          "Roseville",
+          "Elk Grove",
+          "Folsom",
+          "Rancho Cordova",
+          "Citrus Heights",
+          "Natomas",
+          "Midtown",
+          "West Sacramento",
+          "Davis",
+          "Woodland",
+          "Lincoln",
+          "Rocklin",
+          "South Sac",
+          "Arden"
+        ]
+      },
+      {
+        "name": "Luna Cafe Sac",
+        "cuisine": "Coffee Trailer",
+        "instagram": "lunacafesac",
+        "region": "Sacramento",
+        "areas": [
+          "Sacramento",
+          "Roseville",
+          "Elk Grove",
+          "Folsom",
+          "Rancho Cordova",
+          "Citrus Heights",
+          "Natomas",
+          "Midtown",
+          "West Sacramento",
+          "Davis",
+          "Woodland",
+          "Lincoln",
+          "Rocklin",
+          "South Sac",
+          "Arden"
+        ]
+      },
+      {
+        "name": "Sweet Treats by Jas",
+        "cuisine": "Coffee Trailer",
+        "instagram": "sweet.treats.by_jas",
+        "region": "Sacramento",
+        "areas": [
+          "Sacramento",
+          "Roseville",
+          "Elk Grove",
+          "Folsom",
+          "Rancho Cordova",
+          "Citrus Heights",
+          "Natomas",
+          "Midtown",
+          "West Sacramento",
+          "Davis",
+          "Woodland",
+          "Lincoln",
+          "Rocklin",
+          "South Sac",
+          "Arden"
+        ]
+      },
+      {
+        "name": "Gyro Corner",
+        "cuisine": "Greek",
+        "instagram": "gyrocorner_",
+        "region": "Sacramento",
+        "areas": [
+          "Sacramento",
+          "Roseville",
+          "Elk Grove",
+          "Folsom",
+          "Rancho Cordova",
+          "Citrus Heights",
+          "Natomas",
+          "Midtown",
+          "West Sacramento",
+          "Davis",
+          "Woodland",
+          "Lincoln",
+          "Rocklin",
+          "South Sac",
+          "Arden"
+        ]
+      },
+      {
+        "name": "Rosie's Sno Biz",
+        "cuisine": "Shaved Ice",
+        "instagram": "rosies_snobiz",
+        "region": "Yuba-Sutter",
+        "areas": [
+          "Plumas Lake",
+          "Olivehurst",
+          "Marysville",
+          "Yuba City",
+          "Wheatland",
+          "Linda",
+          "Live Oak",
+          "Sutter",
+          "Yuba County",
+          "Sutter County",
+          "Eufay",
+          "Wheeler Ranch",
+          "Hallwood"
+        ]
+      },
+      {
+        "name": "Copper Penny Carnivore Caravan",
+        "cuisine": "Burgers",
+        "instagram": "pennycarnivore",
+        "region": "Yuba-Sutter",
+        "areas": [
+          "Plumas Lake",
+          "Olivehurst",
+          "Marysville",
+          "Yuba City",
+          "Wheatland",
+          "Linda",
+          "Live Oak",
+          "Sutter",
+          "Yuba County",
+          "Sutter County",
+          "Eufay",
+          "Wheeler Ranch",
+          "Hallwood"
+        ]
+      },
+      {
+        "name": "Blue Tulip Coffee Company",
+        "cuisine": "Coffee Trailer",
+        "instagram": "bluetulipcoffee",
+        "region": "Yuba-Sutter",
+        "areas": [
+          "Plumas Lake",
+          "Olivehurst",
+          "Marysville",
+          "Yuba City",
+          "Wheatland",
+          "Linda",
+          "Live Oak",
+          "Sutter",
+          "Yuba County",
+          "Sutter County",
+          "Eufay",
+          "Wheeler Ranch",
+          "Hallwood"
+        ]
+      },
+      {
+        "name": "Lami Fusion",
+        "cuisine": "Island Fusion",
+        "instagram": "lamifusion_",
+        "region": "Yuba-Sutter",
+        "facebook": "lamifusion",
+        "areas": [
+          "Plumas Lake",
+          "Olivehurst",
+          "Marysville",
+          "Yuba City",
+          "Wheatland",
+          "Linda",
+          "Live Oak",
+          "Sutter",
+          "Yuba County",
+          "Sutter County",
+          "Eufay",
+          "Wheeler Ranch",
+          "Hallwood"
+        ]
+      },
+      {
+        "name": "Supreme Gyros",
+        "cuisine": "Greek",
+        "instagram": "supremegyros",
+        "region": "Yuba-Sutter",
+        "facebook": "SupremeGyros",
+        "areas": [
+          "Plumas Lake",
+          "Olivehurst",
+          "Marysville",
+          "Yuba City",
+          "Wheatland",
+          "Linda",
+          "Live Oak",
+          "Sutter",
+          "Yuba County",
+          "Sutter County",
+          "Eufay",
+          "Wheeler Ranch",
+          "Hallwood"
+        ]
+      },
+      {
+        "name": "Kiki's Chicken",
+        "cuisine": "Fried Chicken",
+        "instagram": "kikischicken530",
+        "region": "Yuba-Sutter",
+        "areas": [
+          "Plumas Lake",
+          "Olivehurst",
+          "Marysville",
+          "Yuba City",
+          "Wheatland",
+          "Linda",
+          "Live Oak",
+          "Sutter",
+          "Yuba County",
+          "Sutter County",
+          "Eufay",
+          "Wheeler Ranch",
+          "Hallwood"
+        ]
+      },
+      {
+        "name": "Quenchies & Munchies",
+        "cuisine": "Dessert",
+        "instagram": "quenchiesmunchies",
+        "region": "Yuba-Sutter",
+        "areas": [
+          "Plumas Lake",
+          "Olivehurst",
+          "Marysville",
+          "Yuba City",
+          "Wheatland",
+          "Linda",
+          "Live Oak",
+          "Sutter",
+          "Yuba County",
+          "Sutter County",
+          "Eufay",
+          "Wheeler Ranch",
+          "Hallwood"
+        ]
+      },
+      {
+        "name": "Kona Ice of Yuba City",
+        "cuisine": "Shaved Ice",
+        "instagram": "konaiceyuba",
+        "region": "Yuba-Sutter",
+        "areas": [
+          "Plumas Lake",
+          "Olivehurst",
+          "Marysville",
+          "Yuba City",
+          "Wheatland",
+          "Linda",
+          "Live Oak",
+          "Sutter",
+          "Yuba County",
+          "Sutter County",
+          "Eufay",
+          "Wheeler Ranch",
+          "Hallwood"
+        ]
       },
       {
         "name": "Senor Sisig",
         "cuisine": "Filipino",
         "instagram": "senorsisig",
-        "region": "Bay Area"
+        "region": "Bay Area",
+        "areas": [
+          "San Francisco",
+          "Oakland",
+          "San Jose",
+          "Berkeley",
+          "Alameda",
+          "Peninsula",
+          "East Bay",
+          "South Bay",
+          "Marin",
+          "Santa Clara",
+          "Daly City",
+          "Fremont",
+          "Palo Alto",
+          "Sunnyvale"
+        ]
       },
       {
         "name": "The Chairman Truck",
         "cuisine": "Taiwanese",
         "instagram": "chairmantruck",
-        "region": "Bay Area"
+        "region": "Bay Area",
+        "areas": [
+          "San Francisco",
+          "Oakland",
+          "San Jose",
+          "Berkeley",
+          "Alameda",
+          "Peninsula",
+          "East Bay",
+          "South Bay",
+          "Marin",
+          "Santa Clara",
+          "Daly City",
+          "Fremont",
+          "Palo Alto",
+          "Sunnyvale"
+        ]
       },
       {
         "name": "Curry Up Now",
         "cuisine": "Indian Fusion",
         "instagram": "curryupnow",
-        "region": "Bay Area"
+        "region": "Bay Area",
+        "areas": [
+          "San Francisco",
+          "Oakland",
+          "San Jose",
+          "Berkeley",
+          "Alameda",
+          "Peninsula",
+          "East Bay",
+          "South Bay",
+          "Marin",
+          "Santa Clara",
+          "Daly City",
+          "Fremont",
+          "Palo Alto",
+          "Sunnyvale"
+        ]
       },
       {
         "name": "KoJa Kitchen",
         "cuisine": "Korean Japanese",
         "instagram": "koja_kitchen",
-        "region": "Bay Area"
+        "region": "Bay Area",
+        "areas": [
+          "San Francisco",
+          "Oakland",
+          "San Jose",
+          "Berkeley",
+          "Alameda",
+          "Peninsula",
+          "East Bay",
+          "South Bay",
+          "Marin",
+          "Santa Clara",
+          "Daly City",
+          "Fremont",
+          "Palo Alto",
+          "Sunnyvale"
+        ]
       },
       {
         "name": "Liba Falafel",
         "cuisine": "Middle Eastern",
         "instagram": "libafalafel",
-        "region": "Bay Area"
+        "region": "Bay Area",
+        "areas": [
+          "San Francisco",
+          "Oakland",
+          "San Jose",
+          "Berkeley",
+          "Alameda",
+          "Peninsula",
+          "East Bay",
+          "South Bay",
+          "Marin",
+          "Santa Clara",
+          "Daly City",
+          "Fremont",
+          "Palo Alto",
+          "Sunnyvale"
+        ]
       },
       {
         "name": "Adobo Bite",
         "cuisine": "Filipino",
         "instagram": "adobobite",
-        "region": "Bay Area"
+        "region": "Bay Area",
+        "areas": [
+          "San Francisco",
+          "Oakland",
+          "San Jose",
+          "Berkeley",
+          "Alameda",
+          "Peninsula",
+          "East Bay",
+          "South Bay",
+          "Marin",
+          "Santa Clara",
+          "Daly City",
+          "Fremont",
+          "Palo Alto",
+          "Sunnyvale"
+        ]
       },
       {
         "name": "Hons Wonton Pantry",
         "cuisine": "Chinese",
         "instagram": "honswontonpantry",
-        "region": "Bay Area"
+        "region": "Bay Area",
+        "areas": [
+          "San Francisco",
+          "Oakland",
+          "San Jose",
+          "Berkeley",
+          "Alameda",
+          "Peninsula",
+          "East Bay",
+          "South Bay",
+          "Marin",
+          "Santa Clara",
+          "Daly City",
+          "Fremont",
+          "Palo Alto",
+          "Sunnyvale"
+        ]
       },
       {
         "name": "Kasa Indian",
         "cuisine": "Indian",
         "instagram": "kasaindian",
-        "region": "Bay Area"
+        "region": "Bay Area",
+        "areas": [
+          "San Francisco",
+          "Oakland",
+          "San Jose",
+          "Berkeley",
+          "Alameda",
+          "Peninsula",
+          "East Bay",
+          "South Bay",
+          "Marin",
+          "Santa Clara",
+          "Daly City",
+          "Fremont",
+          "Palo Alto",
+          "Sunnyvale"
+        ]
       },
       {
         "name": "Cousins Maine Lobster",
         "cuisine": "Seafood",
         "instagram": "cousinsmainelobster",
-        "region": "Bay Area"
+        "region": "Bay Area",
+        "areas": [
+          "San Francisco",
+          "Oakland",
+          "San Jose",
+          "Berkeley",
+          "Alameda",
+          "Peninsula",
+          "East Bay",
+          "South Bay",
+          "Marin",
+          "Santa Clara",
+          "Daly City",
+          "Fremont",
+          "Palo Alto",
+          "Sunnyvale"
+        ]
       },
       {
         "name": "Roli Roti",
         "cuisine": "Rotisserie",
         "instagram": "roliroti",
-        "region": "Bay Area"
+        "region": "Bay Area",
+        "areas": [
+          "San Francisco",
+          "Oakland",
+          "San Jose",
+          "Berkeley",
+          "Alameda",
+          "Peninsula",
+          "East Bay",
+          "South Bay",
+          "Marin",
+          "Santa Clara",
+          "Daly City",
+          "Fremont",
+          "Palo Alto",
+          "Sunnyvale"
+        ]
       },
       {
         "name": "FroGo",
         "cuisine": "Dessert",
         "instagram": "frogofoodtruck",
-        "region": "Bay Area"
+        "region": "Bay Area",
+        "areas": [
+          "San Francisco",
+          "Oakland",
+          "San Jose",
+          "Berkeley",
+          "Alameda",
+          "Peninsula",
+          "East Bay",
+          "South Bay",
+          "Marin",
+          "Santa Clara",
+          "Daly City",
+          "Fremont",
+          "Palo Alto",
+          "Sunnyvale"
+        ]
       },
       {
         "name": "Cochinita",
         "cuisine": "Yucatecan",
         "instagram": "cochinita.sf",
-        "region": "Bay Area"
+        "region": "Bay Area",
+        "areas": [
+          "San Francisco",
+          "Oakland",
+          "San Jose",
+          "Berkeley",
+          "Alameda",
+          "Peninsula",
+          "East Bay",
+          "South Bay",
+          "Marin",
+          "Santa Clara",
+          "Daly City",
+          "Fremont",
+          "Palo Alto",
+          "Sunnyvale"
+        ]
       },
       {
         "name": "Da Poke Man",
         "cuisine": "Hawaiian",
         "instagram": "da_poke_man",
-        "region": "Bay Area"
+        "region": "Bay Area",
+        "areas": [
+          "San Francisco",
+          "Oakland",
+          "San Jose",
+          "Berkeley",
+          "Alameda",
+          "Peninsula",
+          "East Bay",
+          "South Bay",
+          "Marin",
+          "Santa Clara",
+          "Daly City",
+          "Fremont",
+          "Palo Alto",
+          "Sunnyvale"
+        ]
       },
       {
         "name": "Meso Hungry",
         "cuisine": "Mexican",
         "instagram": "mesohungrytoo",
-        "region": "Bay Area"
+        "region": "Bay Area",
+        "areas": [
+          "San Francisco",
+          "Oakland",
+          "San Jose",
+          "Berkeley",
+          "Alameda",
+          "Peninsula",
+          "East Bay",
+          "South Bay",
+          "Marin",
+          "Santa Clara",
+          "Daly City",
+          "Fremont",
+          "Palo Alto",
+          "Sunnyvale"
+        ]
       },
       {
         "name": "World Famous Corn Dogs",
         "cuisine": "American",
         "instagram": "worldfamouscorndogs",
-        "region": "Bay Area"
+        "region": "Bay Area",
+        "areas": [
+          "San Francisco",
+          "Oakland",
+          "San Jose",
+          "Berkeley",
+          "Alameda",
+          "Peninsula",
+          "East Bay",
+          "South Bay",
+          "Marin",
+          "Santa Clara",
+          "Daly City",
+          "Fremont",
+          "Palo Alto",
+          "Sunnyvale"
+        ]
       },
       {
         "name": "La Churroteka",
         "cuisine": "Dessert",
         "instagram": "lachurroteka",
-        "region": "Bay Area"
+        "region": "Bay Area",
+        "areas": [
+          "San Francisco",
+          "Oakland",
+          "San Jose",
+          "Berkeley",
+          "Alameda",
+          "Peninsula",
+          "East Bay",
+          "South Bay",
+          "Marin",
+          "Santa Clara",
+          "Daly City",
+          "Fremont",
+          "Palo Alto",
+          "Sunnyvale"
+        ]
       },
       {
         "name": "The Food Truck Mafia",
         "cuisine": "Events",
         "instagram": "thefoodtruckmafia",
-        "region": "Bay Area"
+        "region": "Bay Area",
+        "areas": [
+          "San Francisco",
+          "Oakland",
+          "San Jose",
+          "Berkeley",
+          "Alameda",
+          "Peninsula",
+          "East Bay",
+          "South Bay",
+          "Marin",
+          "Santa Clara",
+          "Daly City",
+          "Fremont",
+          "Palo Alto",
+          "Sunnyvale"
+        ]
       },
       {
         "name": "The Guzz Co",
         "cuisine": "American",
         "instagram": "theguzzco",
-        "region": "Bay Area"
+        "region": "Bay Area",
+        "areas": [
+          "San Francisco",
+          "Oakland",
+          "San Jose",
+          "Berkeley",
+          "Alameda",
+          "Peninsula",
+          "East Bay",
+          "South Bay",
+          "Marin",
+          "Santa Clara",
+          "Daly City",
+          "Fremont",
+          "Palo Alto",
+          "Sunnyvale"
+        ]
       },
       {
         "name": "Los Rockeros",
         "cuisine": "Mexican",
         "instagram": "losrockeros_foodtruck",
-        "region": "Bay Area"
+        "region": "Bay Area",
+        "areas": [
+          "San Francisco",
+          "Oakland",
+          "San Jose",
+          "Berkeley",
+          "Alameda",
+          "Peninsula",
+          "East Bay",
+          "South Bay",
+          "Marin",
+          "Santa Clara",
+          "Daly City",
+          "Fremont",
+          "Palo Alto",
+          "Sunnyvale"
+        ]
       },
       {
         "name": "Crazy Empanadas",
         "cuisine": "Latin",
         "instagram": "crazyempanadas",
-        "region": "Bay Area"
+        "region": "Bay Area",
+        "areas": [
+          "San Francisco",
+          "Oakland",
+          "San Jose",
+          "Berkeley",
+          "Alameda",
+          "Peninsula",
+          "East Bay",
+          "South Bay",
+          "Marin",
+          "Santa Clara",
+          "Daly City",
+          "Fremont",
+          "Palo Alto",
+          "Sunnyvale"
+        ]
       },
       {
         "name": "Charlie's Food Trailer",
         "cuisine": "American",
         "instagram": "charliesfoodtrailer",
-        "region": "Bay Area"
+        "region": "Bay Area",
+        "areas": [
+          "San Francisco",
+          "Oakland",
+          "San Jose",
+          "Berkeley",
+          "Alameda",
+          "Peninsula",
+          "East Bay",
+          "South Bay",
+          "Marin",
+          "Santa Clara",
+          "Daly City",
+          "Fremont",
+          "Palo Alto",
+          "Sunnyvale"
+        ]
       },
       {
         "name": "Baby O's Donuts",
         "cuisine": "Dessert",
         "instagram": "babyosdonuts",
-        "region": "Bay Area"
+        "region": "Bay Area",
+        "areas": [
+          "San Francisco",
+          "Oakland",
+          "San Jose",
+          "Berkeley",
+          "Alameda",
+          "Peninsula",
+          "East Bay",
+          "South Bay",
+          "Marin",
+          "Santa Clara",
+          "Daly City",
+          "Fremont",
+          "Palo Alto",
+          "Sunnyvale"
+        ]
       },
       {
         "name": "Bubble Hive",
         "cuisine": "Dessert",
         "instagram": "bubblehives",
-        "region": "Bay Area"
+        "region": "Bay Area",
+        "areas": [
+          "San Francisco",
+          "Oakland",
+          "San Jose",
+          "Berkeley",
+          "Alameda",
+          "Peninsula",
+          "East Bay",
+          "South Bay",
+          "Marin",
+          "Santa Clara",
+          "Daly City",
+          "Fremont",
+          "Palo Alto",
+          "Sunnyvale"
+        ]
       },
       {
         "name": "El Gran Taco Loco",
         "cuisine": "Mexican",
         "instagram": "elgrantacoloco",
-        "region": "Bay Area"
+        "region": "Bay Area",
+        "areas": [
+          "San Francisco",
+          "Oakland",
+          "San Jose",
+          "Berkeley",
+          "Alameda",
+          "Peninsula",
+          "East Bay",
+          "South Bay",
+          "Marin",
+          "Santa Clara",
+          "Daly City",
+          "Fremont",
+          "Palo Alto",
+          "Sunnyvale"
+        ]
       },
       {
         "name": "Bay Area Munchiez",
         "cuisine": "American",
         "instagram": "bayarea_munchiez",
-        "region": "Bay Area"
+        "region": "Bay Area",
+        "areas": [
+          "San Francisco",
+          "Oakland",
+          "San Jose",
+          "Berkeley",
+          "Alameda",
+          "Peninsula",
+          "East Bay",
+          "South Bay",
+          "Marin",
+          "Santa Clara",
+          "Daly City",
+          "Fremont",
+          "Palo Alto",
+          "Sunnyvale"
+        ]
       },
       {
         "name": "Capelo's Barbecue",
         "cuisine": "BBQ",
         "instagram": "capelosbarbecue",
-        "region": "Bay Area"
+        "region": "Bay Area",
+        "areas": [
+          "San Francisco",
+          "Oakland",
+          "San Jose",
+          "Berkeley",
+          "Alameda",
+          "Peninsula",
+          "East Bay",
+          "South Bay",
+          "Marin",
+          "Santa Clara",
+          "Daly City",
+          "Fremont",
+          "Palo Alto",
+          "Sunnyvale"
+        ]
       },
       {
         "name": "Wokitchen",
         "cuisine": "Asian",
         "instagram": "wokitchen_truck",
-        "region": "Bay Area"
+        "region": "Bay Area",
+        "areas": [
+          "San Francisco",
+          "Oakland",
+          "San Jose",
+          "Berkeley",
+          "Alameda",
+          "Peninsula",
+          "East Bay",
+          "South Bay",
+          "Marin",
+          "Santa Clara",
+          "Daly City",
+          "Fremont",
+          "Palo Alto",
+          "Sunnyvale"
+        ]
       },
       {
         "name": "Southern Comfort Kitchen",
         "cuisine": "Cajun",
         "instagram": "socokitchen",
-        "region": "Bay Area"
+        "region": "Bay Area",
+        "areas": [
+          "San Francisco",
+          "Oakland",
+          "San Jose",
+          "Berkeley",
+          "Alameda",
+          "Peninsula",
+          "East Bay",
+          "South Bay",
+          "Marin",
+          "Santa Clara",
+          "Daly City",
+          "Fremont",
+          "Palo Alto",
+          "Sunnyvale"
+        ]
       },
       {
         "name": "Korean Bobcha",
         "cuisine": "Korean",
         "instagram": "bobchasf",
-        "region": "Bay Area"
+        "region": "Bay Area",
+        "areas": [
+          "San Francisco",
+          "Oakland",
+          "San Jose",
+          "Berkeley",
+          "Alameda",
+          "Peninsula",
+          "East Bay",
+          "South Bay",
+          "Marin",
+          "Santa Clara",
+          "Daly City",
+          "Fremont",
+          "Palo Alto",
+          "Sunnyvale"
+        ]
       },
       {
         "name": "Respectable Bird",
         "cuisine": "American",
         "instagram": "respectablebird",
-        "region": "Bay Area"
+        "region": "Bay Area",
+        "areas": [
+          "San Francisco",
+          "Oakland",
+          "San Jose",
+          "Berkeley",
+          "Alameda",
+          "Peninsula",
+          "East Bay",
+          "South Bay",
+          "Marin",
+          "Santa Clara",
+          "Daly City",
+          "Fremont",
+          "Palo Alto",
+          "Sunnyvale"
+        ]
       },
       {
         "name": "Melina's Kitchen",
         "cuisine": "Latin",
         "instagram": "melinaskitchen_llc",
-        "region": "Bay Area"
+        "region": "Bay Area",
+        "areas": [
+          "San Francisco",
+          "Oakland",
+          "San Jose",
+          "Berkeley",
+          "Alameda",
+          "Peninsula",
+          "East Bay",
+          "South Bay",
+          "Marin",
+          "Santa Clara",
+          "Daly City",
+          "Fremont",
+          "Palo Alto",
+          "Sunnyvale"
+        ]
       },
       {
         "name": "Dominic's Food Truck",
         "cuisine": "American",
         "instagram": "dominicsfoodtruck",
-        "region": "Bay Area"
+        "region": "Bay Area",
+        "areas": [
+          "San Francisco",
+          "Oakland",
+          "San Jose",
+          "Berkeley",
+          "Alameda",
+          "Peninsula",
+          "East Bay",
+          "South Bay",
+          "Marin",
+          "Santa Clara",
+          "Daly City",
+          "Fremont",
+          "Palo Alto",
+          "Sunnyvale"
+        ]
       },
       {
         "name": "Golden Gate Gyro",
         "cuisine": "Greek",
         "instagram": "goldengategyro",
-        "region": "Bay Area"
+        "region": "Bay Area",
+        "areas": [
+          "San Francisco",
+          "Oakland",
+          "San Jose",
+          "Berkeley",
+          "Alameda",
+          "Peninsula",
+          "East Bay",
+          "South Bay",
+          "Marin",
+          "Santa Clara",
+          "Daly City",
+          "Fremont",
+          "Palo Alto",
+          "Sunnyvale"
+        ]
       },
       {
         "name": "Curveball Sliders",
         "cuisine": "Burgers",
         "instagram": "curveballmobile",
-        "region": "Bay Area"
+        "region": "Bay Area",
+        "areas": [
+          "San Francisco",
+          "Oakland",
+          "San Jose",
+          "Berkeley",
+          "Alameda",
+          "Peninsula",
+          "East Bay",
+          "South Bay",
+          "Marin",
+          "Santa Clara",
+          "Daly City",
+          "Fremont",
+          "Palo Alto",
+          "Sunnyvale"
+        ]
       },
       {
         "name": "Bombzies BBQ",
         "cuisine": "BBQ",
         "instagram": "bombziesbbq",
-        "region": "Bay Area"
+        "region": "Bay Area",
+        "areas": [
+          "San Francisco",
+          "Oakland",
+          "San Jose",
+          "Berkeley",
+          "Alameda",
+          "Peninsula",
+          "East Bay",
+          "South Bay",
+          "Marin",
+          "Santa Clara",
+          "Daly City",
+          "Fremont",
+          "Palo Alto",
+          "Sunnyvale"
+        ]
       },
       {
         "name": "Global Catering Express",
         "cuisine": "Catering",
         "instagram": "globalcateringexpress",
-        "region": "Bay Area"
+        "region": "Bay Area",
+        "areas": [
+          "San Francisco",
+          "Oakland",
+          "San Jose",
+          "Berkeley",
+          "Alameda",
+          "Peninsula",
+          "East Bay",
+          "South Bay",
+          "Marin",
+          "Santa Clara",
+          "Daly City",
+          "Fremont",
+          "Palo Alto",
+          "Sunnyvale"
+        ]
       },
       {
         "name": "Mozzeria",
         "cuisine": "Pizza",
         "instagram": "mozzeriasf",
-        "region": "Bay Area"
+        "region": "Bay Area",
+        "areas": [
+          "San Francisco",
+          "Oakland",
+          "San Jose",
+          "Berkeley",
+          "Alameda",
+          "Peninsula",
+          "East Bay",
+          "South Bay",
+          "Marin",
+          "Santa Clara",
+          "Daly City",
+          "Fremont",
+          "Palo Alto",
+          "Sunnyvale"
+        ]
       },
       {
         "name": "Rosie's Mexican Food",
         "cuisine": "Mexican",
         "instagram": "rosiesmexicanfood",
-        "region": "Bay Area"
+        "region": "Bay Area",
+        "areas": [
+          "San Francisco",
+          "Oakland",
+          "San Jose",
+          "Berkeley",
+          "Alameda",
+          "Peninsula",
+          "East Bay",
+          "South Bay",
+          "Marin",
+          "Santa Clara",
+          "Daly City",
+          "Fremont",
+          "Palo Alto",
+          "Sunnyvale"
+        ]
       },
       {
         "name": "Sam's ChowderMobile",
         "cuisine": "Seafood",
         "instagram": "samschowdermobile",
-        "region": "Bay Area"
+        "region": "Bay Area",
+        "areas": [
+          "San Francisco",
+          "Oakland",
+          "San Jose",
+          "Berkeley",
+          "Alameda",
+          "Peninsula",
+          "East Bay",
+          "South Bay",
+          "Marin",
+          "Santa Clara",
+          "Daly City",
+          "Fremont",
+          "Palo Alto",
+          "Sunnyvale"
+        ]
       },
       {
         "name": "Fresh Catch Poke",
         "cuisine": "Hawaiian",
         "instagram": "freshcatchpoke",
-        "region": "Bay Area"
+        "region": "Bay Area",
+        "areas": [
+          "San Francisco",
+          "Oakland",
+          "San Jose",
+          "Berkeley",
+          "Alameda",
+          "Peninsula",
+          "East Bay",
+          "South Bay",
+          "Marin",
+          "Santa Clara",
+          "Daly City",
+          "Fremont",
+          "Palo Alto",
+          "Sunnyvale"
+        ]
       },
       {
         "name": "Rincon del Cielo Taqueria",
         "cuisine": "Mexican",
         "instagram": "rincon_del_cielo_taqueria",
-        "region": "Bay Area"
+        "region": "Bay Area",
+        "areas": [
+          "San Francisco",
+          "Oakland",
+          "San Jose",
+          "Berkeley",
+          "Alameda",
+          "Peninsula",
+          "East Bay",
+          "South Bay",
+          "Marin",
+          "Santa Clara",
+          "Daly City",
+          "Fremont",
+          "Palo Alto",
+          "Sunnyvale"
+        ]
       },
       {
         "name": "Jolly's Tea and Cream",
         "cuisine": "Dessert",
         "instagram": "jollysteascream",
-        "region": "Bay Area"
+        "region": "Bay Area",
+        "areas": [
+          "San Francisco",
+          "Oakland",
+          "San Jose",
+          "Berkeley",
+          "Alameda",
+          "Peninsula",
+          "East Bay",
+          "South Bay",
+          "Marin",
+          "Santa Clara",
+          "Daly City",
+          "Fremont",
+          "Palo Alto",
+          "Sunnyvale"
+        ]
       },
       {
         "name": "El Gallo Giro",
         "cuisine": "Mexican",
         "instagram": "elgallogirotruck",
-        "region": "Bay Area"
+        "region": "Bay Area",
+        "areas": [
+          "San Francisco",
+          "Oakland",
+          "San Jose",
+          "Berkeley",
+          "Alameda",
+          "Peninsula",
+          "East Bay",
+          "South Bay",
+          "Marin",
+          "Santa Clara",
+          "Daly City",
+          "Fremont",
+          "Palo Alto",
+          "Sunnyvale"
+        ]
       },
       {
         "name": "Adam's Grub Truck",
         "cuisine": "Burgers",
         "instagram": "adamsgrubtruck",
-        "region": "Bay Area"
+        "region": "Bay Area",
+        "areas": [
+          "San Francisco",
+          "Oakland",
+          "San Jose",
+          "Berkeley",
+          "Alameda",
+          "Peninsula",
+          "East Bay",
+          "South Bay",
+          "Marin",
+          "Santa Clara",
+          "Daly City",
+          "Fremont",
+          "Palo Alto",
+          "Sunnyvale"
+        ]
       },
       {
         "name": "BunBao",
         "cuisine": "Taiwanese",
         "instagram": "bunbaoofficial",
-        "region": "Bay Area"
+        "region": "Bay Area",
+        "areas": [
+          "San Francisco",
+          "Oakland",
+          "San Jose",
+          "Berkeley",
+          "Alameda",
+          "Peninsula",
+          "East Bay",
+          "South Bay",
+          "Marin",
+          "Santa Clara",
+          "Daly City",
+          "Fremont",
+          "Palo Alto",
+          "Sunnyvale"
+        ]
       },
       {
         "name": "Hula Truck",
         "cuisine": "Hawaiian",
         "instagram": "hulatruck408",
-        "region": "Bay Area"
+        "region": "Bay Area",
+        "areas": [
+          "San Francisco",
+          "Oakland",
+          "San Jose",
+          "Berkeley",
+          "Alameda",
+          "Peninsula",
+          "East Bay",
+          "South Bay",
+          "Marin",
+          "Santa Clara",
+          "Daly City",
+          "Fremont",
+          "Palo Alto",
+          "Sunnyvale"
+        ]
       },
       {
         "name": "Jeepsilog",
         "cuisine": "Filipino",
         "instagram": "jeepsilog",
-        "region": "Bay Area"
+        "region": "Bay Area",
+        "areas": [
+          "San Francisco",
+          "Oakland",
+          "San Jose",
+          "Berkeley",
+          "Alameda",
+          "Peninsula",
+          "East Bay",
+          "South Bay",
+          "Marin",
+          "Santa Clara",
+          "Daly City",
+          "Fremont",
+          "Palo Alto",
+          "Sunnyvale"
+        ]
       },
       {
         "name": "La Santa Torta",
         "cuisine": "Mexican",
         "instagram": "santatortasf",
-        "region": "Bay Area"
+        "region": "Bay Area",
+        "areas": [
+          "San Francisco",
+          "Oakland",
+          "San Jose",
+          "Berkeley",
+          "Alameda",
+          "Peninsula",
+          "East Bay",
+          "South Bay",
+          "Marin",
+          "Santa Clara",
+          "Daly City",
+          "Fremont",
+          "Palo Alto",
+          "Sunnyvale"
+        ]
       },
       {
         "name": "Lobsta Truck SF",
         "cuisine": "Seafood",
         "instagram": "lobstatrucksf",
-        "region": "Bay Area"
+        "region": "Bay Area",
+        "areas": [
+          "San Francisco",
+          "Oakland",
+          "San Jose",
+          "Berkeley",
+          "Alameda",
+          "Peninsula",
+          "East Bay",
+          "South Bay",
+          "Marin",
+          "Santa Clara",
+          "Daly City",
+          "Fremont",
+          "Palo Alto",
+          "Sunnyvale"
+        ]
       },
       {
         "name": "MOMOlicious",
         "cuisine": "Nepali",
         "instagram": "momolicioussf",
-        "region": "Bay Area"
+        "region": "Bay Area",
+        "areas": [
+          "San Francisco",
+          "Oakland",
+          "San Jose",
+          "Berkeley",
+          "Alameda",
+          "Peninsula",
+          "East Bay",
+          "South Bay",
+          "Marin",
+          "Santa Clara",
+          "Daly City",
+          "Fremont",
+          "Palo Alto",
+          "Sunnyvale"
+        ]
       },
       {
         "name": "Sip n Slurp",
         "cuisine": "Asian",
         "instagram": "sipnslurpfoodtruck",
-        "region": "Bay Area"
+        "region": "Bay Area",
+        "areas": [
+          "San Francisco",
+          "Oakland",
+          "San Jose",
+          "Berkeley",
+          "Alameda",
+          "Peninsula",
+          "East Bay",
+          "South Bay",
+          "Marin",
+          "Santa Clara",
+          "Daly City",
+          "Fremont",
+          "Palo Alto",
+          "Sunnyvale"
+        ]
       },
       {
         "name": "Cielito Lindo",
         "cuisine": "Mexican",
         "instagram": "cielitolindomsk",
-        "region": "Bay Area"
+        "region": "Bay Area",
+        "areas": [
+          "San Francisco",
+          "Oakland",
+          "San Jose",
+          "Berkeley",
+          "Alameda",
+          "Peninsula",
+          "East Bay",
+          "South Bay",
+          "Marin",
+          "Santa Clara",
+          "Daly City",
+          "Fremont",
+          "Palo Alto",
+          "Sunnyvale"
+        ]
       },
       {
         "name": "Kabob Trolley",
         "cuisine": "Mediterranean",
         "instagram": "kabobtrolley",
-        "region": "Bay Area"
+        "region": "Bay Area",
+        "areas": [
+          "San Francisco",
+          "Oakland",
+          "San Jose",
+          "Berkeley",
+          "Alameda",
+          "Peninsula",
+          "East Bay",
+          "South Bay",
+          "Marin",
+          "Santa Clara",
+          "Daly City",
+          "Fremont",
+          "Palo Alto",
+          "Sunnyvale"
+        ]
       },
       {
         "name": "Daisy's Desserts",
         "cuisine": "Dessert",
         "instagram": "daisysdesserts",
-        "region": "Bay Area"
+        "region": "Bay Area",
+        "areas": [
+          "San Francisco",
+          "Oakland",
+          "San Jose",
+          "Berkeley",
+          "Alameda",
+          "Peninsula",
+          "East Bay",
+          "South Bay",
+          "Marin",
+          "Santa Clara",
+          "Daly City",
+          "Fremont",
+          "Palo Alto",
+          "Sunnyvale"
+        ]
+      },
+      {
+        "name": "Smoothielicious",
+        "cuisine": "Coffee Trailer",
+        "instagram": "smoothieliciousbayarea",
+        "region": "Bay Area",
+        "areas": [
+          "San Francisco",
+          "Oakland",
+          "San Jose",
+          "Berkeley",
+          "Alameda",
+          "Peninsula",
+          "East Bay",
+          "South Bay",
+          "Marin",
+          "Santa Clara",
+          "Daly City",
+          "Fremont",
+          "Palo Alto",
+          "Sunnyvale"
+        ]
+      },
+      {
+        "name": "The Last Drip",
+        "cuisine": "Coffee Cart",
+        "instagram": "thelastdrip.coffee",
+        "region": "Bay Area",
+        "areas": [
+          "San Francisco",
+          "Oakland",
+          "San Jose",
+          "Berkeley",
+          "Alameda",
+          "Peninsula",
+          "East Bay",
+          "South Bay",
+          "Marin",
+          "Santa Clara",
+          "Daly City",
+          "Fremont",
+          "Palo Alto",
+          "Sunnyvale"
+        ]
       },
       {
         "name": "Big C's Food Coma",
         "cuisine": "BBQ",
         "instagram": "bigcsfoodcoma",
-        "region": "North State"
+        "region": "North State",
+        "areas": [
+          "Redding",
+          "Chico",
+          "Red Bluff",
+          "Eureka",
+          "Arcata",
+          "Humboldt",
+          "Shasta",
+          "Oroville",
+          "Paradise"
+        ]
       },
       {
         "name": "Granny's Grill",
         "cuisine": "Filipino",
         "instagram": "grannysgrillfilipinofoodtruck",
-        "region": "North State"
+        "region": "North State",
+        "areas": [
+          "Redding",
+          "Chico",
+          "Red Bluff",
+          "Eureka",
+          "Arcata",
+          "Humboldt",
+          "Shasta",
+          "Oroville",
+          "Paradise"
+        ]
       },
       {
         "name": "Dos Amigos Taqueria",
         "cuisine": "Mexican",
         "instagram": "dosamigostaq",
-        "region": "North State"
+        "region": "North State",
+        "areas": [
+          "Redding",
+          "Chico",
+          "Red Bluff",
+          "Eureka",
+          "Arcata",
+          "Humboldt",
+          "Shasta",
+          "Oroville",
+          "Paradise"
+        ]
       },
       {
         "name": "Get Rad Pizza",
         "cuisine": "Pizza",
         "instagram": "getradpizza",
-        "region": "Sierra"
+        "region": "Sierra",
+        "areas": [
+          "Tahoe",
+          "Truckee",
+          "Reno",
+          "Sparks",
+          "South Lake Tahoe",
+          "Incline Village",
+          "Kings Beach"
+        ]
       },
       {
         "name": "Reno Street Food",
         "cuisine": "Events",
         "instagram": "foodtruckfridayreno",
-        "region": "Sierra"
+        "region": "Sierra",
+        "areas": [
+          "Tahoe",
+          "Truckee",
+          "Reno",
+          "Sparks",
+          "South Lake Tahoe",
+          "Incline Village",
+          "Kings Beach"
+        ]
       },
       {
         "name": "Daddy's Tacos NV",
         "cuisine": "Mexican",
         "instagram": "daddystacosnv",
-        "region": "Sierra"
+        "region": "Sierra",
+        "areas": [
+          "Tahoe",
+          "Truckee",
+          "Reno",
+          "Sparks",
+          "South Lake Tahoe",
+          "Incline Village",
+          "Kings Beach"
+        ]
       },
       {
         "name": "Mr Yummy Yummy",
         "cuisine": "Japanese",
         "instagram": "mryummyyummyreno",
-        "region": "Sierra"
+        "region": "Sierra",
+        "areas": [
+          "Tahoe",
+          "Truckee",
+          "Reno",
+          "Sparks",
+          "South Lake Tahoe",
+          "Incline Village",
+          "Kings Beach"
+        ]
       },
       {
         "name": "Where's The Food",
         "cuisine": "Fusion",
         "instagram": "wtfwheresthefoodfresno",
-        "region": "Central Valley"
+        "region": "Central Valley",
+        "areas": [
+          "Fresno",
+          "Stockton",
+          "Modesto",
+          "Bakersfield",
+          "Visalia",
+          "Clovis",
+          "Merced",
+          "Turlock",
+          "Madera",
+          "Dinuba",
+          "Hanford"
+        ]
       },
       {
         "name": "Brickology Pizza",
         "cuisine": "Pizza",
         "instagram": "brickologypizza",
-        "region": "Central Valley"
+        "region": "Central Valley",
+        "areas": [
+          "Fresno",
+          "Stockton",
+          "Modesto",
+          "Bakersfield",
+          "Visalia",
+          "Clovis",
+          "Merced",
+          "Turlock",
+          "Madera",
+          "Dinuba",
+          "Hanford"
+        ]
       },
       {
         "name": "El Premio Mayor",
         "cuisine": "Mexican",
         "instagram": "elpremiomayor",
-        "region": "Central Valley"
+        "region": "Central Valley",
+        "areas": [
+          "Fresno",
+          "Stockton",
+          "Modesto",
+          "Bakersfield",
+          "Visalia",
+          "Clovis",
+          "Merced",
+          "Turlock",
+          "Madera",
+          "Dinuba",
+          "Hanford"
+        ]
       },
       {
         "name": "Tacos La Vaporera",
         "cuisine": "Mexican",
         "instagram": "tacos_lavaporera",
-        "region": "Central Valley"
+        "region": "Central Valley",
+        "areas": [
+          "Fresno",
+          "Stockton",
+          "Modesto",
+          "Bakersfield",
+          "Visalia",
+          "Clovis",
+          "Merced",
+          "Turlock",
+          "Madera",
+          "Dinuba",
+          "Hanford"
+        ]
       },
       {
         "name": "Sticky Rice on Wheels",
         "cuisine": "Lao",
         "instagram": "stickyriceonwheels_fresno",
-        "region": "Central Valley"
+        "region": "Central Valley",
+        "areas": [
+          "Fresno",
+          "Stockton",
+          "Modesto",
+          "Bakersfield",
+          "Visalia",
+          "Clovis",
+          "Merced",
+          "Turlock",
+          "Madera",
+          "Dinuba",
+          "Hanford"
+        ]
       },
       {
         "name": "Taco Pinto",
         "cuisine": "Mexican",
         "instagram": "tacopinto1",
-        "region": "Central Valley"
+        "region": "Central Valley",
+        "areas": [
+          "Fresno",
+          "Stockton",
+          "Modesto",
+          "Bakersfield",
+          "Visalia",
+          "Clovis",
+          "Merced",
+          "Turlock",
+          "Madera",
+          "Dinuba",
+          "Hanford"
+        ]
       },
       {
         "name": "Real Philly Cheesesteak",
         "cuisine": "Sandwiches",
         "instagram": "fresno_cheesesteak",
-        "region": "Central Valley"
+        "region": "Central Valley",
+        "areas": [
+          "Fresno",
+          "Stockton",
+          "Modesto",
+          "Bakersfield",
+          "Visalia",
+          "Clovis",
+          "Merced",
+          "Turlock",
+          "Madera",
+          "Dinuba",
+          "Hanford"
+        ]
       },
       {
         "name": "Get Baked 559",
         "cuisine": "Loaded Potatoes",
         "instagram": "getbaked559",
-        "region": "Central Valley"
+        "region": "Central Valley",
+        "areas": [
+          "Fresno",
+          "Stockton",
+          "Modesto",
+          "Bakersfield",
+          "Visalia",
+          "Clovis",
+          "Merced",
+          "Turlock",
+          "Madera",
+          "Dinuba",
+          "Hanford"
+        ]
       },
       {
         "name": "Sno Cafe",
         "cuisine": "Dessert",
         "instagram": "snocafe",
-        "region": "Central Valley"
+        "region": "Central Valley",
+        "areas": [
+          "Fresno",
+          "Stockton",
+          "Modesto",
+          "Bakersfield",
+          "Visalia",
+          "Clovis",
+          "Merced",
+          "Turlock",
+          "Madera",
+          "Dinuba",
+          "Hanford"
+        ]
       },
       {
         "name": "The Rolling Donut",
         "cuisine": "Dessert",
         "instagram": "therollingdonutfresno",
-        "region": "Central Valley"
+        "region": "Central Valley",
+        "areas": [
+          "Fresno",
+          "Stockton",
+          "Modesto",
+          "Bakersfield",
+          "Visalia",
+          "Clovis",
+          "Merced",
+          "Turlock",
+          "Madera",
+          "Dinuba",
+          "Hanford"
+        ]
       },
       {
         "name": "Tacos El Rey Azteca",
         "cuisine": "Mexican",
         "instagram": "tacos_el_rey_azteca",
-        "region": "Central Valley"
+        "region": "Central Valley",
+        "areas": [
+          "Fresno",
+          "Stockton",
+          "Modesto",
+          "Bakersfield",
+          "Visalia",
+          "Clovis",
+          "Merced",
+          "Turlock",
+          "Madera",
+          "Dinuba",
+          "Hanford"
+        ]
       },
       {
         "name": "Nikki's Create-A-Bowl",
         "cuisine": "Asian",
         "instagram": "nikkiscreateabowl",
-        "region": "Central Valley"
+        "region": "Central Valley",
+        "areas": [
+          "Fresno",
+          "Stockton",
+          "Modesto",
+          "Bakersfield",
+          "Visalia",
+          "Clovis",
+          "Merced",
+          "Turlock",
+          "Madera",
+          "Dinuba",
+          "Hanford"
+        ]
       },
       {
         "name": "Tacos La Palmita",
         "cuisine": "Mexican",
         "instagram": "tacoslapalmita209",
-        "region": "Central Valley"
+        "region": "Central Valley",
+        "areas": [
+          "Fresno",
+          "Stockton",
+          "Modesto",
+          "Bakersfield",
+          "Visalia",
+          "Clovis",
+          "Merced",
+          "Turlock",
+          "Madera",
+          "Dinuba",
+          "Hanford"
+        ]
       },
       {
         "name": "Tacos La Unica",
         "cuisine": "Mexican",
         "instagram": "tacoslaunica",
-        "region": "Central Valley"
+        "region": "Central Valley",
+        "areas": [
+          "Fresno",
+          "Stockton",
+          "Modesto",
+          "Bakersfield",
+          "Visalia",
+          "Clovis",
+          "Merced",
+          "Turlock",
+          "Madera",
+          "Dinuba",
+          "Hanford"
+        ]
       },
       {
         "name": "Birrieria Chito",
         "cuisine": "Mexican",
         "instagram": "birrieria_chito",
-        "region": "Central Valley"
+        "region": "Central Valley",
+        "areas": [
+          "Fresno",
+          "Stockton",
+          "Modesto",
+          "Bakersfield",
+          "Visalia",
+          "Clovis",
+          "Merced",
+          "Turlock",
+          "Madera",
+          "Dinuba",
+          "Hanford"
+        ]
       },
       {
         "name": "Tortas Ahogadas El Cejarin",
         "cuisine": "Mexican",
         "instagram": "tortasahogadas_elcejarin",
-        "region": "Central Valley"
+        "region": "Central Valley",
+        "areas": [
+          "Fresno",
+          "Stockton",
+          "Modesto",
+          "Bakersfield",
+          "Visalia",
+          "Clovis",
+          "Merced",
+          "Turlock",
+          "Madera",
+          "Dinuba",
+          "Hanford"
+        ]
       },
       {
         "name": "Food Fix",
         "cuisine": "American",
         "instagram": "foodfixtruck",
-        "region": "Central Valley"
+        "region": "Central Valley",
+        "areas": [
+          "Fresno",
+          "Stockton",
+          "Modesto",
+          "Bakersfield",
+          "Visalia",
+          "Clovis",
+          "Merced",
+          "Turlock",
+          "Madera",
+          "Dinuba",
+          "Hanford"
+        ]
+      },
+      {
+        "name": "Jitters Coffee Truck",
+        "cuisine": "Coffee Trailer",
+        "instagram": "jitterscoffeetruck",
+        "region": "Central Valley",
+        "areas": [
+          "Fresno",
+          "Stockton",
+          "Modesto",
+          "Bakersfield",
+          "Visalia",
+          "Clovis",
+          "Merced",
+          "Turlock",
+          "Madera",
+          "Dinuba",
+          "Hanford"
+        ]
+      },
+      {
+        "name": "Sunflowers & Grace",
+        "cuisine": "Coffee Trailer",
+        "instagram": "sunflowersandgracecoffee",
+        "region": "Central Valley",
+        "areas": [
+          "Fresno",
+          "Stockton",
+          "Modesto",
+          "Bakersfield",
+          "Visalia",
+          "Clovis",
+          "Merced",
+          "Turlock",
+          "Madera",
+          "Dinuba",
+          "Hanford"
+        ]
+      },
+      {
+        "name": "Hora de Cafe",
+        "cuisine": "Coffee Trailer",
+        "instagram": "_horadecafe",
+        "region": "Central Valley",
+        "areas": [
+          "Fresno",
+          "Stockton",
+          "Modesto",
+          "Bakersfield",
+          "Visalia",
+          "Clovis",
+          "Merced",
+          "Turlock",
+          "Madera",
+          "Dinuba",
+          "Hanford"
+        ]
       },
       {
         "name": "Funk's Franks",
         "cuisine": "American",
         "instagram": "funksfranks",
-        "region": "Central Coast"
+        "region": "Central Coast",
+        "areas": [
+          "Santa Cruz",
+          "Monterey",
+          "Salinas",
+          "Watsonville",
+          "Capitola",
+          "Carmel",
+          "Pacific Grove",
+          "Seaside"
+        ]
       },
       {
         "name": "Happy Dog Hot Dogs",
         "cuisine": "American",
         "instagram": "happydog_hotdogs",
-        "region": "Central Coast"
+        "region": "Central Coast",
+        "areas": [
+          "Santa Cruz",
+          "Monterey",
+          "Salinas",
+          "Watsonville",
+          "Capitola",
+          "Carmel",
+          "Pacific Grove",
+          "Seaside"
+        ]
       },
       {
         "name": "Hot Birds",
         "cuisine": "Fried Chicken",
         "instagram": "hot_birds831",
-        "region": "Central Coast"
+        "region": "Central Coast",
+        "areas": [
+          "Santa Cruz",
+          "Monterey",
+          "Salinas",
+          "Watsonville",
+          "Capitola",
+          "Carmel",
+          "Pacific Grove",
+          "Seaside"
+        ]
       },
       {
         "name": "Sandwiches & Burgers",
         "cuisine": "American",
         "instagram": "snb_foodtruck",
-        "region": "Central Coast"
+        "region": "Central Coast",
+        "areas": [
+          "Santa Cruz",
+          "Monterey",
+          "Salinas",
+          "Watsonville",
+          "Capitola",
+          "Carmel",
+          "Pacific Grove",
+          "Seaside"
+        ]
       },
       {
         "name": "2 Chx",
         "cuisine": "American",
         "instagram": "two_chx",
-        "region": "Central Coast"
+        "region": "Central Coast",
+        "areas": [
+          "Santa Cruz",
+          "Monterey",
+          "Salinas",
+          "Watsonville",
+          "Capitola",
+          "Carmel",
+          "Pacific Grove",
+          "Seaside"
+        ]
       },
       {
         "name": "Adobo2Go",
         "cuisine": "Filipino",
         "instagram": "adobo2go",
-        "region": "Central Coast"
+        "region": "Central Coast",
+        "areas": [
+          "Santa Cruz",
+          "Monterey",
+          "Salinas",
+          "Watsonville",
+          "Capitola",
+          "Carmel",
+          "Pacific Grove",
+          "Seaside"
+        ]
       },
       {
         "name": "Holopono Food Truck",
         "cuisine": "Hawaiian",
         "instagram": "holoponosc",
-        "region": "Central Coast"
+        "region": "Central Coast",
+        "areas": [
+          "Santa Cruz",
+          "Monterey",
+          "Salinas",
+          "Watsonville",
+          "Capitola",
+          "Carmel",
+          "Pacific Grove",
+          "Seaside"
+        ]
       },
       {
         "name": "Masarap",
         "cuisine": "Filipino",
         "instagram": "masarapthehomie",
-        "region": "Central Coast"
+        "region": "Central Coast",
+        "areas": [
+          "Santa Cruz",
+          "Monterey",
+          "Salinas",
+          "Watsonville",
+          "Capitola",
+          "Carmel",
+          "Pacific Grove",
+          "Seaside"
+        ]
       },
       {
         "name": "Yakitori Toriman",
         "cuisine": "Japanese",
         "instagram": "yakitori_toriman",
-        "region": "Central Coast"
+        "region": "Central Coast",
+        "areas": [
+          "Santa Cruz",
+          "Monterey",
+          "Salinas",
+          "Watsonville",
+          "Capitola",
+          "Carmel",
+          "Pacific Grove",
+          "Seaside"
+        ]
       },
       {
         "name": "Mariposa Cuban Coffee",
         "cuisine": "Cuban",
         "instagram": "mariposacubancoffee",
-        "region": "Central Coast"
+        "region": "Central Coast",
+        "areas": [
+          "Santa Cruz",
+          "Monterey",
+          "Salinas",
+          "Watsonville",
+          "Capitola",
+          "Carmel",
+          "Pacific Grove",
+          "Seaside"
+        ]
       },
       {
         "name": "Dos Hermanos Pupuseria",
         "cuisine": "Salvadoran",
         "instagram": "dos_hermanos_pupuseria",
-        "region": "Central Coast"
+        "region": "Central Coast",
+        "areas": [
+          "Santa Cruz",
+          "Monterey",
+          "Salinas",
+          "Watsonville",
+          "Capitola",
+          "Carmel",
+          "Pacific Grove",
+          "Seaside"
+        ]
       },
       {
         "name": "El Rey Leon Mexican Food",
         "cuisine": "Mexican",
         "instagram": "elreyleon_mexicanfood",
-        "region": "Central Coast"
+        "region": "Central Coast",
+        "areas": [
+          "Santa Cruz",
+          "Monterey",
+          "Salinas",
+          "Watsonville",
+          "Capitola",
+          "Carmel",
+          "Pacific Grove",
+          "Seaside"
+        ]
       },
       {
         "name": "La Perrona Mexican Food",
         "cuisine": "Mexican",
         "instagram": "_laperrona",
-        "region": "Central Coast"
+        "region": "Central Coast",
+        "areas": [
+          "Santa Cruz",
+          "Monterey",
+          "Salinas",
+          "Watsonville",
+          "Capitola",
+          "Carmel",
+          "Pacific Grove",
+          "Seaside"
+        ]
       },
       {
         "name": "Miches & Ceviches",
         "cuisine": "Seafood",
         "instagram": "michesandceviches",
-        "region": "Central Coast"
+        "region": "Central Coast",
+        "areas": [
+          "Santa Cruz",
+          "Monterey",
+          "Salinas",
+          "Watsonville",
+          "Capitola",
+          "Carmel",
+          "Pacific Grove",
+          "Seaside"
+        ]
       },
       {
         "name": "The Real Taco",
         "cuisine": "Mexican",
         "instagram": "realtaco56",
-        "region": "Central Coast"
+        "region": "Central Coast",
+        "areas": [
+          "Santa Cruz",
+          "Monterey",
+          "Salinas",
+          "Watsonville",
+          "Capitola",
+          "Carmel",
+          "Pacific Grove",
+          "Seaside"
+        ]
       },
       {
         "name": "Tacos El Chuy",
         "cuisine": "Mexican",
         "instagram": "tacoselchuy",
-        "region": "Central Coast"
+        "region": "Central Coast",
+        "areas": [
+          "Santa Cruz",
+          "Monterey",
+          "Salinas",
+          "Watsonville",
+          "Capitola",
+          "Carmel",
+          "Pacific Grove",
+          "Seaside"
+        ]
       },
       {
         "name": "Tacos El Jerry",
         "cuisine": "Mexican",
         "instagram": "tacoseljerry",
-        "region": "Central Coast"
+        "region": "Central Coast",
+        "areas": [
+          "Santa Cruz",
+          "Monterey",
+          "Salinas",
+          "Watsonville",
+          "Capitola",
+          "Carmel",
+          "Pacific Grove",
+          "Seaside"
+        ]
       },
       {
         "name": "Taquizas Gabriel",
         "cuisine": "Mexican",
         "instagram": "taquizasgabriel",
-        "region": "Central Coast"
+        "region": "Central Coast",
+        "areas": [
+          "Santa Cruz",
+          "Monterey",
+          "Salinas",
+          "Watsonville",
+          "Capitola",
+          "Carmel",
+          "Pacific Grove",
+          "Seaside"
+        ]
       },
       {
         "name": "Huda",
         "cuisine": "Mediterranean",
         "instagram": "hudasantacruz",
-        "region": "Central Coast"
+        "region": "Central Coast",
+        "areas": [
+          "Santa Cruz",
+          "Monterey",
+          "Salinas",
+          "Watsonville",
+          "Capitola",
+          "Carmel",
+          "Pacific Grove",
+          "Seaside"
+        ]
       },
       {
         "name": "Mattia Pizza",
         "cuisine": "Pizza",
         "instagram": "mattiapizza04",
-        "region": "Central Coast"
+        "region": "Central Coast",
+        "areas": [
+          "Santa Cruz",
+          "Monterey",
+          "Salinas",
+          "Watsonville",
+          "Capitola",
+          "Carmel",
+          "Pacific Grove",
+          "Seaside"
+        ]
       }
     ]
     """#
