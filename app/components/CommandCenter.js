@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import "leaflet/dist/leaflet.css";
-import { REGION_ORDER, avatarUrl, hasSocialPresence, matchesTruckSearch, truckRegion } from "../lib/trucks";
+import { REGION_ORDER, hasSocialPresence, matchesTruckSearch, truckRegion } from "../lib/trucks";
 import TruckThumb from "./TruckThumb";
 
 const DEFAULT_CENTER = [38.5816, -121.4944];
@@ -190,16 +190,15 @@ export default function CommandCenter() {
       visible.forEach(({ truck, sighting, isLive }) => {
         const color = confidenceTone(sighting.confidenceLevel);
         const name = truck?.name || sighting.note || "Unmatched ping";
-        const thumb = truck ? avatarUrl(truck) : "";
+        const label = name.replace(/\s+/g, " ").trim().slice(0, 28);
         const icon = L.divIcon({
-          className: `rc-leaflet-pin${isLive ? " is-live" : ""}`,
-          iconSize: [36, 36],
-          iconAnchor: [18, 18],
-          html: `<div class="rc-marker${isLive ? " rc-marker--live" : " rc-marker--ghost"}" style="--rc-color:${color}">${
-            thumb
-              ? `<img src="${escapeHtml(thumb)}" alt="" />`
-              : `<span class="rc-marker__core"></span>`
-          }</div>`,
+          className: "rc-leaflet-pin",
+          iconSize: [0, 0],
+          iconAnchor: [0, 0],
+          html: `<div class="rc-pin${isLive ? " is-live" : ""}" style="--rc-color:${color}">
+            <span class="rc-pin__name">${escapeHtml(label)}</span>
+            <span class="rc-pin__needle"></span>
+          </div>`,
         });
         const popupHtml = `
           <div class="rc-popup">

@@ -99,39 +99,66 @@ button, input, textarea { font-family: inherit; }
   min-height: 0;
   height: 100%;
   width: 100%;
-  background: #0a1220;
+  background: #dfe7ef;
 }
 .rc-map, .rc-map.leaflet-container {
   position: absolute;
   inset: 0;
   width: 100%;
   height: 100%;
-  background: #0a1220;
+  background: #dfe7ef;
   z-index: 1;
 }
 .leaflet-container { font-family: inherit; }
-/* Darken OSM tiles locally — no Carto/MapTiler API key. */
-.rc-map .leaflet-tile-pane {
-  filter: invert(1) hue-rotate(180deg) brightness(0.9) contrast(0.95) saturate(0.35);
-}
 .rc-leaflet-pin { background: transparent !important; border: 0 !important; }
-.rc-marker img {
-  width: 32px;
-  height: 32px;
-  border-radius: 50%;
-  object-fit: cover;
-  border: 2px solid var(--rc-color, var(--accent));
-  box-shadow: 0 0 16px var(--rc-color, var(--accent));
+.rc-pin {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  transform: translate(-50%, -100%);
+  filter: drop-shadow(0 3px 6px rgba(0, 0, 0, 0.28));
+  pointer-events: none;
 }
+.rc-pin__name {
+  max-width: 140px;
+  padding: 3px 8px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.94);
+  color: #1a1a1a;
+  font-size: 11px;
+  font-weight: 700;
+  line-height: 1.2;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.rc-pin__needle {
+  width: 22px;
+  height: 22px;
+  margin-top: 3px;
+  border: 2.5px solid #fff;
+  border-radius: 50% 50% 50% 0;
+  background: var(--rc-color, #ff7a1a);
+  transform: rotate(-45deg);
+}
+.rc-pin.is-live .rc-pin__needle { background: #22c55e; }
 .leaflet-popup-content-wrapper {
-  background: #0c1422;
-  color: var(--text);
-  border: 1px solid var(--line);
-  border-radius: 12px;
-  box-shadow: var(--shadow);
+  background: #fff;
+  color: #1a1a1a;
+  border: 0;
+  border-radius: 14px;
+  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.2);
 }
-.leaflet-popup-tip { background: #0c1422; }
+.leaflet-popup-tip { background: #fff; }
 .leaflet-popup-content { margin: 12px 14px; }
+.rc-popup strong { display: block; font-size: 15px; }
+.rc-popup__meta, .rc-popup__note { color: #5b6573; font-size: 13px; margin-top: 4px; }
+.rc-popup__link { display: inline-block; margin-top: 8px; font-weight: 700; text-decoration: none; }
+.leaflet-control-zoom a {
+  background: #fff !important;
+  color: #1a1a1a !important;
+  border: 0 !important;
+}
 
 .rc-map-boot {
   position: absolute;
