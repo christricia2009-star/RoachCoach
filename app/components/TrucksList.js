@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
-import { REGION_ORDER, findWeeklySchedule, hasSocialPresence, isSightingLive, matchesTruckSearch, relativeTime, scheduleStatus, truckRegion } from "../lib/trucks";
+import { REGION_ORDER, findWeeklySchedule, hasSocialPresence, isSightingLive, matchesTruckSearch, parseWeeklySchedule, relativeTime, scheduleStatus, truckRegion } from "../lib/trucks";
 import TruckThumb from "./TruckThumb";
 
 export default function TrucksList() {
@@ -65,8 +65,10 @@ export default function TrucksList() {
       const prev = latest.get(id);
       if (!prev || ts > prev._ts) latest.set(id, { ...s, _ts: ts });
     }
-    for (const [id, list] of byTruck) {
-      const week = findWeeklySchedule(list);
+    for (const truck of listed) {
+      const id = truck.id;
+      if (!id) continue;
+      const week = parseWeeklySchedule(truck.weekly_hours) || findWeeklySchedule(byTruck.get(id) || []);
       const status = scheduleStatus(week);
       if (status?.headline) {
         const prev = latest.get(id) || {};
@@ -74,7 +76,7 @@ export default function TrucksList() {
       }
     }
     return latest;
-  }, [sightings]);
+  }, [sightings, listed]);
 
   const regions = useMemo(() => {
     const present = new Set(listed.map(truckRegion));

@@ -275,7 +275,11 @@ export default function TruckDetail({ truckId }) {
 
   const links = truck ? socialLinks(truck) : [];
   const region = truck ? truckRegion(truck) : "";
-  const week = findWeeklySchedule(sightings);
+  const weekFromTruck = parseWeeklySchedule(truck?.weekly_hours);
+  const weekFromPins = findWeeklySchedule(sightings);
+  const week = weekFromTruck
+    ? { ...weekFromTruck, sighting: weekFromPins?.sighting || null }
+    : weekFromPins;
   const weekStatus = scheduleStatus(week);
   const recentPins = uniqueRecentSightings(
     sightings.filter((s) => {

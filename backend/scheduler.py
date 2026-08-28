@@ -436,6 +436,34 @@ def job_social_scraping():
         for listing_key in listing_keys_for_handle(handle):
             located_handles.add(listing_key)
 
+    def _truck_id_for_handle(handle: str) -> str | None:
+        key = (handle or "").lower().lstrip("@").strip()
+        if not key:
+            return None
+        return signal_fusion.KNOWN_TRUCK_NAMES.get(key)
+
+    def _save_weekly_hours(handle: str, note: str) -> None:
+        truck_id = _truck_id_for_handle(handle)
+        if not truck_id or not note:
+            return
+        try:
+            import cloudkit_bridge
+
+            cloudkit_bridge.upsert_record(
+                "Truck",
+                truck_id,
+                cloudkit_bridge.to_cloudkit_fields(
+                    {"weeklyHours": str(note)[:255]}
+                ),
+            )
+            print(
+                f"[social] {handle}: stored weekly hours on truck {truck_id}"
+            )
+        except Exception as exc:
+            print(
+                f"[social] {handle}: weeklyHours write failed: {exc}"
+            )
+
     def _emit_located_pin(post, location_text: str, when, note: str, ttl_hours: float = 24) -> bool:
         place = usable_location_text(location_text)
         if not place:
@@ -454,12 +482,18 @@ def job_social_scraping():
         posted = post.posted_at
         if posted.tzinfo is None:
             posted = posted.replace(tzinfo=datetime.timezone.utc)
+        handle_key = (post.truck_handle or "").lower().lstrip("@")
+        truck_id = _truck_id_for_handle(handle_key)
+        source_id = f"ig:{handle_key}" if truck_id else None
+        if truck_id and source_id:
+            signal_fusion.DIRECT_ID_MAPPINGS[source_id] = truck_id
         detection = RawDetection(
             source="social",
             latitude=geocoded["latitude"],
             longitude=geocoded["longitude"],
             timestamp=when or posted,
             raw_confidence=0.65,
+            source_id=source_id,
             text_hint=f"{post.truck_handle} {place}",
             note=note or f"{place} -> {geocoded.get('display_name', place)}",
             ttl_hours=ttl_hours,
@@ -593,6 +627,8 @@ def job_social_scraping():
                         )
                         emitted = True
                         break
+                if note:
+                    _save_weekly_hours(post.truck_handle, note)
                 if emitted:
                     continue
                 print(

@@ -1817,11 +1817,43 @@ def fetch_all_known_trucks(
             if (h or "").strip()
         ]
         if handles:
-            # Rotate so Sacramento isn't always first and later regions
-            # don't get starved when Meta (#4) rate-limits mid-run.
-            now = datetime.datetime.now(datetime.timezone.utc)
-            start = (now.hour * 60 + now.minute) % len(handles)
-            handles = handles[start:] + handles[:start]
+            # Always scan Yuba-Sutter / explicit priority first so a
+            # 45-handle cap + Meta (#4) cannot skip the trucks people
+            # actually search. Rotate the rest so Sacramento isn't the
+            # only region that ever gets the leftover slots.
+            handle_set = set(handles)
+            priority: list[str] = []
+            seen_p: set[str] = set()
+            env_priority = os.getenv("SOCIAL_PRIORITY_HANDLES") or (
+                "bluetulipcoffee,rosies_snobiz,pennycarnivore,"
+                "lamifusion_,supremegyros,kikischicken530,"
+                "quenchiesmunchies,konaiceyuba"
+            )
+            for raw in env_priority.split(","):
+                item = raw.strip().lstrip("@").lower()
+                if item and item in handle_set and item not in seen_p:
+                    seen_p.add(item)
+                    priority.append(item)
+            try:
+                for row in load_live_truck_catalog():
+                    if (row.get("region") or "") != "Yuba-Sutter":
+                        continue
+                    for raw in row.get("instagram_all") or []:
+                        item = str(raw or "").strip().lstrip("@").lower()
+                        if item and item in handle_set and item not in seen_p:
+                            seen_p.add(item)
+                            priority.append(item)
+            except Exception:
+                pass
+            rest = [h for h in handles if h not in seen_p]
+            if rest:
+                now = datetime.datetime.now(datetime.timezone.utc)
+                start = (now.hour * 60 + now.minute) % len(rest)
+                rest = rest[start:] + rest[:start]
+            handles = priority + rest
+            print(
+                f"[instagram] priority this run: {', '.join(priority) or '(none)'}"
+            )
         cap = int(os.getenv("SOCIAL_IG_BD_MAX") or "45")
         if cap > 0:
             handles = handles[:cap]

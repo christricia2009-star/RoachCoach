@@ -136,6 +136,7 @@ class TruckOut(BaseModel):
     image_url: Optional[str] = None
     region: Optional[str] = None
     areas: list[str] = []
+    weekly_hours: Optional[str] = None
 
 
 # Both SightingIn/SightingOut previously used bare snake_case field
@@ -732,6 +733,10 @@ def get_trucks():
                         "areas",
                         [],
                     ) or [],
+                    weekly_hours=_cloudkit_record_value(
+                        record,
+                        "weeklyHours",
+                    ) or None,
                 )
             )
 
@@ -1117,8 +1122,10 @@ def create_sighting(
 
         timestamp = now
 
+        note_text = str(sighting.note or "")
+        ttl_hours = 8 * 24 if note_text.upper().startswith("WEEKLY") else 3
         expires_at = (
-            now + timedelta(hours=3)
+            now + timedelta(hours=ttl_hours)
         )
 
         record_id = str(
