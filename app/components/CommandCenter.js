@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import "leaflet/dist/leaflet.css";
-import { avatarUrl, hasSocialPresence, matchesTruckSearch, truckRegion } from "../lib/trucks";
+import { REGION_ORDER, avatarUrl, hasSocialPresence, matchesTruckSearch, truckRegion } from "../lib/trucks";
 import TruckThumb from "./TruckThumb";
 
 const DEFAULT_CENTER = [38.5816, -121.4944];
@@ -164,16 +164,13 @@ export default function CommandCenter() {
   }, []);
 
   const visible = useMemo(() => {
+    const q = search.trim().toLowerCase();
     return contacts.filter(({ truck, sighting }) => {
-      const probe = truck || { name: sighting.note || "", cuisine_type: "", region: "" };
-      if (!matchesTruckSearch(probe, search) && search.trim()) {
-        const hay = `${sighting.note || ""} ${sighting.address || ""}`.toLowerCase();
-        if (!search.trim().toLowerCase().split(/\s+/).every((token) => hay.includes(token))) {
-          return false;
-        }
-      }
       if (region && truckRegion(truck || {}) !== region) return false;
-      return true;
+      if (!q) return true;
+      if (truck && matchesTruckSearch(truck, search)) return true;
+      const hay = `${sighting.note || ""} ${sighting.address || ""}`.toLowerCase();
+      return q.split(/\s+/).every((token) => hay.includes(token));
     });
   }, [contacts, search, region]);
 
@@ -237,16 +234,13 @@ export default function CommandCenter() {
 
   const regions = useMemo(() => {
     const set = new Set(allTrucks.map(truckRegion).filter((r) => r && r !== "Other"));
-    return ["Sacramento", "Bay Area", "North State", "Sierra", "Central Valley", "Central Coast"].filter((r) =>
-      set.has(r)
-    );
+    return REGION_ORDER.filter((r) => r !== "Other" && set.has(r));
   }, [allTrucks]);
 
   const liveCount = visible.filter((c) => c.isLive).length;
   const fleet = allTrucks.filter(hasSocialPresence);
   const filteredFleet = fleet.filter((truck) => {
-    const hay = `${truck.name} ${truck.cuisine_type || ""} ${truckRegion(truck)}`.toLowerCase();
-    if (q && !hay.includes(q)) return false;
+    if (!matchesTruckSearch(truck, search)) return false;
     if (region && truckRegion(truck) !== region) return false;
     return true;
   });
