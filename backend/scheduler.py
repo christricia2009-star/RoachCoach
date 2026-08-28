@@ -316,7 +316,7 @@ def job_social_scraping():
         X_USERNAMES,
     )
     from llm_extract import extract_location_from_caption, extract_locations_from_image
-    from geocoding import geocode, usable_location_text, is_city_only
+    from geocoding import STREET_RE, geocode, usable_location_text, is_city_only
     from weekly_schedule import (
         format_weekly_note,
         looks_like_schedule_caption,
@@ -378,7 +378,7 @@ def job_social_scraping():
         error_tracking.report("[menu] social menu harvest failed")
 
     lookback_hours = float(os.getenv("SOCIAL_LOOKBACK_HOURS") or "12")
-    image_lookback_days = float(os.getenv("SOCIAL_IMAGE_LOOKBACK_DAYS") or "10")
+    image_lookback_days = float(os.getenv("SOCIAL_IMAGE_LOOKBACK_DAYS") or "14")
     now_utc = datetime.datetime.now(datetime.timezone.utc)
     cutoff = now_utc - datetime.timedelta(hours=lookback_hours)
     image_cutoff = now_utc - datetime.timedelta(days=image_lookback_days)
@@ -408,8 +408,17 @@ def job_social_scraping():
             if posted.tzinfo is None:
                 posted = posted.replace(tzinfo=datetime.timezone.utc)
             ts = posted.timestamp()
-        schedule_first = 0 if looks_like_schedule_caption(post.caption) else 1
-        return (schedule_first, -ts)
+        caption = post.caption or ""
+        has_image = bool(getattr(post, "image_url", ""))
+        if looks_like_schedule_caption(caption):
+            rank = 0
+        elif has_image and not STREET_RE.search(caption):
+            rank = 1
+        elif has_image:
+            rank = 2
+        else:
+            rank = 3
+        return (rank, -ts)
 
     posts = sorted(recent_posts, key=_post_sort_key)
 
@@ -418,7 +427,9 @@ def job_social_scraping():
     # ------------------------------------------------------------------
 
     located_handles: set[str] = set()
-    vision_budget = int(os.getenv("SOCIAL_VISION_MAX") or "40")
+    vision_budget = int(os.getenv("SOCIAL_VISION_MAX") or "120")
+    weekly_saved = 0
+    days_pinned = 0
     vision_tries: dict[str, int] = {}
     vision_got_week: set[str] = set()
     try:
@@ -509,34 +520,19 @@ def job_social_scraping():
             f"{(post.caption or '')[:180]!r}"
         )
 
-        try:
-            extracted = extract_location_from_caption(
-                post.caption
-            )
-        except Exception:
-            error_tracking.report(
-                f"[social] llm_extract failed for {post.truck_handle}"
-            )
-            extracted = {
-                "confidence": "none",
-                "location_text": None,
-            }
-
+        extracted = {
+            "confidence": "none",
+            "location_text": None,
+            "slots": [],
+        }
         handle_key = (post.truck_handle or "").lower().lstrip("@")
-        caption_place = usable_location_text(extracted.get("location_text"))
-        caption_weak = (
-            extracted.get("confidence") not in ("high", "medium")
-            or not caption_place
-            or is_city_only(caption_place)
-        )
-        looks_schedule = looks_like_schedule_caption(post.caption)
         tries = vision_tries.get(handle_key, 0)
+        # Primary path: read dates/times out of the photo itself.
         if (
             handle_key not in vision_got_week
-            and (caption_weak or looks_schedule)
             and getattr(post, "image_url", "")
             and vision_budget > 0
-            and tries < 3
+            and tries < 4
         ):
             try:
                 vision = extract_locations_from_image(
@@ -572,6 +568,18 @@ def job_social_scraping():
                 vision_budget -= 1
                 vision_tries[handle_key] = tries + 1
 
+        if not (extracted.get("slots") or []):
+            try:
+                extracted = extract_location_from_caption(post.caption)
+            except Exception:
+                error_tracking.report(
+                    f"[social] llm_extract failed for {post.truck_handle}"
+                )
+                extracted = {
+                    "confidence": "none",
+                    "location_text": None,
+                }
+
         print(
             f"[social] {post.truck_handle}: "
             f"confidence={extracted.get('confidence')} "
@@ -595,41 +603,55 @@ def job_social_scraping():
             pin_day = pick_schedule_pin(week_days, today_local)
             if weekly:
                 note = format_weekly_note(week_days)
-                candidates = []
-                if pin_day:
-                    candidates.append(pin_day)
+                if note:
+                    _save_weekly_hours(post.truck_handle, note)
+                    weekly_saved += 1
+                week_end = week_end_datetime(week_days, pacific).astimezone(
+                    datetime.timezone.utc
+                )
+                emitted = 0
                 for day in week_days:
-                    if day is pin_day:
+                    if day.get("closed"):
                         continue
-                    if not day.get("closed") and day.get("location_text"):
-                        candidates.append(day)
-                emitted = False
-                for candidate in candidates:
-                    place = usable_location_text(candidate.get("location_text"))
+                    place = usable_location_text(day.get("location_text"))
                     if not place:
                         continue
-                    when = slot_datetime(candidate, pacific).astimezone(
-                        datetime.timezone.utc
-                    )
-                    week_end = week_end_datetime(week_days, pacific).astimezone(
+                    slot_date = datetime.date.fromisoformat(day["date"])
+                    if (
+                        slot_date < today_local - datetime.timedelta(days=1)
+                        or slot_date > today_local + datetime.timedelta(days=8)
+                    ):
+                        continue
+                    when = slot_datetime(day, pacific).astimezone(
                         datetime.timezone.utc
                     )
                     ttl_hours = max(
                         24.0,
                         (week_end - when).total_seconds() / 3600.0,
                     )
-                    if _emit_located_pin(
-                        post, place, when, note, ttl_hours=ttl_hours
-                    ):
-                        print(
-                            f"[social] {post.truck_handle}: weekly schedule "
-                            f"-> {place} ({note})"
+                    hours = ""
+                    if day.get("start_time"):
+                        end = str(day.get("end_time") or "")
+                        hours = (
+                            f"{day['start_time']}–{end}"
+                            if end
+                            else str(day["start_time"])
                         )
-                        emitted = True
-                        break
-                if note:
-                    _save_weekly_hours(post.truck_handle, note)
+                    day_note = (
+                        note
+                        if day is pin_day
+                        else f"Schedule {day['date']} {hours} at {place}".strip()
+                    )
+                    if _emit_located_pin(
+                        post, place, when, day_note, ttl_hours=ttl_hours
+                    ):
+                        emitted += 1
+                        days_pinned += 1
                 if emitted:
+                    print(
+                        f"[social] {post.truck_handle}: weekly schedule "
+                        f"{emitted} day pin(s) ({note})"
+                    )
                     continue
                 print(
                     f"[social] {post.truck_handle}: weekly schedule "
@@ -759,6 +781,12 @@ def job_social_scraping():
             detection
         )
         _mark_located(post.truck_handle)
+
+    print(
+        f"[social] schedule summary: weekly_hours_saved={weekly_saved} "
+        f"day_pins={days_pinned} vision_left={vision_budget} "
+        f"handles_with_week={len(vision_got_week)}"
+    )
 
     # OpenRouter only for trucks that posted on IG/FB but had no address.
     if (os.getenv("OPENROUTER_API_KEY") or "").strip():

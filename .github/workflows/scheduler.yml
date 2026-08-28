@@ -31,6 +31,14 @@ jobs:
             echo "${{ secrets.CLOUDKIT_PRIVATE_KEY_B64 }}" | base64 --decode > /tmp/cloudkit_key.pem
           fi
 
+      - name: Restore Instagram scan cursor
+        uses: actions/cache/restore@v4
+        with:
+          path: backend/.bd_cursor
+          key: ig-bd-cursor-${{ github.run_id }}
+          restore-keys: |
+            ig-bd-cursor-
+
       - name: Run signal pipeline once
         env:
           OPENROUTER_API_KEY: ${{ secrets.OPENROUTER_API_KEY }}
@@ -40,6 +48,10 @@ jobs:
           LLM_STRATEGY: ${{ secrets.LLM_STRATEGY }}
           LLM_PROVIDER: ${{ secrets.LLM_PROVIDER }}
           SOCIAL_LOOKBACK_HOURS: "12"
+          SOCIAL_IMAGE_LOOKBACK_DAYS: "14"
+          SOCIAL_IG_BD_MAX: "0"
+          SOCIAL_VISION_MAX: "120"
+          SOCIAL_IG_BD_CURSOR_FILE: ${{ github.workspace }}/backend/.bd_cursor
 
           CLOUDKIT_CONTAINER_ID: ${{ secrets.CLOUDKIT_CONTAINER_ID }}
           CLOUDKIT_ENVIRONMENT: ${{ secrets.CLOUDKIT_ENVIRONMENT }}
@@ -79,3 +91,10 @@ jobs:
           export LLM_STRATEGY="${LLM_STRATEGY:-single}"
           export LLM_MODEL="${LLM_MODEL:-openai/gpt-5.6-luna}"
           python3 scheduler.py --once
+
+      - name: Save Instagram scan cursor
+        if: always()
+        uses: actions/cache/save@v4
+        with:
+          path: backend/.bd_cursor
+          key: ig-bd-cursor-${{ github.run_id }}

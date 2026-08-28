@@ -10,6 +10,7 @@ __pycache__/
 IOS/Vendor/StripeXCFrameworks/
 IOS/Vendor/stripe-ios/
 *.log
+backend/.bd_cursor
 
 # Vercel/Next generated files
 .next/

@@ -314,6 +314,14 @@ export function scheduleStatus(week, now = new Date()) {
   };
 }
 
+function scheduleDayKey(note) {
+  const text = String(note || "");
+  const weekly = parseWeeklySchedule(text);
+  if (weekly?.source === "legacy" && weekly.days[0]?.date) return weekly.days[0].date;
+  const match = text.match(/^Schedule\s+(\d{4}-\d{2}-\d{2})/i);
+  return match ? match[1] : "";
+}
+
 export function uniqueRecentSightings(sightings, limit = 5, meters = 150) {
   const sorted = [...(sightings || [])].sort(
     (a, b) => new Date(b.timestamp || 0) - new Date(a.timestamp || 0)
@@ -323,7 +331,10 @@ export function uniqueRecentSightings(sightings, limit = 5, meters = 150) {
     const lat = Number(sighting.latitude);
     const lng = Number(sighting.longitude);
     if (!Number.isFinite(lat) || !Number.isFinite(lng)) continue;
+    const dayKey = scheduleDayKey(sighting.note);
     const duplicate = kept.some((existing) => {
+      const existingDay = scheduleDayKey(existing.note);
+      if (dayKey && existingDay && dayKey !== existingDay) return false;
       const dLat = ((Number(existing.latitude) - lat) * Math.PI) / 180;
       const dLng = ((Number(existing.longitude) - lng) * Math.PI) / 180;
       const rLat = ((Number(existing.latitude) + lat) * Math.PI) / 360;

@@ -1748,6 +1748,83 @@ def fetch_partnership_feed() -> list[RawSocialPost]:
     return []
 
 
+def _bd_cursor_path() -> str:
+    return os.getenv("SOCIAL_IG_BD_CURSOR_FILE") or os.path.join(
+        os.path.dirname(os.path.abspath(__file__)),
+        "..",
+        ".bd_cursor",
+    )
+
+
+def load_bd_cursor() -> int:
+    try:
+        with open(_bd_cursor_path(), encoding="utf-8") as handle:
+            payload = json.load(handle)
+        return max(0, int(payload.get("offset") or 0))
+    except Exception:
+        return 0
+
+
+def save_bd_cursor(offset: int) -> None:
+    path = _bd_cursor_path()
+    try:
+        with open(path, "w", encoding="utf-8") as handle:
+            json.dump(
+                {
+                    "offset": int(max(0, offset)),
+                    "updated": datetime.datetime.now(
+                        datetime.timezone.utc
+                    ).isoformat(),
+                },
+                handle,
+            )
+        print(f"[instagram] saved BD cursor {offset} -> {path}")
+    except Exception as exc:
+        print(f"[instagram] could not save BD cursor: {exc}")
+
+
+def _order_discovery_handles(handles: list[str]) -> tuple[list[str], list[str], int]:
+    """Priority trucks every run, then the rest from a persistent cursor."""
+    handle_set = set(handles)
+    priority: list[str] = []
+    seen: set[str] = set()
+    env_priority = os.getenv("SOCIAL_PRIORITY_HANDLES") or (
+        "bluetulipcoffee,rosies_snobiz,pennycarnivore,"
+        "lamifusion_,supremegyros,kikischicken530,"
+        "quenchiesmunchies,konaiceyuba"
+    )
+    for raw in env_priority.split(","):
+        item = raw.strip().lstrip("@").lower()
+        if item and item in handle_set and item not in seen:
+            seen.add(item)
+            priority.append(item)
+    try:
+        for row in load_live_truck_catalog():
+            if (row.get("region") or "") != "Yuba-Sutter":
+                continue
+            for raw in row.get("instagram_all") or []:
+                item = str(raw or "").strip().lstrip("@").lower()
+                if item and item in handle_set and item not in seen:
+                    seen.add(item)
+                    priority.append(item)
+    except Exception:
+        pass
+    rest = [name for name in handles if name not in seen]
+    cursor = load_bd_cursor()
+    if rest:
+        cursor = cursor % len(rest)
+        rest_rotated = rest[cursor:] + rest[:cursor]
+    else:
+        cursor = 0
+        rest_rotated = []
+    ordered = priority + rest_rotated
+    print(
+        f"[instagram] priority this run: {', '.join(priority) or '(none)'}; "
+        f"rest {len(rest)} from cursor {cursor}"
+    )
+    return ordered, rest, cursor
+
+
 # =========================================================================
 # FETCH ALL SOCIAL SOURCES
 # =========================================================================
@@ -1817,54 +1894,29 @@ def fetch_all_known_trucks(
             if (h or "").strip()
         ]
         if handles:
-            # Always scan Yuba-Sutter / explicit priority first so a
-            # 45-handle cap + Meta (#4) cannot skip the trucks people
-            # actually search. Rotate the rest so Sacramento isn't the
-            # only region that ever gets the leftover slots.
-            handle_set = set(handles)
-            priority: list[str] = []
-            seen_p: set[str] = set()
-            env_priority = os.getenv("SOCIAL_PRIORITY_HANDLES") or (
-                "bluetulipcoffee,rosies_snobiz,pennycarnivore,"
-                "lamifusion_,supremegyros,kikischicken530,"
-                "quenchiesmunchies,konaiceyuba"
-            )
-            for raw in env_priority.split(","):
-                item = raw.strip().lstrip("@").lower()
-                if item and item in handle_set and item not in seen_p:
-                    seen_p.add(item)
-                    priority.append(item)
-            try:
-                for row in load_live_truck_catalog():
-                    if (row.get("region") or "") != "Yuba-Sutter":
-                        continue
-                    for raw in row.get("instagram_all") or []:
-                        item = str(raw or "").strip().lstrip("@").lower()
-                        if item and item in handle_set and item not in seen_p:
-                            seen_p.add(item)
-                            priority.append(item)
-            except Exception:
-                pass
-            rest = [h for h in handles if h not in seen_p]
-            if rest:
-                now = datetime.datetime.now(datetime.timezone.utc)
-                start = (now.hour * 60 + now.minute) % len(rest)
-                rest = rest[start:] + rest[:start]
-            handles = priority + rest
-            print(
-                f"[instagram] priority this run: {', '.join(priority) or '(none)'}"
-            )
-        cap = int(os.getenv("SOCIAL_IG_BD_MAX") or "45")
+            handles, rest, cursor = _order_discovery_handles(handles)
+        else:
+            rest, cursor = [], 0
+        cap = int(os.getenv("SOCIAL_IG_BD_MAX") or "0")
+        planned = list(handles)
         if cap > 0:
-            handles = handles[:cap]
-        delay = float(os.getenv("SOCIAL_IG_BD_DELAY_SEC") or "0.6")
+            planned = planned[:cap]
+        delay = float(os.getenv("SOCIAL_IG_BD_DELAY_SEC") or "0.5")
         print(
             f"[instagram] attempting Business Discovery via {kind} "
-            f"for {len(handles)} handle(s) this run "
-            f"(delay {delay}s)."
+            f"for {len(planned)}/{len(handles)} handle(s) this run "
+            f"(cursor {cursor}, delay {delay}s). "
+            "Photos with dates/times are the primary radar source."
         )
-        for username in handles:
+        rest_index = {name: i for i, name in enumerate(rest)}
+        next_cursor = cursor
+        scanned = 0
+        for username in planned:
             if _IG_BD_RATE_LIMITED or _IG_BD_UNSUPPORTED_REASON:
+                print(
+                    f"[instagram] stopping BD after {scanned} handle(s); "
+                    f"will resume at cursor {next_cursor}"
+                )
                 break
             try:
                 all_posts.extend(
@@ -1875,8 +1927,26 @@ def fetch_all_known_trucks(
                     "[instagram] Business Discovery "
                     f"failed for @{username}: {e}"
                 )
+            scanned += 1
+            if _IG_BD_RATE_LIMITED:
+                # Retry this handle next run; do not advance past it.
+                if username in rest_index:
+                    next_cursor = rest_index[username]
+                print(
+                    f"[instagram] rate-limited on @{username} after "
+                    f"{scanned} handle(s); cursor stays {next_cursor}"
+                )
+                break
+            if username in rest_index:
+                next_cursor = (rest_index[username] + 1) % max(len(rest), 1)
             if delay > 0:
                 time.sleep(delay)
+        if rest:
+            save_bd_cursor(next_cursor)
+        print(
+            f"[instagram] BD finished scanned={scanned} "
+            f"posts={len(all_posts)} next_cursor={next_cursor}"
+        )
     elif instagram_business_discovery_usernames:
         print(
             "[instagram] Business Discovery unavailable — need a "

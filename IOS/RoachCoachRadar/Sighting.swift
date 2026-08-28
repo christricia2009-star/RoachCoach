@@ -94,6 +94,17 @@ struct Sighting: Identifiable, Codable, Hashable, Sendable {
 }
 
 extension Array where Element == Sighting {
+    private static func scheduleDay(_ note: String?) -> String? {
+        guard let note, note.count >= 18 else { return nil }
+        if note.hasPrefix("Schedule "), note.count >= 19 {
+            let start = note.index(note.startIndex, offsetBy: 9)
+            let end = note.index(start, offsetBy: 10, limitedBy: note.endIndex) ?? note.endIndex
+            let day = String(note[start..<end])
+            if day.count == 10, day.contains("-") { return day }
+        }
+        return nil
+    }
+
     /// Newest first, same pin collapsed, capped at `limit`.
     func uniqueRecent(limit: Int = 5, meters: CLLocationDistance = 150) -> [Sighting] {
         let sorted = sorted { $0.timestamp > $1.timestamp }
@@ -101,6 +112,9 @@ extension Array where Element == Sighting {
         for sighting in sorted {
             let here = CLLocation(latitude: sighting.latitude, longitude: sighting.longitude)
             let duplicate = kept.contains { existing in
+                let thisDay = Self.scheduleDay(sighting.note)
+                let otherDay = Self.scheduleDay(existing.note)
+                if let thisDay, let otherDay, thisDay != otherDay { return false }
                 let there = CLLocation(latitude: existing.latitude, longitude: existing.longitude)
                 return there.distance(from: here) < meters
             }
